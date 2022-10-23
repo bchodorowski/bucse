@@ -7,6 +7,9 @@
 
 #include <fuse.h>
 
+#include "destinations/dest.h"
+#include "encryption/encr.h"
+
 static char TESTCONTENT[] = "Wololo\n";
 static char TESTFILENAME[] = "test";
 
@@ -85,8 +88,21 @@ struct fuse_operations bb_oper = {
 	.readdir = bucse_readdir,
 };
 
+extern Destination destinationLocal;
+extern Encryption encryptionNone;
+
 int main(int argc, char** argv)
 {
+	Destination *destination;
+	destination = &destinationLocal;
+
+	printf("Destination interface test: %d\n", destination->addActionFile(NULL, NULL, 0));
+
+	Encryption *encryption;
+	encryption = &encryptionNone;
+
+	printf("Encryption interface test: %d\n", encryption->encrypt(NULL, 0, NULL, NULL, NULL));
+
 	int fuse_stat;
 	fuse_stat = fuse_main(argc, argv, &bb_oper, NULL);
 	fprintf(stderr, "fuse_main returned %d\n", fuse_stat);
