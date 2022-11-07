@@ -1,6 +1,6 @@
 CC=gcc
-CFLAGS=`pkg-config fuse --cflags`
-LIBS=`pkg-config fuse --libs`
+CFLAGS=`pkg-config fuse --cflags` `pkg-config json-c --cflags`
+LIBS=`pkg-config fuse --libs` `pkg-config json-c --libs`
 
 bucse: bucse.o destinations/dest_local.o encryption/encr_none.o
 	$(CC) -o bucse $(CFLAGS) bucse.o destinations/dest_local.o encryption/encr_none.o $(LIBS)
