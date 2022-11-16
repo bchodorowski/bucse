@@ -138,6 +138,8 @@ static int bucse_opt_proc(void *data, const char *arg, int key, struct fuse_args
 extern Destination destinationLocal;
 extern Encryption encryptionNone;
 
+#define MAX_REPOSITORY_JSON_LEN (1024 * 1024)
+
 int main(int argc, char** argv)
 {
 	Destination *destination;
@@ -158,11 +160,81 @@ int main(int argc, char** argv)
 	fuse_opt_parse(&args, &conf, bucse_opts, bucse_opt_proc);
 
 	printf("Repository: %s\n", conf.repository);
+	int err = destination->init(conf.repository);
+	if (err != 0)
+	{
+		fprintf(stderr, "destination->init(): %d\n", err);
+		return 1;
+	}
 
-	json_object *repositoryJson;
+	char* repositoryJsonFileContents = malloc(MAX_REPOSITORY_JSON_LEN);
+	if (repositoryJsonFileContents == NULL)
+	{
+		fprintf(stderr, "malloc(): %s\n", strerror(errno));
+		return 2;
+	}
+	size_t repositoryJsonFileLen = MAX_REPOSITORY_JSON_LEN;
+
+	err = destination->getRepositoryFile(repositoryJsonFileContents, &repositoryJsonFileLen);
+	if (err != 0)
+	{
+		fprintf(stderr, "destination->getRepositoryFile(): %d\n", err);
+
+		free(repositoryJsonFileContents);
+		return 3;
+	}
+
+	json_tokener* tokener = json_tokener_new();
+	json_object* repositoryJson = json_tokener_parse_ex(tokener, repositoryJsonFileContents, repositoryJsonFileLen);
+
+	free(repositoryJsonFileContents);
+	json_tokener_free(tokener);
+
+	if (repositoryJson == NULL)
+	{
+		fprintf(stderr, "json_tokener_parse_ex(): %s\n", json_tokener_error_desc(json_tokener_get_error(tokener)));
+		return 4;
+	}
+
+	printf("DEBUG: type: %s\n", json_type_to_name(
+				json_object_get_type(repositoryJson)));
+
+	json_object* encryptionField;
+	if (json_object_object_get_ex(repositoryJson, "encryption", &encryptionField) == 0)
+	{
+		fprintf(stderr, "repository object doesn't have 'encryption' field\n");
+		json_object_put(repositoryJson);
+		return 5;
+	}
+
+	if (json_object_get_type(encryptionField) != json_type_string)
+	{
+		fprintf(stderr, "'encryption' field is not a string\n");
+		json_object_put(repositoryJson);
+		return 6;
+	}
+
+	const char* encryptionFieldStr = json_object_get_string(encryptionField);
+
+	printf("DEBUG: enc: %s\n", encryptionFieldStr);
+	if (strcmp(encryptionFieldStr, "none") == 0)
+	{
+		printf("DEBUG: encryption none\n");
+	}
+	else
+	{
+		fprintf(stderr, "Unsupported encryption: %s\n", encryptionFieldStr);
+		json_object_put(repositoryJson);
+		return 6;
+	}
+
+	json_object_put(repositoryJson);
 
 	int fuse_stat;
 	fuse_stat = fuse_main(args.argc, args.argv, &bucse_oper, NULL);
 	fprintf(stderr, "fuse_main returned %d\n", fuse_stat);
+
+	destination->shutdown();
+
 	return fuse_stat;
 }
