@@ -1,10 +1,11 @@
-#define FUSE_USE_VERSION 31
+#define FUSE_USE_VERSION 34
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 
+#include <fuse_lowlevel.h>
 #include <fuse.h>
 #include <json.h>
 
@@ -16,8 +17,9 @@
 static char TESTCONTENT[] = "Wololo\n";
 static char TESTFILENAME[] = "test";
 
-static int bucse_getattr(const char *path, struct stat *stbuf)
+static int bucse_getattr(const char *path, struct stat *stbuf, struct fuse_file_info *fi)
 {
+	(void) fi;
 	int res = 0;
 
 	memset(stbuf, 0, sizeof(struct stat));
@@ -39,17 +41,18 @@ static int bucse_getattr(const char *path, struct stat *stbuf)
 }
 
 static int bucse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
-		off_t offset, struct fuse_file_info *fi)
+		off_t offset, struct fuse_file_info *fi, enum fuse_readdir_flags flags)
 {
 	(void) offset;
 	(void) fi;
+	(void) flags;
 
 	if (strcmp(path, "/") != 0)
 		return -ENOENT;
 
-	filler(buf, ".", NULL, 0);
-	filler(buf, "..", NULL, 0);
-	filler(buf, TESTFILENAME, NULL, 0);
+	filler(buf, ".", NULL, 0, 0);
+	filler(buf, "..", NULL, 0, 0);
+	filler(buf, TESTFILENAME, NULL, 0, 0);
 
 	return 0;
 }
@@ -139,6 +142,88 @@ extern Destination destinationLocal;
 extern Encryption encryptionNone;
 
 #define MAX_REPOSITORY_JSON_LEN (1024 * 1024)
+
+int bucse_fuse_main(int argc, char *argv[], const struct fuse_operations *op,
+		size_t op_size, void *user_data)
+{
+	struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
+	struct fuse *fuse;
+	struct fuse_cmdline_opts opts;
+	int res;
+	struct fuse_loop_config config;
+
+	if (fuse_parse_cmdline(&args, &opts) != 0)
+		return 1;
+
+	if (opts.show_version) {
+		printf("FUSE library version %s\n", PACKAGE_VERSION);
+		fuse_lowlevel_version();
+		res = 0;
+		goto out1;
+	}
+
+	if (opts.show_help) {
+		if(args.argv[0][0] != '\0')
+			printf("usage: %s [options] <mountpoint>\n\n",
+					args.argv[0]);
+		printf("FUSE options:\n");
+		fuse_cmdline_help();
+		fuse_lib_help(&args);
+		res = 0;
+		goto out1;
+	}
+
+	if (!opts.show_help &&
+			!opts.mountpoint) {
+		fuse_log(FUSE_LOG_ERR, "error: no mountpoint specified\n");
+		res = 2;
+		goto out1;
+	}
+
+	fuse = fuse_new(&args, op, op_size, user_data);
+	if (fuse == NULL) {
+		res = 3;
+		goto out1;
+	}
+
+	if (fuse_mount(fuse,opts.mountpoint) != 0) {
+		res = 4;
+		goto out2;
+	}
+
+	if (fuse_daemonize(opts.foreground) != 0) {
+		res = 5;
+		goto out3;
+	}
+
+	// TODO: initialize destination thread
+
+	struct fuse_session *se = fuse_get_session(fuse);
+	if (fuse_set_signal_handlers(se) != 0) {
+		res = 6;
+		goto out3;
+	}
+
+	if (opts.singlethread)
+		res = fuse_loop(fuse);
+	else {
+		config.clone_fd = opts.clone_fd;
+		config.max_idle_threads = opts.max_idle_threads;
+		res = fuse_session_loop_mt(se, &config);
+	}
+	if (res)
+		res = 8;
+
+	fuse_remove_signal_handlers(se);
+out3:
+	fuse_unmount(fuse);
+out2:
+	fuse_destroy(fuse);
+out1:
+	free(opts.mountpoint);
+	fuse_opt_free_args(&args);
+	return res;
+}
 
 int main(int argc, char** argv)
 {
@@ -231,7 +316,7 @@ int main(int argc, char** argv)
 	json_object_put(repositoryJson);
 
 	int fuse_stat;
-	fuse_stat = fuse_main(args.argc, args.argv, &bucse_oper, NULL);
+	fuse_stat = bucse_fuse_main(args.argc, args.argv, &bucse_oper, sizeof(bucse_oper), NULL);
 	fprintf(stderr, "fuse_main returned %d\n", fuse_stat);
 
 	destination->shutdown();
