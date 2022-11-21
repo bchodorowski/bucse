@@ -4,10 +4,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <unistd.h>
 
 #include <fuse_lowlevel.h>
 #include <fuse.h>
+
 #include <json.h>
+
+#include <pthread.h>
 
 #include "destinations/dest.h"
 #include "encryption/encr.h"
@@ -141,7 +145,34 @@ static int bucse_opt_proc(void *data, const char *arg, int key, struct fuse_args
 extern Destination destinationLocal;
 extern Encryption encryptionNone;
 
-#define MAX_REPOSITORY_JSON_LEN (1024 * 1024)
+static Destination *destination;
+static Encryption *encryption;
+static pthread_t tickThread;
+
+static pthread_mutex_t shutdownMutex;
+static int shutdownTicking = 0;
+
+void* tickThreadFunc(void* param)
+{
+	printf("DEBUG: Hello from tickThreadFunc\n");
+	for (;;)
+	{
+		pthread_mutex_lock(&shutdownMutex);
+		if (shutdownTicking)
+		{
+			pthread_mutex_unlock(&shutdownMutex);
+			break;
+		}
+		pthread_mutex_unlock(&shutdownMutex);
+
+		if (destination->tick() != 0)
+		{
+			break;
+		}
+		sleep(1);
+	}
+	return 0;
+}
 
 int bucse_fuse_main(int argc, char *argv[], const struct fuse_operations *op,
 		size_t op_size, void *user_data)
@@ -191,12 +222,19 @@ int bucse_fuse_main(int argc, char *argv[], const struct fuse_operations *op,
 		goto out2;
 	}
 
+	// TODO: switch daemonize with an argument[?]
+	/*
 	if (fuse_daemonize(opts.foreground) != 0) {
 		res = 5;
 		goto out3;
 	}
+	*/
 
-	// TODO: initialize destination thread
+	// initialize destination thread
+	if (destination->isTickable())
+	{
+		int ret = pthread_create(&tickThread, NULL, tickThreadFunc, NULL);
+	}
 
 	struct fuse_session *se = fuse_get_session(fuse);
 	if (fuse_set_signal_handlers(se) != 0) {
@@ -225,14 +263,14 @@ out1:
 	return res;
 }
 
+#define MAX_REPOSITORY_JSON_LEN (1024 * 1024)
+
 int main(int argc, char** argv)
 {
-	Destination *destination;
 	destination = &destinationLocal;
 
 	printf("Destination interface test: %d\n", destination->addActionFile(NULL, NULL, 0));
 
-	Encryption *encryption;
 	encryption = &encryptionNone;
 
 	printf("Encryption interface test: %d\n", encryption->encrypt(NULL, 0, NULL, NULL, NULL));
@@ -318,7 +356,15 @@ int main(int argc, char** argv)
 	int fuse_stat;
 	fuse_stat = bucse_fuse_main(args.argc, args.argv, &bucse_oper, sizeof(bucse_oper), NULL);
 	fprintf(stderr, "fuse_main returned %d\n", fuse_stat);
+	pthread_mutex_lock(&shutdownMutex);
+	shutdownTicking = 1;
+	pthread_mutex_unlock(&shutdownMutex);
 
+	int ret = pthread_join(tickThread, NULL);
+	if (ret != 0)
+	{
+		fprintf(stderr, "pthread_join: %d\n", ret);
+	}
 	destination->shutdown();
 
 	return fuse_stat;

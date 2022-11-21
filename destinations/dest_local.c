@@ -96,6 +96,17 @@ int destLocalSetCallbackActionAdded(ActionAddedCalback callback)
 	return -1;
 }
 
+int destLocalIsTickable()
+{
+	return 1;
+}
+
+int destLocalTick()
+{
+	printf("DEBUG: Hello from destLocalTick\n");
+	return 0;
+}
+
 Destination destinationLocal = {
 	.init = destLocalInit,
 	.shutdown = destLocalShutdown,
@@ -103,6 +114,8 @@ Destination destinationLocal = {
 	.getStorageFile = destLocalGetStorageFile,
 	.addActionFile = destLocalAddActionFile,
 	.getRepositoryFile = destLocalGetRepositoryFile,
-	.setCallbackActionAdded = destLocalSetCallbackActionAdded
+	.setCallbackActionAdded = destLocalSetCallbackActionAdded,
+	.isTickable = destLocalIsTickable,
+	.tick = destLocalTick,
 };
 

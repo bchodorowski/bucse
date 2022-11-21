@@ -1,6 +1,6 @@
 CC=gcc
 CFLAGS=`pkg-config fuse3 --cflags` `pkg-config json-c --cflags`
-LIBS=`pkg-config fuse3 --libs` `pkg-config json-c --libs`
+LIBS=`pkg-config fuse3 --libs` `pkg-config json-c --libs` -lpthread
 
 bucse: bucse.o destinations/dest_local.o encryption/encr_none.o
 	$(CC) -o bucse $(CFLAGS) bucse.o destinations/dest_local.o encryption/encr_none.o $(LIBS)

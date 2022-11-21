@@ -8,4 +8,6 @@ typedef struct {
 	int (*addActionFile)(char* filename, char *buf, size_t size);
 	int (*getRepositoryFile)(char *buf, size_t *size);
 	int (*setCallbackActionAdded)(ActionAddedCalback callback);
+	int (*isTickable)();
+	int (*tick)();
 } Destination;
