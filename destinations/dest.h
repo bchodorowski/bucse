@@ -1,4 +1,4 @@
-typedef void (*ActionAddedCalback)(char* filename, char* buf, size_t size);
+typedef void (*ActionAddedCallback)(char* actionName, char* buf, size_t size, int moreInThisBatch);
 
 typedef struct {
 	int (*init)(char* repository);
@@ -7,7 +7,7 @@ typedef struct {
 	int (*getStorageFile)(char* filename, char *buf, size_t *size);
 	int (*addActionFile)(char* filename, char *buf, size_t size);
 	int (*getRepositoryFile)(char *buf, size_t *size);
-	int (*setCallbackActionAdded)(ActionAddedCalback callback);
+	int (*setCallbackActionAdded)(ActionAddedCallback callback);
 	int (*isTickable)();
 	int (*tick)();
 } Destination;

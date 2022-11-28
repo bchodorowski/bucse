@@ -263,17 +263,21 @@ out1:
 	return res;
 }
 
+void actionAdded(char* actionName, char* buf, size_t size, int moreInThisBatch)
+{
+	printf("%s\n  %s\n  %d\n  %d\n", actionName, buf, size, moreInThisBatch);
+}
+
 #define MAX_REPOSITORY_JSON_LEN (1024 * 1024)
 
 int main(int argc, char** argv)
 {
 	destination = &destinationLocal;
 
-	printf("Destination interface test: %d\n", destination->addActionFile(NULL, NULL, 0));
+	destination->setCallbackActionAdded(&actionAdded);
 
 	encryption = &encryptionNone;
 
-	printf("Encryption interface test: %d\n", encryption->encrypt(NULL, 0, NULL, NULL, NULL));
 
 	struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
 	struct bucse_config conf;

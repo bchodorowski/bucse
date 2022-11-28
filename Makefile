@@ -1,4 +1,4 @@
-CC=gcc
+CC=gcc -g
 CFLAGS=`pkg-config fuse3 --cflags` `pkg-config json-c --cflags`
 LIBS=`pkg-config fuse3 --libs` `pkg-config json-c --libs` -lpthread
 
