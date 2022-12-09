@@ -263,9 +263,236 @@ out1:
 	return res;
 }
 
+typedef struct {
+	void** objects;
+	int len;
+	int size;
+} DynArray;
+
+static int addToDynArray(DynArray *dynArray, void* newObject)
+{
+	int oldDynArraySize = dynArray->size;
+
+	if (dynArray->len == dynArray->size) {
+		int newSize;
+
+		if (dynArray->size == 0) {
+			newSize = 16;
+		} else {
+			newSize = oldDynArraySize * 2;
+		}
+
+		void* newObjects = malloc(newSize * sizeof(void*));
+		if (newObjects == NULL) {
+			fprintf(stderr, "addToDynArray: malloc(): %s\n", strerror(errno));
+			return 1;
+		}
+		if (dynArray->objects != NULL) {
+			memcpy(newObjects, dynArray->objects, oldDynArraySize * sizeof(void*));
+			free(dynArray->objects);
+		}
+		dynArray->objects = newObjects;
+		dynArray->size = newSize;
+	}
+
+	dynArray->objects[dynArray->len] = newObject;
+	dynArray->len++;
+
+	return 0;
+}
+
+static void freeDynArray(DynArray *dynArray)
+{
+	if (dynArray->objects != NULL) {
+		free(dynArray->objects);
+	}
+	dynArray->objects = NULL;
+	dynArray->len = dynArray->size = 0;
+}
+
+typedef enum {
+	ActionTypeAddFile,
+	ActionTypeRemoveFile,
+	ActionTypeAddDirectory,
+	ActionTypeRemoveDirectory
+} ActionType;
+
+typedef struct {
+	int64_t time;
+	ActionType actionType;
+	char* path;
+	char* content;
+	int contentLen;
+} Action;
+
+void freeAction(Action* action)
+{
+	if (action == NULL) {
+		return;
+	}
+
+	if (action->path != NULL) {
+		free(action->path);
+	}
+
+	if (action->content != NULL) {
+		free(action->content);
+	}
+
+	free(action);
+}
+
+#define MAX_STORAGE_NAME_LEN 64
+
+// TODO: mutex guarding those?
+static DynArray actions;
+static DynArray actionsPending;
+
+// parses actions json document and appends actionsPending array with the results
+static void parseAction(char* buf, size_t size)
+{
+	json_tokener* tokener = json_tokener_new();
+	json_object* obj = json_tokener_parse_ex(tokener, buf, size);
+	if (obj == NULL)
+	{
+		fprintf(stderr, "actionAdded: json_tokener_parse_ex(): %s\n", json_tokener_error_desc(json_tokener_get_error(tokener)));
+		json_tokener_free(tokener);
+		return;
+	}
+	json_tokener_free(tokener);
+
+	if (json_object_get_type(obj) != json_type_array) {
+		fprintf(stderr, "actionAdded: document is not an array\n");
+		json_object_put(obj);
+		return;
+	}
+
+	// This json document is an array of action objects. Parse each of them and add to actionsPending.
+	for (size_t i=0; i<json_object_array_length(obj); i++) {
+		json_object* actionObj = json_object_array_get_idx(obj, i);
+
+		if (json_object_get_type(actionObj) != json_type_object) {
+			fprintf(stderr, "actionAdded: array element is not an object\n");
+			continue;
+		}
+
+		// parse time
+		json_object* timeField;
+		if (json_object_object_get_ex(actionObj, "time", &timeField) == 0) {
+			fprintf(stderr, "actionAdded: action object doesn't have 'time' field\n");
+			continue;
+		}
+		if (json_object_get_type(timeField) != json_type_int) {
+			fprintf(stderr, "actionAdded: 'time' field is not an integer\n");
+			continue;
+		}
+		int64_t time = json_object_get_int64(timeField);
+
+		// parse action
+		json_object* actionTypeField;
+		if (json_object_object_get_ex(actionObj, "action", &actionTypeField) == 0) {
+			fprintf(stderr, "actionAdded: action object doesn't have 'action' field\n");
+			continue;
+		}
+		if (json_object_get_type(actionTypeField) != json_type_string) {
+			fprintf(stderr, "actionAdded: 'action' field is not a string\n");
+			continue;
+		}
+		const char* actionTypeStr = json_object_get_string(actionTypeField);
+		ActionType actionType;
+		if (strcmp(actionTypeStr, "addFile") == 0) {
+			actionType = ActionTypeAddFile;
+		} else if (strcmp(actionTypeStr, "removeFile") == 0) {
+			actionType = ActionTypeRemoveFile;
+		} else if (strcmp(actionTypeStr, "addDirectory") == 0) {
+			actionType = ActionTypeAddDirectory;
+		} else if (strcmp(actionTypeStr, "removeDirectory") == 0) {
+			actionType = ActionTypeRemoveDirectory;
+		} else {
+			fprintf(stderr, "actionAdded: unknown action\n");
+			continue;
+		}
+
+		// parse path
+		json_object* pathField;
+		if (json_object_object_get_ex(actionObj, "path", &pathField) == 0) {
+			fprintf(stderr, "actionAdded: action object doesn't have 'path' field\n");
+			continue;
+		}
+		if (json_object_get_type(pathField) != json_type_string) {
+			fprintf(stderr, "actionAdded: 'path' field is not a string\n");
+			continue;
+		}
+		const char* path = json_object_get_string(pathField);
+
+		// parse content
+		json_object* contentField;
+		if (json_object_object_get_ex(actionObj, "content", &contentField) == 0) {
+			fprintf(stderr, "actionAdded: action object doesn't have 'content' field\n");
+			continue;
+		}
+		if (json_object_get_type(contentField) != json_type_array) {
+			fprintf(stderr, "actionAdded: 'content' field is not an array\n");
+			continue;
+		}
+		size_t contentLen = json_object_array_length(contentField);
+		char* content = malloc(contentLen * MAX_STORAGE_NAME_LEN);
+		if (content == NULL) {
+			fprintf(stderr, "actionAdded: malloc(): %s\n", strerror(errno));
+			continue;
+		}
+		size_t j;
+		for (j=0; j<contentLen; j++) {
+			json_object* contentItemField = json_object_array_get_idx(contentField, j);
+
+			if (json_object_get_type(contentItemField) != json_type_string) {
+				fprintf(stderr, "actionAdded: 'content' contents is not a string\n");
+				break;
+			}
+			const char* contentItemStr = json_object_get_string(contentItemField);
+			snprintf(content + (MAX_STORAGE_NAME_LEN * j), MAX_STORAGE_NAME_LEN, "%s", contentItemStr);
+		}
+		if (j != contentLen) {
+			free(content);
+			continue;
+		}
+
+		// create new action object
+		Action* newAction = malloc(sizeof(Action));
+		if (newAction == NULL) {
+			fprintf(stderr, "actionAdded: malloc(): %s\n", strerror(errno));
+			free(content);
+			continue;
+		}
+		newAction->time = time;
+		newAction->actionType = actionType;
+		newAction->path = malloc(strlen(path) + 1);
+		if (newAction->path == NULL) {
+			fprintf(stderr, "actionAdded: malloc(): %s\n", strerror(errno));
+			free(content);
+			free(newAction);
+			continue;
+		}
+		memcpy(newAction->path, path, strlen(path) + 1);
+		newAction->content = content;
+		newAction->contentLen = contentLen;
+
+		addToDynArray(&actionsPending, newAction);
+	}
+
+	json_object_put(obj);
+}
+
 void actionAdded(char* actionName, char* buf, size_t size, int moreInThisBatch)
 {
-	printf("%s\n  %s\n  %d\n  %d\n", actionName, buf, size, moreInThisBatch);
+	//printf("%s\n  %s\n  %d\n  %d\n", actionName, buf, size, moreInThisBatch);
+
+	parseAction(buf, size);
+
+	if (moreInThisBatch == 0) {
+		// TODO
+		printf("DEBUG: sort objects in actionsPending, act on them and merge them with actions. %d items to go\n", actionsPending.len);
+	}
 }
 
 #define MAX_REPOSITORY_JSON_LEN (1024 * 1024)
@@ -370,6 +597,18 @@ int main(int argc, char** argv)
 		fprintf(stderr, "pthread_join: %d\n", ret);
 	}
 	destination->shutdown();
+
+	// free actions
+	for (int i=0; i<actions.len; i++) {
+		freeAction(actions.objects[i]);
+	}
+	freeDynArray(&actions);
+
+	// free actionsPending
+	for (int i=0; i<actionsPending.len; i++) {
+		freeAction(actionsPending.objects[i]);
+	}
+	freeDynArray(&actionsPending);
 
 	return fuse_stat;
 }

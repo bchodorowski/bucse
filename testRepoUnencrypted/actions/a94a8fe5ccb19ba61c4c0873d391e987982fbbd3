@@ -1,6 +1,6 @@
 [
 	{
-		"time": 1658083792742645
+		"time": 1658083792742645,
 		"action": "addFile",
 		"path": "testFile1.txt",
 		"content": [
@@ -10,7 +10,7 @@
 		]
 	},
 	{
-		"time": 1658083953235922
+		"time": 1658083953235922,
 		"action": "addFile",
 		"path": "testFile2.txt",
 		"content": [

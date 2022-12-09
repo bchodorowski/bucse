@@ -19,6 +19,7 @@ static char* repositoryJsonFilePath;
 static char* repositoryActionsPath;
 static ActionAddedCallback cachedActionAddedCallback;
 
+// TODO: rename to ActionNames [?]
 typedef struct {
 	char* names;
 	int len;
@@ -39,7 +40,7 @@ static int addAction(Actions *actions, char* newActionName)
 		}
 
 		char* newNames = malloc(newActionSize * MAX_ACTION_NAME_LEN);
-		if (repositoryJsonFilePath == NULL) {
+		if (newNames == NULL) {
 			fprintf(stderr, "addAction: malloc(): %s\n", strerror(errno));
 			return 1;
 		}
