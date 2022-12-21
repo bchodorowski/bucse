@@ -143,6 +143,12 @@ static void recursivelyFreeFilesystem(FilesystemFile* dir) {
 	free(dir);
 }
 
+static int splitPath(const char* path, DynArray *result)
+{
+	// TODO
+	return -1;
+}
+
 static int doAction(Action* action)
 {
 	printf("DEBUG: do action\n");
