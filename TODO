@@ -1,7 +1,7 @@
-- be able to discover and report action files
-- load action files and represent the filesystem tree in memory
 - implement reading files
 - implement writing files
+- refactor: extract parts of bucse.c into action.c[?], filesystem.c[?], etc.
+- add / remove dir actions
 (at this point we should have working MVP -- with local destination and no encryption
 - improve local destination by applying a filesystem hook to be notified about changes in the filesystem
 - AES encryption

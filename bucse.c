@@ -122,31 +122,100 @@ void freeAction(Action* action)
 
 typedef struct
 {
-	char* name;
-	DynArray children;
-	char isDir;
+	const char* name;
 	int64_t time;
 	char* content;
 	int contentLen;
 } FilesystemFile;
 
-static FilesystemFile* root;
+typedef struct
+{
+	char* name;
+	int64_t time;
+	DynArray files;
+	DynArray dirs;
+} FilesystemDir;
 
-static void recursivelyFreeFilesystem(FilesystemFile* dir) {
-	if (dir->isDir) {
-		for (int i=0; i<dir->children.len; i++) {
-			recursivelyFreeFilesystem(dir->children.objects[i]);
-		}
+static FilesystemDir* root;
+
+static void recursivelyFreeFilesystem(FilesystemDir* dir) {
+	for (int i=0; i<dir->dirs.len; i++) {
+		recursivelyFreeFilesystem(dir->dirs.objects[i]);
+	}
+	for (int i=0; i<dir->files.len; i++) {
+		free(dir->files.objects[i]);
 	}
 	
-	freeDynArray(&dir->children);
+	freeDynArray(&dir->dirs);
+	freeDynArray(&dir->files);
 	free(dir);
 }
 
-static int splitPath(const char* path, DynArray *result)
+// path_split splits path into directories and file names. It returns a const pointer
+// to the part of path string that corresponds to the file name
+static const char* path_split(const char* path, DynArray *result)
 {
-	// TODO
-	return -1;
+	char* pathStr = strdup(path);
+	if (pathStr == NULL) {
+		fprintf(stderr, "splitPath: strdup(): %s\n", strerror(errno));
+		return NULL;
+	}
+
+	char* last = pathStr;
+	for (int i=0; i<strlen(pathStr); i++) {
+		if (pathStr[i] == '/') {
+			pathStr[i] = 0;
+			addToDynArray(result, last);
+			last = pathStr + i + 1;
+		}
+	}
+	addToDynArray(result, last);
+	return path + (last - pathStr);
+}
+
+static void path_free(DynArray *pathArray)
+{
+	if (pathArray->len > 0 && pathArray->objects[0] != NULL) {
+		free(pathArray->objects[0]);
+	}
+	freeDynArray(pathArray);
+}
+
+static char* path_getFilename(DynArray *pathArray)
+{
+	return pathArray->objects[pathArray->len-1];
+}
+
+static void path_debugPrint(DynArray *pathArray)
+{
+	fprintf(stderr, "DEBUG: print debug path:\n");
+	for (int i=0; i<pathArray->len; i++) {
+		fprintf(stderr, "\t%d: %s\n", i, pathArray->objects[i]);
+	}
+}
+
+static FilesystemDir* findContainingDir(DynArray *pathArray)
+{
+	FilesystemDir* current = root;
+	for (int i=0; i<pathArray->len-1; i++) {
+		char found = 0;
+
+		for (int j=0; j<current->dirs.len; j++) {
+			if (strcmp(
+				((FilesystemDir*)(current->dirs.objects[j]))->name,
+				pathArray->objects[i]
+				) == 0) {
+				found = 1;
+				current = current->dirs.objects[j];
+				break;
+			}
+		}
+
+		if (found == 0) {
+			return NULL;
+		}
+	}
+	return current;
 }
 
 static int doAction(Action* action)
@@ -154,22 +223,36 @@ static int doAction(Action* action)
 	printf("DEBUG: do action\n");
 
 	if (action->actionType == ActionTypeAddFile) {
-		// TODO: parse directories
+		DynArray pathArray;
+		memset(&pathArray, 0, sizeof(DynArray));
+		const char *fileName = path_split(action->path, &pathArray);
+		if (fileName == NULL) {
+			fprintf(stderr, "doAction: path_split() failed\n");
+			return 1;
+		}
+		path_debugPrint(&pathArray);
+
+		FilesystemDir *containingDir = findContainingDir(&pathArray);
+		path_free(&pathArray);
+
+		if (containingDir == NULL) {
+			fprintf(stderr, "doAction: path not found when adding file %s\n", action->path);
+			return 2;
+		}
 
 		FilesystemFile* newFile = malloc(sizeof(FilesystemFile));
 		if (newFile == NULL) {
 			fprintf(stderr, "doAction: malloc(): %s\n", strerror(errno));
-			return 1;
+			return 3;
 		}
 
-		newFile->name = action->path;
-		memset(&newFile->children, 0, sizeof(DynArray));
-		newFile->isDir = 0;
+		newFile->name = fileName;
 		newFile->time = action->time;
 		newFile->content = action->content;
 		newFile->contentLen = action->contentLen;
 
-		addToDynArray(&root->children, newFile);
+		addToDynArray(&containingDir->files, newFile);
+		return 0;
 	}
 
 	return -1;
@@ -411,8 +494,8 @@ static int bucse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	filler(buf, "..", NULL, 0, 0);
 	filler(buf, TESTFILENAME, NULL, 0, 0);
 
-	for (int i=0; i<root->children.len; i++) {
-		FilesystemFile* f = root->children.objects[i];
+	for (int i=0; i<root->files.len; i++) {
+		FilesystemFile* f = root->files.objects[i];
 		filler(buf, f->name, NULL, 0, 0);
 	}
 
@@ -625,13 +708,12 @@ out1:
 
 int main(int argc, char** argv)
 {
-	root = malloc(sizeof(FilesystemFile));
+	root = malloc(sizeof(FilesystemDir));
 	if (root == NULL) {
 		fprintf(stderr, "malloc(): %s\n", strerror(errno));
 		return 1;
 	}
-	memset(root, 0, sizeof(FilesystemFile));
-	root->isDir = 1;
+	memset(root, 0, sizeof(FilesystemDir));
 
 	destination = &destinationLocal;
 
