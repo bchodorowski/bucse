@@ -2,7 +2,7 @@
 	{
 		"time": 1658083792742645,
 		"action": "addFile",
-		"path": "wololo/test/testFile1.txt",
+		"path": "testFile1.txt",
 		"content": [
 			"7110eda4d09e062aa5e4a390b0a572ac0d2c0220",
 			"8cb2237d0679ca88db6464eac60da96345513964",
