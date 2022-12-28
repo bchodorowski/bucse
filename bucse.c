@@ -78,6 +78,8 @@ typedef struct {
 	char* path;
 	char* content;
 	int contentLen;
+	int size;
+	int blockSize;
 } Action;
 
 static void printActions(DynArray* array)
@@ -126,6 +128,8 @@ typedef struct
 	int64_t time;
 	char* content;
 	int contentLen;
+	int size;
+	int blockSize;
 } FilesystemFile;
 
 typedef struct
@@ -162,7 +166,8 @@ static const char* path_split(const char* path, DynArray *result)
 	}
 
 	char* last = pathStr;
-	for (int i=0; i<strlen(pathStr); i++) {
+	int len = strlen(pathStr);
+	for (int i=0; i<len; i++) {
 		if (pathStr[i] == '/') {
 			pathStr[i] = 0;
 			addToDynArray(result, last);
@@ -194,12 +199,40 @@ static void path_debugPrint(DynArray *pathArray)
 	}
 }
 
+static FilesystemFile* findFile(FilesystemDir* dir, const char* fileName)
+{
+	for (int i=0; i<dir->files.len; i++) {
+		FilesystemFile* f = dir->files.objects[i];
+		if (strcmp(f->name, fileName) == 0) {
+			return f;
+		}
+	}
+
+	return NULL;
+}
+
+static FilesystemDir* findDir(FilesystemDir* dir, const char* dirName)
+{
+	for (int i=0; i<dir->dirs.len; i++) {
+		FilesystemDir* d = dir->dirs.objects[i];
+		if (strcmp(d->name, dirName) == 0) {
+			return d;
+		}
+	}
+}
+
 static FilesystemDir* findContainingDir(DynArray *pathArray)
 {
 	FilesystemDir* current = root;
 	for (int i=0; i<pathArray->len-1; i++) {
 		char found = 0;
 
+		current = findDir(current, pathArray->objects[i]);
+		if (current == NULL) {
+			return NULL;
+		}
+
+		/*
 		for (int j=0; j<current->dirs.len; j++) {
 			if (strcmp(
 				((FilesystemDir*)(current->dirs.objects[j]))->name,
@@ -214,6 +247,7 @@ static FilesystemDir* findContainingDir(DynArray *pathArray)
 		if (found == 0) {
 			return NULL;
 		}
+		*/
 	}
 	return current;
 }
@@ -250,6 +284,8 @@ static int doAction(Action* action)
 		newFile->time = action->time;
 		newFile->content = action->content;
 		newFile->contentLen = action->contentLen;
+		newFile->size = action->size;
+		newFile->blockSize = action->blockSize;
 
 		addToDynArray(&containingDir->files, newFile);
 		return 0;
@@ -309,6 +345,28 @@ static void parseAction(char* buf, size_t size)
 			continue;
 		}
 		int64_t time = json_object_get_int64(timeField);
+
+		// parse size
+		json_object* sizeField;
+		int64_t size = 0;
+		if (json_object_object_get_ex(actionObj, "size", &sizeField) != 0) {
+			if (json_object_get_type(sizeField) != json_type_int) {
+				fprintf(stderr, "actionAdded: 'size' field is not an integer\n");
+				continue;
+			}
+			size = json_object_get_int64(sizeField);
+		}
+
+		// parse blockSize
+		json_object* blockSizeField;
+		int64_t blockSize = 0;
+		if (json_object_object_get_ex(actionObj, "blockSize", &blockSizeField) != 0) {
+			if (json_object_get_type(blockSizeField) != json_type_int) {
+				fprintf(stderr, "actionAdded: 'blockSize' field is not an integer\n");
+				continue;
+			}
+			blockSize = json_object_get_int64(blockSizeField);
+		}
 
 		// parse action
 		json_object* actionTypeField;
@@ -398,6 +456,8 @@ static void parseAction(char* buf, size_t size)
 		memcpy(newAction->path, path, strlen(path) + 1);
 		newAction->content = content;
 		newAction->contentLen = contentLen;
+		newAction->size = size;
+		newAction->blockSize = blockSize;
 
 		addToDynArray(&actionsPending, newAction);
 	}
@@ -468,11 +528,34 @@ static int bucse_getattr(const char *path, struct stat *stbuf, struct fuse_file_
 		stbuf->st_mode = S_IFDIR | 0755;
 		stbuf->st_nlink = 2;
 	}
-	else if (strcmp(path+1, TESTFILENAME) == 0)
+	else if (path[0] == '/')
 	{
-		stbuf->st_mode = S_IFREG | 0444;
-		stbuf->st_nlink = 1;
-		stbuf->st_size = strlen(TESTCONTENT);
+		DynArray pathArray;
+		memset(&pathArray, 0, sizeof(DynArray));
+		const char *fileName = path_split(path+1, &pathArray);
+		if (fileName == NULL) {
+			fprintf(stderr, "bucse_getattr: path_split() failed\n");
+			return -ENOMEM;
+		}
+		path_debugPrint(&pathArray);
+
+		FilesystemDir *containingDir = findContainingDir(&pathArray);
+		path_free(&pathArray);
+
+		FilesystemFile *file = findFile(containingDir, fileName);
+		if (file) {
+			stbuf->st_mode = S_IFREG | 0444;
+			stbuf->st_nlink = 1;
+			stbuf->st_size = file->size;
+		} else {
+			FilesystemDir* dir = findDir(containingDir, fileName);
+			if (dir) {
+				stbuf->st_mode = S_IFDIR | 0755;
+				stbuf->st_nlink = 1;
+			} else {
+				res = -ENOENT;
+			}
+		}
 	}
 	else
 		res = -ENOENT;
@@ -492,7 +575,12 @@ static int bucse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
 	filler(buf, ".", NULL, 0, 0);
 	filler(buf, "..", NULL, 0, 0);
-	filler(buf, TESTFILENAME, NULL, 0, 0);
+	//filler(buf, TESTFILENAME, NULL, 0, 0);
+
+	for (int i=0; i<root->dirs.len; i++) {
+		FilesystemDir* d = root->dirs.objects[i];
+		filler(buf, d->name, NULL, 0, 0);
+	}
 
 	for (int i=0; i<root->files.len; i++) {
 		FilesystemFile* f = root->files.objects[i];
