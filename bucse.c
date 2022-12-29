@@ -159,23 +159,23 @@ static void recursivelyFreeFilesystem(FilesystemDir* dir) {
 // to the part of path string that corresponds to the file name
 static const char* path_split(const char* path, DynArray *result)
 {
-	char* pathStr = strdup(path);
-	if (pathStr == NULL) {
+	char* pathCopy = strdup(path);
+	if (pathCopy == NULL) {
 		fprintf(stderr, "splitPath: strdup(): %s\n", strerror(errno));
 		return NULL;
 	}
 
-	char* last = pathStr;
-	int len = strlen(pathStr);
+	char* last = pathCopy;
+	int len = strlen(pathCopy);
 	for (int i=0; i<len; i++) {
-		if (pathStr[i] == '/') {
-			pathStr[i] = 0;
+		if (pathCopy[i] == '/') {
+			pathCopy[i] = 0;
 			addToDynArray(result, last);
-			last = pathStr + i + 1;
+			last = pathCopy + i + 1;
 		}
 	}
 	addToDynArray(result, last);
-	return path + (last - pathStr);
+	return path + (last - pathCopy);
 }
 
 static void path_free(DynArray *pathArray)
@@ -231,23 +231,20 @@ static FilesystemDir* findContainingDir(DynArray *pathArray)
 		if (current == NULL) {
 			return NULL;
 		}
+	}
+	return current;
+}
 
-		/*
-		for (int j=0; j<current->dirs.len; j++) {
-			if (strcmp(
-				((FilesystemDir*)(current->dirs.objects[j]))->name,
-				pathArray->objects[i]
-				) == 0) {
-				found = 1;
-				current = current->dirs.objects[j];
-				break;
-			}
-		}
+static FilesystemDir* findDirByPath(DynArray *pathArray)
+{
+	FilesystemDir* current = root;
+	for (int i=0; i<pathArray->len; i++) {
+		char found = 0;
 
-		if (found == 0) {
+		current = findDir(current, pathArray->objects[i]);
+		if (current == NULL) {
 			return NULL;
 		}
-		*/
 	}
 	return current;
 }
@@ -520,16 +517,103 @@ static char TESTFILENAME[] = "test";
 static int bucse_getattr(const char *path, struct stat *stbuf, struct fuse_file_info *fi)
 {
 	(void) fi;
-	int res = 0;
 
 	memset(stbuf, 0, sizeof(struct stat));
-	if (strcmp(path, "/") == 0)
-	{
+	if (strcmp(path, "/") == 0) {
 		stbuf->st_mode = S_IFDIR | 0755;
 		stbuf->st_nlink = 2;
+	} else if (path[0] == '/') {
+		DynArray pathArray;
+		memset(&pathArray, 0, sizeof(DynArray));
+		const char *fileName = path_split(path+1, &pathArray);
+		if (fileName == NULL) {
+			fprintf(stderr, "bucse_getattr: path_split() failed\n");
+			return -ENOMEM;
+		}
+		path_debugPrint(&pathArray);
+
+		FilesystemDir *containingDir = findContainingDir(&pathArray);
+		path_free(&pathArray);
+
+		if (containingDir == NULL) {
+			return -ENOENT;
+		}
+
+		FilesystemFile *file = findFile(containingDir, fileName);
+		if (file) {
+			stbuf->st_mode = S_IFREG | 0444;
+			stbuf->st_nlink = 1;
+			stbuf->st_size = file->size;
+		} else {
+			FilesystemDir* dir = findDir(containingDir, fileName);
+			if (dir) {
+				stbuf->st_mode = S_IFDIR | 0755;
+				stbuf->st_nlink = 1;
+			} else {
+				return -ENOENT;
+			}
+		}
+	} else {
+		return -ENOENT;
 	}
-	else if (path[0] == '/')
-	{
+
+	return 0;
+}
+
+static int bucse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
+		off_t offset, struct fuse_file_info *fi, enum fuse_readdir_flags flags)
+{
+	(void) offset;
+	(void) fi;
+	(void) flags;
+
+	FilesystemDir *dir;
+
+	if (strcmp(path, "/") == 0) {
+		dir = root;
+	} else if (path[0] == '/') {
+		DynArray pathArray;
+		memset(&pathArray, 0, sizeof(DynArray));
+		const char *fileName = path_split(path+1, &pathArray);
+		if (fileName == NULL) {
+			fprintf(stderr, "bucse_readdir: path_split() failed\n");
+			return -ENOMEM;
+		}
+		path_debugPrint(&pathArray);
+
+		dir = findDirByPath(&pathArray);
+		path_free(&pathArray);
+	} else {
+		return -ENOENT;
+	}
+
+	if (dir == NULL) {
+		return -ENOENT;
+	}
+
+	filler(buf, ".", NULL, 0, 0);
+	filler(buf, "..", NULL, 0, 0);
+
+	for (int i=0; i<dir->dirs.len; i++) {
+		FilesystemDir* d = dir->dirs.objects[i];
+		filler(buf, d->name, NULL, 0, 0);
+	}
+
+	for (int i=0; i<dir->files.len; i++) {
+		FilesystemFile* f = dir->files.objects[i];
+		filler(buf, f->name, NULL, 0, 0);
+	}
+	return 0;
+}
+
+static int bucse_open(const char *path, struct fuse_file_info *fi)
+{
+	if ((fi->flags & O_ACCMODE) != O_RDONLY)
+		return -EACCES;
+
+	if (strcmp(path, "/") == 0) {
+		return -EACCES;
+	} else if (path[0] == '/') {
 		DynArray pathArray;
 		memset(&pathArray, 0, sizeof(DynArray));
 		const char *fileName = path_split(path+1, &pathArray);
@@ -544,61 +628,18 @@ static int bucse_getattr(const char *path, struct stat *stbuf, struct fuse_file_
 
 		FilesystemFile *file = findFile(containingDir, fileName);
 		if (file) {
-			stbuf->st_mode = S_IFREG | 0444;
-			stbuf->st_nlink = 1;
-			stbuf->st_size = file->size;
+			return 0;
 		} else {
 			FilesystemDir* dir = findDir(containingDir, fileName);
 			if (dir) {
-				stbuf->st_mode = S_IFDIR | 0755;
-				stbuf->st_nlink = 1;
+				return -EACCES;
 			} else {
-				res = -ENOENT;
+				return -ENOENT;
 			}
 		}
-	}
-	else
-		res = -ENOENT;
-
-	return res;
-}
-
-static int bucse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
-		off_t offset, struct fuse_file_info *fi, enum fuse_readdir_flags flags)
-{
-	(void) offset;
-	(void) fi;
-	(void) flags;
-
-	if (strcmp(path, "/") != 0)
+	} else {
 		return -ENOENT;
-
-	filler(buf, ".", NULL, 0, 0);
-	filler(buf, "..", NULL, 0, 0);
-	//filler(buf, TESTFILENAME, NULL, 0, 0);
-
-	for (int i=0; i<root->dirs.len; i++) {
-		FilesystemDir* d = root->dirs.objects[i];
-		filler(buf, d->name, NULL, 0, 0);
 	}
-
-	for (int i=0; i<root->files.len; i++) {
-		FilesystemFile* f = root->files.objects[i];
-		filler(buf, f->name, NULL, 0, 0);
-	}
-
-	return 0;
-}
-
-static int bucse_open(const char *path, struct fuse_file_info *fi)
-{
-	if (strcmp(path+1, TESTFILENAME) != 0)
-		return -ENOENT;
-
-	if ((fi->flags & O_ACCMODE) != O_RDONLY)
-		return -EACCES;
-
-	return 0;
 }
 
 static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
