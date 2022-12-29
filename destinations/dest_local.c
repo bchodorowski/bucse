@@ -134,12 +134,12 @@ void destLocalShutdown()
 	freeActions(&handledActions);
 }
 
-int destLocalPutStorageFile(char* filename, char *buf, size_t size)
+int destLocalPutStorageFile(const char* filename, char *buf, size_t size)
 {
 	return -1;
 }
 
-int destLocalGetStorageFile(char* filename, char *buf, size_t *size)
+int destLocalGetStorageFile(const char* filename, char *buf, size_t *size)
 {
 	return -1;
 }

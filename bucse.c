@@ -514,6 +514,17 @@ void actionAdded(char* actionName, char* buf, size_t size, int moreInThisBatch)
 static char TESTCONTENT[] = "Wololo\n";
 static char TESTFILENAME[] = "test";
 
+extern Destination destinationLocal;
+extern Encryption encryptionNone;
+
+static Destination *destination;
+static Encryption *encryption;
+static pthread_t tickThread;
+
+static pthread_mutex_t shutdownMutex;
+static int shutdownTicking = 0;
+
+
 static int bucse_getattr(const char *path, struct stat *stbuf, struct fuse_file_info *fi)
 {
 	(void) fi;
@@ -618,7 +629,7 @@ static int bucse_open(const char *path, struct fuse_file_info *fi)
 		memset(&pathArray, 0, sizeof(DynArray));
 		const char *fileName = path_split(path+1, &pathArray);
 		if (fileName == NULL) {
-			fprintf(stderr, "bucse_getattr: path_split() failed\n");
+			fprintf(stderr, "bucse_open: path_split() failed\n");
 			return -ENOMEM;
 		}
 		path_debugPrint(&pathArray);
@@ -642,11 +653,35 @@ static int bucse_open(const char *path, struct fuse_file_info *fi)
 	}
 }
 
+typedef struct {
+	const char* block;
+	off_t offset;
+	size_t len;
+} BlockOffsetLen;
+
+static int determineBlocksToRead(off_t offset, size_t size, FilesystemFile* file)
+{
+	// TODO
+	return 0;
+}
+
+// TODO: move this to Encryption[?]
+static size_t getMaxEncryptedBlockSize(size_t blockSize)
+{
+	blockSize *= 2;
+	if (blockSize < 256) {
+		blockSize = 256;
+	}
+	return blockSize;
+}
+
 static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 		struct fuse_file_info *fi)
 {
-	size_t len;
 	(void) fi;
+
+	/*
+	size_t len;
 	if(strcmp(path+1, TESTFILENAME) != 0)
 		return -ENOENT;
 
@@ -659,6 +694,100 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 		size = 0;
 
 	return size;
+	*/
+
+	FilesystemFile *file = NULL;
+
+	if (strcmp(path, "/") == 0) {
+		return -EACCES;
+	} else if (path[0] == '/') {
+		DynArray pathArray;
+		memset(&pathArray, 0, sizeof(DynArray));
+		const char *fileName = path_split(path+1, &pathArray);
+		if (fileName == NULL) {
+			fprintf(stderr, "bucse_read: path_split() failed\n");
+			return -ENOMEM;
+		}
+		path_debugPrint(&pathArray);
+
+		FilesystemDir *containingDir = findContainingDir(&pathArray);
+		path_free(&pathArray);
+
+		FilesystemFile *file = findFile(containingDir, fileName);
+		if (file == NULL) {
+			FilesystemDir* dir = findDir(containingDir, fileName);
+			if (dir) {
+				return -EACCES;
+			} else {
+				return -ENOENT;
+			}
+		}
+		// continue working with the file below
+	} else {
+		return -ENOENT;
+	}
+
+	// determine which blocks should be read
+	DynArray blocksToRead;
+	determineBlocksToRead(offset, size, file);
+
+	size_t maxEncryptedBlockSize = getMaxEncryptedBlockSize(file->blockSize);
+	char* encryptedBlockBuf = malloc(maxEncryptedBlockSize);
+	if (encryptedBlockBuf == NULL) {
+		fprintf(stderr, "bucse_read: malloc(): %s\n", strerror(errno));
+		return -ENOMEM;
+	}
+
+	size_t maxDecryptedBlockSize = file->blockSize;
+	char* decryptedBlockBuf = malloc(maxDecryptedBlockSize);
+	if (decryptedBlockBuf == NULL) {
+		fprintf(stderr, "bucse_read: malloc(): %s\n", strerror(errno));
+		free(encryptedBlockBuf);
+		return -ENOMEM;
+	}
+
+	size_t copiedBytes = 0;
+	for (int i=0; i<blocksToRead.len; i++) {
+		size_t encryptedBlockBufSize = maxEncryptedBlockSize;
+		int res = destination->getStorageFile(file->name, encryptedBlockBuf, &encryptedBlockBufSize);
+		if (res < 0) {
+			fprintf(stderr, "bucse_read: getStorageFile failed: %d\n", res);
+			free(encryptedBlockBuf);
+			free(decryptedBlockBuf);
+			return -EIO;
+		}
+
+		size_t decryptedBlockBufSize = maxDecryptedBlockSize;
+		res = encryption->decrypt(encryptedBlockBuf, encryptedBlockBufSize,
+			decryptedBlockBuf, &decryptedBlockBufSize,
+			""); // TODO: manage encryption key
+		if (res < 0) {
+			fprintf(stderr, "bucse_read: decrypt failed: %d\n", res);
+			free(encryptedBlockBuf);
+			free(decryptedBlockBuf);
+			return -EIO;
+		}
+		if (decryptedBlockBufSize != maxDecryptedBlockSize) {
+			fprintf(stderr, "bucse_read: expected decrypted block size %d, got %d\n",
+				maxDecryptedBlockSize, decryptedBlockBufSize);
+			free(encryptedBlockBuf);
+			free(decryptedBlockBuf);
+			return -EIO;
+		}
+
+		BlockOffsetLen* block = blocksToRead.objects[i];
+
+		memcpy(buf + copiedBytes, decryptedBlockBuf + block->offset, block->len);
+		copiedBytes += block->len;
+	}
+
+	free(encryptedBlockBuf);
+	free(decryptedBlockBuf);
+
+	if (copiedBytes != size) {
+		fprintf(stderr, "WARNING: bucse_read: expected read size %d, got %d\n", size, copiedBytes);
+	}
+	return copiedBytes;
 }
 
 struct fuse_operations bucse_oper = {
@@ -711,16 +840,6 @@ static int bucse_opt_proc(void *data, const char *arg, int key, struct fuse_args
 	}
 	return 1;
 }
-
-extern Destination destinationLocal;
-extern Encryption encryptionNone;
-
-static Destination *destination;
-static Encryption *encryption;
-static pthread_t tickThread;
-
-static pthread_mutex_t shutdownMutex;
-static int shutdownTicking = 0;
 
 void* tickThreadFunc(void* param)
 {
