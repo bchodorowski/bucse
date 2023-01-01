@@ -659,9 +659,31 @@ typedef struct {
 	size_t len;
 } BlockOffsetLen;
 
-static int determineBlocksToRead(off_t offset, size_t size, FilesystemFile* file)
+// use offset and size to determine which blocks contain the data that's needed
+static int determineBlocksToRead(DynArray *blocksToRead, off_t offset, size_t size, FilesystemFile* file)
 {
-	// TODO
+
+	while (size > 0) {
+		int blockIndex = offset / file->blockSize;
+		off_t blockOffset = (offset % file->blockSize);
+		size_t blockLen = file->blockSize - blockOffset;
+		if (blockLen > size) {
+			blockLen = size;
+		}
+		BlockOffsetLen *block = malloc(sizeof(BlockOffsetLen));
+		if (!block) {
+			fprintf(stderr, "determineBlocksToRead: malloc(): %s\n", strerror(errno));
+			return 1;
+		}
+		block->block = file->content + MAX_STORAGE_NAME_LEN * blockIndex;
+		block->offset = blockOffset;
+		block->len = blockLen;
+		addToDynArray(blocksToRead, block);
+
+		offset += blockLen;
+		size -= blockLen;
+	}
+	
 	return 0;
 }
 
@@ -729,7 +751,13 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 
 	// determine which blocks should be read
 	DynArray blocksToRead;
-	determineBlocksToRead(offset, size, file);
+	if (determineBlocksToRead(&blocksToRead, offset, size, file) != 0) {
+		fprintf(stderr, "bucse_read: determineBlocksToRead failed\n");
+		for (int i=0; i<blocksToRead.len; i++) {
+			free(blocksToRead.objects[i]);
+		}
+		return -ENOMEM;
+	}
 
 	size_t maxEncryptedBlockSize = getMaxEncryptedBlockSize(file->blockSize);
 	char* encryptedBlockBuf = malloc(maxEncryptedBlockSize);
@@ -747,14 +775,14 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 	}
 
 	size_t copiedBytes = 0;
+	int ioerror = 0;
 	for (int i=0; i<blocksToRead.len; i++) {
 		size_t encryptedBlockBufSize = maxEncryptedBlockSize;
 		int res = destination->getStorageFile(file->name, encryptedBlockBuf, &encryptedBlockBufSize);
 		if (res < 0) {
 			fprintf(stderr, "bucse_read: getStorageFile failed: %d\n", res);
-			free(encryptedBlockBuf);
-			free(decryptedBlockBuf);
-			return -EIO;
+			ioerror = 1;
+			break;
 		}
 
 		size_t decryptedBlockBufSize = maxDecryptedBlockSize;
@@ -763,16 +791,14 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 			""); // TODO: manage encryption key
 		if (res < 0) {
 			fprintf(stderr, "bucse_read: decrypt failed: %d\n", res);
-			free(encryptedBlockBuf);
-			free(decryptedBlockBuf);
-			return -EIO;
+			ioerror = 1;
+			break;
 		}
 		if (decryptedBlockBufSize != maxDecryptedBlockSize) {
 			fprintf(stderr, "bucse_read: expected decrypted block size %d, got %d\n",
 				maxDecryptedBlockSize, decryptedBlockBufSize);
-			free(encryptedBlockBuf);
-			free(decryptedBlockBuf);
-			return -EIO;
+			ioerror = 1;
+			break;
 		}
 
 		BlockOffsetLen* block = blocksToRead.objects[i];
@@ -783,6 +809,14 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 
 	free(encryptedBlockBuf);
 	free(decryptedBlockBuf);
+
+	for (int i=0; i<blocksToRead.len; i++) {
+		free(blocksToRead.objects[i]);
+	}
+
+	if (ioerror) {
+		return -EIO;
+	}
 
 	if (copiedBytes != size) {
 		fprintf(stderr, "WARNING: bucse_read: expected read size %d, got %d\n", size, copiedBytes);

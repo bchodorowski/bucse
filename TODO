@@ -1,6 +1,9 @@
 - implement reading files
 - implement writing files
 - refactor: extract parts of bucse.c into action.c[?], filesystem.c[?], etc.
+- -Wall
+- consider big files -> use 64 bit variables?
+- handle addToDynArray failures
 - add / remove dir actions
 (at this point we should have working MVP -- with local destination and no encryption
 - improve local destination by applying a filesystem hook to be notified about changes in the filesystem
