@@ -17,6 +17,8 @@
 
 static char* repositoryJsonFilePath;
 static char* repositoryActionsPath;
+static char* repositoryStoragePath;
+
 static ActionAddedCallback cachedActionAddedCallback;
 
 // TODO: rename to ActionNames [?]
@@ -100,10 +102,19 @@ int destLocalInit(char* repository)
 		free(repositoryJsonFilePath);
 		return 2;
 	}
+	repositoryStoragePath = malloc(MAX_FILEPATH_LEN);
+	if (repositoryStoragePath == NULL) {
+		fprintf(stderr, "destLocalInit: malloc(): %s\n", strerror(errno));
+
+		free(repositoryJsonFilePath);
+		free(repositoryActionsPath);
+		return 3;
+	}
 
 
 	snprintf(repositoryJsonFilePath, MAX_FILEPATH_LEN, "%s/repository.json", repository);
 	snprintf(repositoryActionsPath, MAX_FILEPATH_LEN, "%s/actions", repository);
+	snprintf(repositoryStoragePath, MAX_FILEPATH_LEN, "%s/storage", repository);
 
 	// open repository.json
 	FILE* file = fopen(repositoryJsonFilePath, "r");
@@ -112,7 +123,8 @@ int destLocalInit(char* repository)
 
 		free(repositoryJsonFilePath);
 		free(repositoryActionsPath);
-		return 3;
+		free(repositoryStoragePath);
+		return 4;
 	}
 	fclose(file);
 
@@ -130,6 +142,10 @@ void destLocalShutdown()
 		free(repositoryActionsPath);
 		repositoryActionsPath = NULL;
 	}
+	if (repositoryStoragePath != NULL) {
+		free(repositoryStoragePath);
+		repositoryStoragePath = NULL;
+	}
 
 	freeActions(&handledActions);
 }
@@ -141,7 +157,38 @@ int destLocalPutStorageFile(const char* filename, char *buf, size_t size)
 
 int destLocalGetStorageFile(const char* filename, char *buf, size_t *size)
 {
-	return -1;
+	char* storageFilePath = malloc(MAX_FILEPATH_LEN);
+	if (storageFilePath == NULL) {
+		fprintf(stderr, "destLocalGetStorageFile: malloc(): %s\n", strerror(errno));
+
+		return 1;
+	}
+
+	snprintf(storageFilePath, MAX_FILEPATH_LEN, "%s/%s", repositoryStoragePath, filename);
+
+	FILE* file = fopen(storageFilePath, "r");
+	free(storageFilePath);
+
+	if (file == NULL) {
+		fprintf(stderr, "destLocalGetStorageFile: fopen(): %s\n", strerror(errno));
+		return 2;
+	}
+
+	int bytesRead = 0;
+	while (!feof(file) && bytesRead < *size) {
+		bytesRead += fread(buf + bytesRead, 1, *size - bytesRead, file);
+	}
+	fclose(file);
+
+	if (bytesRead >= *size) {
+		fprintf(stderr, "destLocalInit: repository.json file is too large\n");
+
+		return 2;
+	}
+
+	buf[bytesRead] = 0; // null termination
+	*size = bytesRead;
+	return 0;
 }
 
 int destLocalAddActionFile(char* filename, char *buf, size_t size)

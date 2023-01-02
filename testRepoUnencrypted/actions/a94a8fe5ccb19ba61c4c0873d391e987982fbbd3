@@ -16,7 +16,7 @@
 		"action": "addFile",
 		"path": "testFile2.txt",
 		"content": [
-			"20eabe5d64b0e216796e834f52d61fd0b70332fcn"
+			"20eabe5d64b0e216796e834f52d61fd0b70332fc"
 		],
 		"size": 8,
 		"blockSize": 8

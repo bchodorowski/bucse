@@ -261,7 +261,7 @@ static int doAction(Action* action)
 			fprintf(stderr, "doAction: path_split() failed\n");
 			return 1;
 		}
-		path_debugPrint(&pathArray);
+		//path_debugPrint(&pathArray);
 
 		FilesystemDir *containingDir = findContainingDir(&pathArray);
 		path_free(&pathArray);
@@ -541,7 +541,7 @@ static int bucse_getattr(const char *path, struct stat *stbuf, struct fuse_file_
 			fprintf(stderr, "bucse_getattr: path_split() failed\n");
 			return -ENOMEM;
 		}
-		path_debugPrint(&pathArray);
+		//path_debugPrint(&pathArray);
 
 		FilesystemDir *containingDir = findContainingDir(&pathArray);
 		path_free(&pathArray);
@@ -590,7 +590,7 @@ static int bucse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 			fprintf(stderr, "bucse_readdir: path_split() failed\n");
 			return -ENOMEM;
 		}
-		path_debugPrint(&pathArray);
+		//path_debugPrint(&pathArray);
 
 		dir = findDirByPath(&pathArray);
 		path_free(&pathArray);
@@ -632,7 +632,7 @@ static int bucse_open(const char *path, struct fuse_file_info *fi)
 			fprintf(stderr, "bucse_open: path_split() failed\n");
 			return -ENOMEM;
 		}
-		path_debugPrint(&pathArray);
+		//path_debugPrint(&pathArray);
 
 		FilesystemDir *containingDir = findContainingDir(&pathArray);
 		path_free(&pathArray);
@@ -662,6 +662,12 @@ typedef struct {
 // use offset and size to determine which blocks contain the data that's needed
 static int determineBlocksToRead(DynArray *blocksToRead, off_t offset, size_t size, FilesystemFile* file)
 {
+	if (offset > file->size) {
+		return 0;
+	}
+	if (size > file->size - offset) {
+		size = file->size - offset;
+	}
 
 	while (size > 0) {
 		int blockIndex = offset / file->blockSize;
@@ -730,12 +736,12 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 			fprintf(stderr, "bucse_read: path_split() failed\n");
 			return -ENOMEM;
 		}
-		path_debugPrint(&pathArray);
+		//path_debugPrint(&pathArray);
 
 		FilesystemDir *containingDir = findContainingDir(&pathArray);
 		path_free(&pathArray);
 
-		FilesystemFile *file = findFile(containingDir, fileName);
+		file = findFile(containingDir, fileName);
 		if (file == NULL) {
 			FilesystemDir* dir = findDir(containingDir, fileName);
 			if (dir) {
@@ -751,11 +757,13 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 
 	// determine which blocks should be read
 	DynArray blocksToRead;
+	memset(&blocksToRead, 0, sizeof(DynArray));
 	if (determineBlocksToRead(&blocksToRead, offset, size, file) != 0) {
 		fprintf(stderr, "bucse_read: determineBlocksToRead failed\n");
 		for (int i=0; i<blocksToRead.len; i++) {
 			free(blocksToRead.objects[i]);
 		}
+		freeDynArray(&blocksToRead);
 		return -ENOMEM;
 	}
 
@@ -777,10 +785,12 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 	size_t copiedBytes = 0;
 	int ioerror = 0;
 	for (int i=0; i<blocksToRead.len; i++) {
+		BlockOffsetLen* block = blocksToRead.objects[i];
 		size_t encryptedBlockBufSize = maxEncryptedBlockSize;
-		int res = destination->getStorageFile(file->name, encryptedBlockBuf, &encryptedBlockBufSize);
-		if (res < 0) {
-			fprintf(stderr, "bucse_read: getStorageFile failed: %d\n", res);
+		int res = destination->getStorageFile(block->block, encryptedBlockBuf, &encryptedBlockBufSize);
+		if (res != 0) {
+			fprintf(stderr, "bucse_read: getStorageFile failed for %s: %d\n",
+				block->block, res);
 			ioerror = 1;
 			break;
 		}
@@ -789,7 +799,7 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 		res = encryption->decrypt(encryptedBlockBuf, encryptedBlockBufSize,
 			decryptedBlockBuf, &decryptedBlockBufSize,
 			""); // TODO: manage encryption key
-		if (res < 0) {
+		if (res != 0) {
 			fprintf(stderr, "bucse_read: decrypt failed: %d\n", res);
 			ioerror = 1;
 			break;
@@ -801,8 +811,6 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 			break;
 		}
 
-		BlockOffsetLen* block = blocksToRead.objects[i];
-
 		memcpy(buf + copiedBytes, decryptedBlockBuf + block->offset, block->len);
 		copiedBytes += block->len;
 	}
@@ -813,14 +821,12 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 	for (int i=0; i<blocksToRead.len; i++) {
 		free(blocksToRead.objects[i]);
 	}
+	freeDynArray(&blocksToRead);
 
 	if (ioerror) {
 		return -EIO;
 	}
 
-	if (copiedBytes != size) {
-		fprintf(stderr, "WARNING: bucse_read: expected read size %d, got %d\n", size, copiedBytes);
-	}
 	return copiedBytes;
 }
 

@@ -1,4 +1,3 @@
-- implement reading files
 - implement writing files
 - refactor: extract parts of bucse.c into action.c[?], filesystem.c[?], etc.
 - -Wall
