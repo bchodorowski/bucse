@@ -24,6 +24,12 @@ typedef struct {
 	int size;
 } DynArray;
 
+static int64_t getCurrentTime()
+{
+	// TODO
+	return 0;
+}
+
 static int addToDynArray(DynArray *dynArray, void* newObject)
 {
 	int oldDynArraySize = dynArray->size;
@@ -122,6 +128,19 @@ void freeAction(Action* action)
 
 // -- filesystem
 
+typedef enum {
+	DirtyFlagNotDirty = 0,
+	DirtyFlagPendingCreate = 1,
+	DirtyFlagPendingWrite = 2,
+	DirtyFlagPendingCreateAndWrite = 3,
+} DirtyFlags;
+
+typedef struct {
+	char *buf;
+	size_t size;
+	off_t offset;
+} PendingWrite;
+
 typedef struct
 {
 	const char* name;
@@ -130,6 +149,8 @@ typedef struct
 	int contentLen;
 	int size;
 	int blockSize;
+	DirtyFlags dirtyFlags;
+	DynArray pendingWrites;
 } FilesystemFile;
 
 typedef struct
@@ -283,6 +304,8 @@ static int doAction(Action* action)
 		newFile->contentLen = action->contentLen;
 		newFile->size = action->size;
 		newFile->blockSize = action->blockSize;
+		newFile->dirtyFlags = 0;
+		memset(&newFile->pendingWrites, 0, sizeof(DynArray));
 
 		addToDynArray(&containingDir->files, newFile);
 		return 0;
@@ -619,6 +642,8 @@ static int bucse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
 static int bucse_open(const char *path, struct fuse_file_info *fi)
 {
+	fprintf(stderr, "DEBUG: open %s, access mode %d\n", path, (fi->flags & O_ACCMODE));
+
 	if ((fi->flags & O_ACCMODE) != O_RDONLY)
 		return -EACCES;
 
@@ -637,6 +662,11 @@ static int bucse_open(const char *path, struct fuse_file_info *fi)
 		FilesystemDir *containingDir = findContainingDir(&pathArray);
 		path_free(&pathArray);
 
+		if (containingDir == NULL) {
+			fprintf(stderr, "bucse_open: path not found when opening file %s\n", path);
+			return -ENOENT;
+		}
+
 		FilesystemFile *file = findFile(containingDir, fileName);
 		if (file) {
 			return 0;
@@ -651,6 +681,78 @@ static int bucse_open(const char *path, struct fuse_file_info *fi)
 	} else {
 		return -ENOENT;
 	}
+}
+
+static int bucse_create(const char *path, mode_t mode, struct fuse_file_info *fi)
+{
+	fprintf(stderr, "DEBUG: create %s, mode %d, access mode %d\n", path, mode, (fi->flags & O_ACCMODE));
+
+	FilesystemDir *containingDir = NULL;
+	const char *fileName = NULL;
+
+	if (strcmp(path, "/") == 0) {
+		return -EACCES;
+	} else if (path[0] == '/') {
+		DynArray pathArray;
+		memset(&pathArray, 0, sizeof(DynArray));
+		fileName = path_split(path+1, &pathArray);
+		if (fileName == NULL) {
+			fprintf(stderr, "bucse_create: path_split() failed\n");
+			return -ENOMEM;
+		}
+		//path_debugPrint(&pathArray);
+
+		containingDir = findContainingDir(&pathArray);
+		path_free(&pathArray);
+		if (containingDir == NULL) {
+			fprintf(stderr, "bucse_create: path not found when creating file %s\n", path);
+			return -ENOENT;
+		}
+
+		FilesystemFile *file = findFile(containingDir, fileName);
+		if (file) {
+			return -EEXIST;
+		} else {
+			FilesystemDir* dir = findDir(containingDir, fileName);
+			if (dir) {
+				return -EEXIST;
+			} else {
+				// continue below
+			}
+		}
+	} else {
+		return -ENOENT;
+	}
+
+	FilesystemFile* newFile = malloc(sizeof(FilesystemFile));
+	if (newFile == NULL) {
+		fprintf(stderr, "bucse_create: malloc(): %s\n", strerror(errno));
+		return -ENOMEM;
+	}
+
+	newFile->name = strdup(fileName); // TODO: free when clearing the dirty flag
+	if (newFile->name == NULL) {
+		fprintf(stderr, "splitPath: strdup(): %s\n", strerror(errno));
+		free(newFile);
+		return -ENOMEM;
+	}
+	newFile->time = getCurrentTime();
+	newFile->content = NULL;
+	newFile->contentLen = 0;
+	newFile->size = 0;
+	newFile->blockSize = 0;
+	newFile->dirtyFlags = DirtyFlagPendingCreate;
+	memset(&newFile->pendingWrites, 0, sizeof(DynArray));
+
+	addToDynArray(&containingDir->files, newFile);
+	return 0;
+}
+
+static int bucse_release(const char *path, struct fuse_file_info *fi)
+{
+	fprintf(stderr, "DEBUG: release %s, access mode %d\n", path, (fi->flags & O_ACCMODE));
+
+	return 0;
 }
 
 typedef struct {
@@ -708,6 +810,8 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 {
 	(void) fi;
 
+	fprintf(stderr, "DEBUG: read %s, size: %u, offset: %u\n", path, size, offset);
+
 	/*
 	size_t len;
 	if(strcmp(path+1, TESTFILENAME) != 0)
@@ -740,6 +844,11 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 
 		FilesystemDir *containingDir = findContainingDir(&pathArray);
 		path_free(&pathArray);
+
+		if (containingDir == NULL) {
+			fprintf(stderr, "bucse_read: path not found when reading file %s\n", path);
+			return -ENOENT;
+		}
 
 		file = findFile(containingDir, fileName);
 		if (file == NULL) {
@@ -830,16 +939,83 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 	return copiedBytes;
 }
 
+static int bucse_write(const char *path, const char *buf, size_t size, off_t offset,
+		struct fuse_file_info *fi)
+{
+	(void) fi;
+
+	fprintf(stderr, "DEBUG: write %s, size: %u, offset: %u\n", path, size, offset);
+
+	FilesystemFile *file = NULL;
+
+	if (strcmp(path, "/") == 0) {
+		return -EACCES;
+	} else if (path[0] == '/') {
+		DynArray pathArray;
+		memset(&pathArray, 0, sizeof(DynArray));
+		const char *fileName = path_split(path+1, &pathArray);
+		if (fileName == NULL) {
+			fprintf(stderr, "bucse_write: path_split() failed\n");
+			return -ENOMEM;
+		}
+		//path_debugPrint(&pathArray);
+
+		FilesystemDir *containingDir = findContainingDir(&pathArray);
+		path_free(&pathArray);
+
+		if (containingDir == NULL) {
+			fprintf(stderr, "bucse_write: path not found when reading file %s\n", path);
+			return -ENOENT;
+		}
+
+		file = findFile(containingDir, fileName);
+		if (file == NULL) {
+			FilesystemDir* dir = findDir(containingDir, fileName);
+			if (dir) {
+				return -EACCES;
+			} else {
+				return -ENOENT;
+			}
+		}
+		// continue working with the file below
+	} else {
+		return -ENOENT;
+	}
+
+	file->dirtyFlags |= DirtyFlagPendingWrite;
+	PendingWrite* newPendingWrite = malloc(sizeof(PendingWrite));
+	if (newPendingWrite == NULL) {
+		fprintf(stderr, "bucse_write: malloc(): %s\n", strerror(errno));
+		return -ENOMEM;
+	}
+	newPendingWrite->size = size;
+	newPendingWrite->buf = malloc(size);
+	if (newPendingWrite->buf == NULL) {
+		fprintf(stderr, "bucse_write: malloc(): %s\n", strerror(errno));
+		free(newPendingWrite);
+		return -ENOMEM;
+	}
+	memcpy(newPendingWrite->buf, buf, size);
+	newPendingWrite->offset = offset;
+	addToDynArray(&file->pendingWrites, newPendingWrite);
+
+	return size;
+}
+
 struct fuse_operations bucse_oper = {
 	.getattr = bucse_getattr,
 	.open = bucse_open,
+	.create = bucse_create,
+	.release = bucse_release,
 	.read = bucse_read,
 	.readdir = bucse_readdir,
+	.write = bucse_write,
 };
 
 struct bucse_config {
 	char *repository;
 };
+
 enum {
 	KEY_HELP,
 	KEY_VERSION,
