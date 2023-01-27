@@ -270,6 +270,73 @@ static FilesystemDir* findDirByPath(DynArray *pathArray)
 	return current;
 }
 
+#define MIN_BLOCK_SIZE 512
+#define MAX_BLOCK_SIZE (128 * 1024 * 1024)
+
+// determine block size using a file size
+static int getBlockSize(int size)
+{
+	if (size == 0) {
+		return 0;
+	}
+
+	// we want block size to be a power of 2,
+	// in general, we aim to have between 4 and 8 blocks in a file,
+	int result = 1;
+	size /= 4;
+
+	while (size) {
+		size >>= 1;
+		result <<= 1;
+	}
+	result >>= 1;
+
+	// unless we hit those edge cases
+	if (result < MIN_BLOCK_SIZE) {
+		return MIN_BLOCK_SIZE;
+	}
+
+	if (result > MAX_BLOCK_SIZE) {
+		return MAX_BLOCK_SIZE;
+	}
+
+	return result;
+}
+
+static void flushFile(FilesystemFile* file)
+{
+	if (file->dirtyFlags == DirtyFlagNotDirty) {
+		return;
+	}
+
+	int newSize = file->size;
+	int newBlockSize = file->blockSize;
+
+	for (int i=0; i<file->pendingWrites.len; i++) {
+		PendingWrite* pw = file->pendingWrites.objects[i];
+		if (newSize < (pw->offset + pw->size)) {
+			newSize = (pw->offset + pw->size);
+		}
+	}
+
+	// block size may not be determined yet if the file hasn't been flushed
+	// with any data
+	if (file->blockSize == 0) {
+		newBlockSize = getBlockSize(newSize);
+	}
+
+	// TODO: work here
+
+	// TODO: determine which blocks have been changed
+	// TODO: construct and save new blocks (with destination->putStorageFile() calls)
+	// TODO: construct new action (with destination->addActionFile() call)
+	// TODO: update file
+
+	// TODO: call flushFile where needed
+	// TODO: implement destination->putStorageFile() for dest_local
+	// TODO: implement destination->addActionFile() for dest_local
+}
+
 static int doAction(Action* action)
 {
 	printf("DEBUG: do action\n");
@@ -533,9 +600,6 @@ void actionAdded(char* actionName, char* buf, size_t size, int moreInThisBatch)
 	}
 	freeDynArray(&actionsPending);
 }
-
-static char TESTCONTENT[] = "Wololo\n";
-static char TESTFILENAME[] = "test";
 
 extern Destination destinationLocal;
 extern Encryption encryptionNone;
