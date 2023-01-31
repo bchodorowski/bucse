@@ -126,6 +126,12 @@ void freeAction(Action* action)
 
 #define MAX_STORAGE_NAME_LEN 64
 
+typedef struct {
+	const char* block;
+	off_t offset;
+	size_t len;
+} BlockOffsetLen;
+
 // -- filesystem
 
 typedef enum {
@@ -303,14 +309,34 @@ static int getBlockSize(int size)
 	return result;
 }
 
-static void flushFile(FilesystemFile* file)
+static int determineBlocksToWrite(char *blocksToWrite, off_t offset, size_t size, int fileBlockSize)
+{
+	while (size > 0) {
+		int blockIndex = offset / fileBlockSize;
+		off_t blockOffset = (offset % fileBlockSize);
+		size_t blockLen = fileBlockSize - blockOffset;
+		if (blockLen > size) {
+			blockLen = size;
+		}
+
+		blocksToWrite[blockIndex] = 1;
+
+		offset += blockLen;
+		size -= blockLen;
+	}
+	
+	return 0;
+}
+
+static int flushFile(FilesystemFile* file)
 {
 	if (file->dirtyFlags == DirtyFlagNotDirty) {
-		return;
+		return 0;
 	}
 
 	int newSize = file->size;
 	int newBlockSize = file->blockSize;
+	int newContentLen;
 
 	for (int i=0; i<file->pendingWrites.len; i++) {
 		PendingWrite* pw = file->pendingWrites.objects[i];
@@ -325,16 +351,46 @@ static void flushFile(FilesystemFile* file)
 		newBlockSize = getBlockSize(newSize);
 	}
 
+	newContentLen = newSize / newBlockSize + (int)(newSize % newBlockSize != 0);
+
+	// TODO: if newContentLen is big, consider changing the blockSize and
+	//       rewriting the whole file
+
+	// determine which blocks have been changed -- one byte per block
+	char* blocksToWrite = malloc(newContentLen);
+	if (blocksToWrite == NULL) {
+		fprintf(stderr, "flushFile: malloc(): %s\n", strerror(errno));
+		return 1;
+	}
+	memset(blocksToWrite, 0, newContentLen);
+
+	for (int i=0; i<file->pendingWrites.len; i++) {
+		PendingWrite* pw = file->pendingWrites.objects[i];
+		determineBlocksToWrite(blocksToWrite, pw->offset, pw->size, newBlockSize);
+	}
+
+	// debug: print number of blocks to be written
+	int blocksToWriteNum = 0;
+	for (int i=0; i<newContentLen; i++) {
+		blocksToWriteNum += blocksToWrite[i];
+	}
+	fprintf(stderr, "DEBUG: flush file: %d blocks to write\n", blocksToWriteNum);
+
+
 	// TODO: work here
 
-	// TODO: determine which blocks have been changed
 	// TODO: construct and save new blocks (with destination->putStorageFile() calls)
+
+	free(blocksToWrite);
+
 	// TODO: construct new action (with destination->addActionFile() call)
 	// TODO: update file
 
 	// TODO: call flushFile where needed
 	// TODO: implement destination->putStorageFile() for dest_local
 	// TODO: implement destination->addActionFile() for dest_local
+
+	return 0;
 }
 
 static int doAction(Action* action)
@@ -639,7 +695,7 @@ static int bucse_getattr(const char *path, struct stat *stbuf, struct fuse_file_
 
 		FilesystemFile *file = findFile(containingDir, fileName);
 		if (file) {
-			stbuf->st_mode = S_IFREG | 0444;
+			stbuf->st_mode = S_IFREG | 0644;
 			stbuf->st_nlink = 1;
 			stbuf->st_size = file->size;
 		} else {
@@ -708,8 +764,8 @@ static int bucse_open(const char *path, struct fuse_file_info *fi)
 {
 	fprintf(stderr, "DEBUG: open %s, access mode %d\n", path, (fi->flags & O_ACCMODE));
 
-	if ((fi->flags & O_ACCMODE) != O_RDONLY)
-		return -EACCES;
+	//if ((fi->flags & O_ACCMODE) != O_RDONLY)
+	//	return -EACCES;
 
 	if (strcmp(path, "/") == 0) {
 		return -EACCES;
@@ -816,14 +872,39 @@ static int bucse_release(const char *path, struct fuse_file_info *fi)
 {
 	fprintf(stderr, "DEBUG: release %s, access mode %d\n", path, (fi->flags & O_ACCMODE));
 
+	if ((fi->flags & O_ACCMODE) == O_RDONLY) {
+		return 0;
+	}
+
+	if (strcmp(path, "/") == 0) {
+		return -EACCES;
+	} else if (path[0] == '/') {
+		DynArray pathArray;
+		memset(&pathArray, 0, sizeof(DynArray));
+		const char *fileName = path_split(path+1, &pathArray);
+		if (fileName == NULL) {
+			fprintf(stderr, "bucse_open: path_split() failed\n");
+			return -ENOMEM;
+		}
+		//path_debugPrint(&pathArray);
+
+		FilesystemDir *containingDir = findContainingDir(&pathArray);
+		path_free(&pathArray);
+
+		if (containingDir == NULL) {
+			fprintf(stderr, "bucse_open: path not found when opening file %s\n", path);
+			return -ENOENT;
+		}
+
+		FilesystemFile *file = findFile(containingDir, fileName);
+		if (file) {
+			flushFile(file);
+		}
+	} else {
+		return -ENOENT;
+	}
 	return 0;
 }
-
-typedef struct {
-	const char* block;
-	off_t offset;
-	size_t len;
-} BlockOffsetLen;
 
 // use offset and size to determine which blocks contain the data that's needed
 static int determineBlocksToRead(DynArray *blocksToRead, off_t offset, size_t size, FilesystemFile* file)
@@ -1062,6 +1143,8 @@ static int bucse_write(const char *path, const char *buf, size_t size, off_t off
 	memcpy(newPendingWrite->buf, buf, size);
 	newPendingWrite->offset = offset;
 	addToDynArray(&file->pendingWrites, newPendingWrite);
+
+	// TODO: flush file if pendingWrites are too large
 
 	return size;
 }
