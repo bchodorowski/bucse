@@ -328,69 +328,14 @@ static int determineBlocksToWrite(char *blocksToWrite, off_t offset, size_t size
 	return 0;
 }
 
-static int flushFile(FilesystemFile* file)
+// TODO: move this to Encryption[?]
+static size_t getMaxEncryptedBlockSize(size_t blockSize)
 {
-	if (file->dirtyFlags == DirtyFlagNotDirty) {
-		return 0;
+	blockSize *= 2;
+	if (blockSize < 256) {
+		blockSize = 256;
 	}
-
-	int newSize = file->size;
-	int newBlockSize = file->blockSize;
-	int newContentLen;
-
-	for (int i=0; i<file->pendingWrites.len; i++) {
-		PendingWrite* pw = file->pendingWrites.objects[i];
-		if (newSize < (pw->offset + pw->size)) {
-			newSize = (pw->offset + pw->size);
-		}
-	}
-
-	// block size may not be determined yet if the file hasn't been flushed
-	// with any data
-	if (file->blockSize == 0) {
-		newBlockSize = getBlockSize(newSize);
-	}
-
-	newContentLen = newSize / newBlockSize + (int)(newSize % newBlockSize != 0);
-
-	// TODO: if newContentLen is big, consider changing the blockSize and
-	//       rewriting the whole file
-
-	// determine which blocks have been changed -- one byte per block
-	char* blocksToWrite = malloc(newContentLen);
-	if (blocksToWrite == NULL) {
-		fprintf(stderr, "flushFile: malloc(): %s\n", strerror(errno));
-		return 1;
-	}
-	memset(blocksToWrite, 0, newContentLen);
-
-	for (int i=0; i<file->pendingWrites.len; i++) {
-		PendingWrite* pw = file->pendingWrites.objects[i];
-		determineBlocksToWrite(blocksToWrite, pw->offset, pw->size, newBlockSize);
-	}
-
-	// debug: print number of blocks to be written
-	int blocksToWriteNum = 0;
-	for (int i=0; i<newContentLen; i++) {
-		blocksToWriteNum += blocksToWrite[i];
-	}
-	fprintf(stderr, "DEBUG: flush file: %d blocks to write\n", blocksToWriteNum);
-
-
-	// TODO: work here
-
-	// TODO: construct and save new blocks (with destination->putStorageFile() calls)
-
-	free(blocksToWrite);
-
-	// TODO: construct new action (with destination->addActionFile() call)
-	// TODO: update file
-
-	// TODO: call flushFile where needed
-	// TODO: implement destination->putStorageFile() for dest_local
-	// TODO: implement destination->addActionFile() for dest_local
-
-	return 0;
+	return blockSize;
 }
 
 static int doAction(Action* action)
@@ -667,6 +612,135 @@ static pthread_t tickThread;
 static pthread_mutex_t shutdownMutex;
 static int shutdownTicking = 0;
 
+static int flushFile(FilesystemFile* file)
+{
+	if (file->dirtyFlags == DirtyFlagNotDirty) {
+		return 0;
+	}
+
+	int newSize = file->size;
+	int newBlockSize = file->blockSize;
+	int newContentLen;
+
+	for (int i=0; i<file->pendingWrites.len; i++) {
+		PendingWrite* pw = file->pendingWrites.objects[i];
+		if (newSize < (pw->offset + pw->size)) {
+			newSize = (pw->offset + pw->size);
+		}
+	}
+
+	// block size may not be determined yet if the file hasn't been flushed
+	// with any data
+	if (file->blockSize == 0) {
+		newBlockSize = getBlockSize(newSize);
+	}
+
+	newContentLen = newSize / newBlockSize + (int)(newSize % newBlockSize != 0);
+
+	// TODO: if newContentLen is big, consider changing the blockSize and
+	//       rewriting the whole file
+
+	// determine which blocks have been changed -- one byte per block
+	char* blocksToWrite = malloc(newContentLen);
+	if (blocksToWrite == NULL) {
+		fprintf(stderr, "flushFile: malloc(): %s\n", strerror(errno));
+		return 1;
+	}
+	memset(blocksToWrite, 0, newContentLen);
+
+	for (int i=0; i<file->pendingWrites.len; i++) {
+		PendingWrite* pw = file->pendingWrites.objects[i];
+		determineBlocksToWrite(blocksToWrite, pw->offset, pw->size, newBlockSize);
+	}
+
+	// debug: print number of blocks to be written
+	int blocksToWriteNum = 0;
+	for (int i=0; i<newContentLen; i++) {
+		blocksToWriteNum += blocksToWrite[i];
+	}
+	fprintf(stderr, "DEBUG: flush file: %d blocks to write\n", blocksToWriteNum);
+
+
+
+	// construct and save new blocks (with destination->putStorageFile() calls)
+	size_t maxEncryptedBlockSize = getMaxEncryptedBlockSize(newBlockSize);
+	char* encryptedBlockBuf = malloc(maxEncryptedBlockSize);
+	if (encryptedBlockBuf == NULL) {
+		fprintf(stderr, "flushFile: malloc(): %s\n", strerror(errno));
+		return 2;
+	}
+
+	size_t maxDecryptedBlockSize = newBlockSize;
+	char* decryptedBlockBuf = malloc(maxDecryptedBlockSize);
+	if (decryptedBlockBuf == NULL) {
+		fprintf(stderr, "flushFile: malloc(): %s\n", strerror(errno));
+		free(encryptedBlockBuf);
+		return 3;
+	}
+	int ioerror = 0;
+	for (int i=0; i<newContentLen; i++) {
+		if (blocksToWrite[i] == 0) {
+			// TODO: save old content block
+			continue;
+		}
+
+		if (i < file->contentLen) {
+			size_t expectedReadSize = file->size - (i * file->blockSize);
+			if (expectedReadSize > file->blockSize) {
+				expectedReadSize = file->blockSize;
+			}
+
+			const char* block = file->content + (MAX_STORAGE_NAME_LEN * i);
+			size_t encryptedBlockBufSize = maxEncryptedBlockSize;
+			int res = destination->getStorageFile(block, encryptedBlockBuf, &encryptedBlockBufSize);
+			if (res != 0) {
+				fprintf(stderr, "flushFile: getStorageFile failed for %s: %d\n",
+					block, res);
+				ioerror = 1;
+				break;
+			}
+
+			size_t decryptedBlockBufSize = maxDecryptedBlockSize;
+			res = encryption->decrypt(encryptedBlockBuf, encryptedBlockBufSize,
+				decryptedBlockBuf, &decryptedBlockBufSize,
+				""); // TODO: manage encryption key
+			if (res != 0) {
+				fprintf(stderr, "flushFile: decrypt failed: %d\n", res);
+				ioerror = 1;
+				break;
+			}
+			if (decryptedBlockBufSize != expectedReadSize) {
+				fprintf(stderr, "flushFile: expected decrypted block size %d, got %d\n",
+					expectedReadSize, decryptedBlockBufSize);
+				ioerror = 1;
+				break;
+			}
+		}
+		// right now we have data in decryptedBlockBuf
+		// TODO: apply write operations, encrypt and save the block
+		//
+		// TODO: work here
+
+	}
+
+	free(encryptedBlockBuf);
+	free(decryptedBlockBuf);
+	free(blocksToWrite);
+
+	if (ioerror) {
+		return 4;
+	}
+
+	// TODO: construct new action (with destination->addActionFile() call)
+	// TODO: update file
+
+	// TODO: call flushFile where needed
+	// TODO: implement destination->putStorageFile() for dest_local
+	// TODO: implement destination->addActionFile() for dest_local
+
+	return 0;
+}
+
 
 static int bucse_getattr(const char *path, struct stat *stbuf, struct fuse_file_info *fi)
 {
@@ -940,16 +1014,6 @@ static int determineBlocksToRead(DynArray *blocksToRead, off_t offset, size_t si
 	return 0;
 }
 
-// TODO: move this to Encryption[?]
-static size_t getMaxEncryptedBlockSize(size_t blockSize)
-{
-	blockSize *= 2;
-	if (blockSize < 256) {
-		blockSize = 256;
-	}
-	return blockSize;
-}
-
 static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 		struct fuse_file_info *fi)
 {
@@ -1058,9 +1122,9 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 			ioerror = 1;
 			break;
 		}
-		if (decryptedBlockBufSize != maxDecryptedBlockSize) {
+		if (decryptedBlockBufSize != block->len) {
 			fprintf(stderr, "bucse_read: expected decrypted block size %d, got %d\n",
-				maxDecryptedBlockSize, decryptedBlockBufSize);
+				block->len, decryptedBlockBufSize);
 			ioerror = 1;
 			break;
 		}
