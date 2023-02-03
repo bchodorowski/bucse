@@ -612,6 +612,32 @@ static pthread_t tickThread;
 static pthread_mutex_t shutdownMutex;
 static int shutdownTicking = 0;
 
+static int getRandomStorageFileName(char* filename)
+{
+	FILE* f = fopen("/dev/urandom", "rb");
+	if (f == NULL) {
+		fprintf(stderr, "getRandomStorageFileName: fopen(): %s\n", strerror(errno));
+		filename[0] = 0;
+		return 1;
+	}
+
+	unsigned char buf[20];
+	size_t got = fread(buf, 20, 1, f);
+	if (got == 0) {
+		fprintf(stderr, "getRandomStorageFileName: fread failed\n");
+		fclose(f);
+		return 2;
+	}
+
+	fclose(f);
+
+	for (int i=0; i<20; i++) {
+		sprintf(filename + 2*i, "%02x", buf[i]);
+	}
+
+	return 0;
+}
+
 static int flushFile(FilesystemFile* file)
 {
 	if (file->dirtyFlags == DirtyFlagNotDirty) {
@@ -684,6 +710,8 @@ static int flushFile(FilesystemFile* file)
 			continue;
 		}
 
+		size_t encryptedBlockBufSize = maxEncryptedBlockSize;
+		size_t decryptedBlockBufSize = maxDecryptedBlockSize;
 		if (i < file->contentLen) {
 			size_t expectedReadSize = file->size - (i * file->blockSize);
 			if (expectedReadSize > file->blockSize) {
@@ -691,7 +719,6 @@ static int flushFile(FilesystemFile* file)
 			}
 
 			const char* block = file->content + (MAX_STORAGE_NAME_LEN * i);
-			size_t encryptedBlockBufSize = maxEncryptedBlockSize;
 			int res = destination->getStorageFile(block, encryptedBlockBuf, &encryptedBlockBufSize);
 			if (res != 0) {
 				fprintf(stderr, "flushFile: getStorageFile failed for %s: %d\n",
@@ -700,7 +727,6 @@ static int flushFile(FilesystemFile* file)
 				break;
 			}
 
-			size_t decryptedBlockBufSize = maxDecryptedBlockSize;
 			res = encryption->decrypt(encryptedBlockBuf, encryptedBlockBufSize,
 				decryptedBlockBuf, &decryptedBlockBufSize,
 				""); // TODO: manage encryption key
@@ -743,9 +769,32 @@ static int flushFile(FilesystemFile* file)
 				memcpy(decryptedBlockBuf + relOffset, pw->buf, bytesToCopy);
 			}
 		}
-		// TODO: encrypt and save the block
+		// encrypt
+		int res = encryption->encrypt(decryptedBlockBuf, decryptedBlockBufSize,
+			encryptedBlockBuf, &encryptedBlockBufSize,
+			""); // TODO: manage encryption key
+		if (res != 0) {
+			fprintf(stderr, "flushFile: encrypt failed: %d\n", res);
+			ioerror = 1;
+			break;
+		}
+
+		// save
+		char newStorageFileName[MAX_STORAGE_NAME_LEN];
+		if (getRandomStorageFileName(newStorageFileName) != 0) {
+			fprintf(stderr, "flushFile: getRandomStorageFileName failed\n");
+			ioerror = 1;
+			break;
+		}
+		res = destination->putStorageFile(newStorageFileName, encryptedBlockBuf, encryptedBlockBufSize);
+		if (res != 0) {
+			fprintf(stderr, "flushFile: putStorageFile failed: %d\n", res);
+			ioerror = 1;
+			break;
+		}
 
 		// TODO: work here
+		// TODO: save block file names
 	}
 
 	free(encryptedBlockBuf);
