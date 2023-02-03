@@ -717,10 +717,35 @@ static int flushFile(FilesystemFile* file)
 			}
 		}
 		// right now we have data in decryptedBlockBuf
-		// TODO: apply write operations, encrypt and save the block
-		//
-		// TODO: work here
+		
+		// apply write operations
+		for (int i=0; i<file->pendingWrites.len; i++) {
+			PendingWrite* pw = file->pendingWrites.objects[i];
+			int relOffset = pw->offset - i * file->blockSize;
 
+			if (relOffset >= file->blockSize) {
+				continue;
+			} else if (relOffset + pw->size < 0) {
+				continue;
+			}
+
+			if (relOffset <= 0) {
+				int bytesToCopy = pw->size + relOffset;
+				if (bytesToCopy > file->blockSize) {
+					bytesToCopy = file->blockSize;
+				}
+				memcpy(decryptedBlockBuf, pw->buf - relOffset, bytesToCopy);
+			} else {
+				int bytesToCopy = pw->size;
+				if (bytesToCopy > file->blockSize - relOffset) {
+					bytesToCopy = file->blockSize - relOffset;
+				}
+				memcpy(decryptedBlockBuf + relOffset, pw->buf, bytesToCopy);
+			}
+		}
+		// TODO: encrypt and save the block
+
+		// TODO: work here
 	}
 
 	free(encryptedBlockBuf);
