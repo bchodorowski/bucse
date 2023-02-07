@@ -148,6 +148,15 @@ typedef struct {
 	off_t offset;
 } PendingWrite;
 
+typedef struct _FilesystemDir
+{
+	char* name;
+	int64_t time;
+	DynArray files;
+	DynArray dirs;
+	struct _FilesystemDir* parentDir;
+} FilesystemDir;
+
 typedef struct
 {
 	const char* name;
@@ -158,15 +167,8 @@ typedef struct
 	int blockSize;
 	DirtyFlags dirtyFlags;
 	DynArray pendingWrites;
+	FilesystemDir* parentDir;
 } FilesystemFile;
-
-typedef struct
-{
-	char* name;
-	int64_t time;
-	DynArray files;
-	DynArray dirs;
-} FilesystemDir;
 
 static FilesystemDir* root;
 
@@ -375,6 +377,7 @@ static int doAction(Action* action)
 		newFile->blockSize = action->blockSize;
 		newFile->dirtyFlags = 0;
 		memset(&newFile->pendingWrites, 0, sizeof(DynArray));
+		newFile->parentDir = containingDir;
 
 		addToDynArray(&containingDir->files, newFile);
 		return 0;
@@ -639,9 +642,39 @@ static int getRandomStorageFileName(char* filename)
 	return 0;
 }
 
+static int getFullFilePathRecursion(char* result, int index, FilesystemDir* dir)
+{
+	if (dir->parentDir) {
+		index = getFullFilePathRecursion(result, index, dir->parentDir);
+	}
+	if (dir->name) {
+		sprintf(result+index, "%s/", dir->name);
+		index += strlen(dir->name) + 1;
+	}
+	return index;
+}
+
 static char* getFullFilePath(FilesystemFile* file) {
-	// TODO
-	return NULL;
+	int len = strlen(file->name) + 1;
+	FilesystemDir *current = file->parentDir;
+	while (current) {
+		if (current->name) {
+			len += 1 + strlen(current->name);
+		}
+		current = current->parentDir;
+	}
+
+	char* result = malloc(len);
+	if (result == NULL) {
+		fprintf(stderr, "getFullFilePath: malloc(): %s\n", strerror(errno));
+		return NULL;
+	}
+
+	int index = 0;
+	index = getFullFilePathRecursion(result, index, file->parentDir);
+	sprintf(result+index, "%s", file->name);
+
+	return result;
 }
 
 static int flushFile(FilesystemFile* file)
@@ -856,7 +889,6 @@ static int flushFile(FilesystemFile* file)
 	addToDynArray(&actions, newAction);
 
 	// TODO: work here
-	// TODO: implement getFullFilePath()
 
 	// TODO: write to json, call destination->addActionFile()
 	// TODO: update file
@@ -1065,6 +1097,7 @@ static int bucse_create(const char *path, mode_t mode, struct fuse_file_info *fi
 	newFile->blockSize = 0;
 	newFile->dirtyFlags = DirtyFlagPendingCreate;
 	memset(&newFile->pendingWrites, 0, sizeof(DynArray));
+	newFile->parentDir = containingDir;
 
 	addToDynArray(&containingDir->files, newFile);
 	return 0;
