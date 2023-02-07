@@ -75,7 +75,8 @@ typedef enum {
 	ActionTypeAddFile,
 	ActionTypeRemoveFile,
 	ActionTypeAddDirectory,
-	ActionTypeRemoveDirectory
+	ActionTypeRemoveDirectory,
+	ActionTypeEditFile,
 } ActionType;
 
 typedef struct {
@@ -638,11 +639,17 @@ static int getRandomStorageFileName(char* filename)
 	return 0;
 }
 
+static char* getFullFilePath(FilesystemFile* file) {
+	// TODO
+	return NULL;
+}
+
 static int flushFile(FilesystemFile* file)
 {
 	if (file->dirtyFlags == DirtyFlagNotDirty) {
 		return 0;
 	}
+	// TODO: what if create only, no writes?
 
 	int newSize = file->size;
 	int newBlockSize = file->blockSize;
@@ -693,6 +700,7 @@ static int flushFile(FilesystemFile* file)
 	char* encryptedBlockBuf = malloc(maxEncryptedBlockSize);
 	if (encryptedBlockBuf == NULL) {
 		fprintf(stderr, "flushFile: malloc(): %s\n", strerror(errno));
+		free(blocksToWrite);
 		return 2;
 	}
 
@@ -700,13 +708,24 @@ static int flushFile(FilesystemFile* file)
 	char* decryptedBlockBuf = malloc(maxDecryptedBlockSize);
 	if (decryptedBlockBuf == NULL) {
 		fprintf(stderr, "flushFile: malloc(): %s\n", strerror(errno));
+		free(blocksToWrite);
 		free(encryptedBlockBuf);
 		return 3;
+	}
+	char* newContent = malloc(newContentLen * MAX_STORAGE_NAME_LEN);
+	if (newContent == NULL) {
+		free(blocksToWrite);
+		free(encryptedBlockBuf);
+		free(decryptedBlockBuf);
+		fprintf(stderr, "flushFile: malloc(): %s\n", strerror(errno));
+		return 4;
 	}
 	int ioerror = 0;
 	for (int i=0; i<newContentLen; i++) {
 		if (blocksToWrite[i] == 0) {
-			// TODO: save old content block
+			memcpy(newContent + (MAX_STORAGE_NAME_LEN * i),
+				file->content + (MAX_STORAGE_NAME_LEN * i),
+				MAX_STORAGE_NAME_LEN);
 			continue;
 		}
 
@@ -793,8 +812,9 @@ static int flushFile(FilesystemFile* file)
 			break;
 		}
 
-		// TODO: work here
-		// TODO: save block file names
+		memcpy(newContent + (MAX_STORAGE_NAME_LEN * i),
+			newStorageFileName,
+			MAX_STORAGE_NAME_LEN);
 	}
 
 	free(encryptedBlockBuf);
@@ -802,11 +822,45 @@ static int flushFile(FilesystemFile* file)
 	free(blocksToWrite);
 
 	if (ioerror) {
-		return 4;
+		free(newContent);
+		return 5;
 	}
 
-	// TODO: construct new action (with destination->addActionFile() call)
+	// construct new action, add it to actions
+	Action* newAction = malloc(sizeof(Action));
+	if (newAction == NULL) {
+		fprintf(stderr, "flushFile: malloc(): %s\n", strerror(errno));
+		free(newContent);
+		return 6;
+	}
+	newAction->time = getCurrentTime();
+
+	if (file->dirtyFlags == DirtyFlagPendingWrite) {
+		newAction->actionType = ActionTypeEditFile;
+	} else if (file->dirtyFlags == DirtyFlagPendingCreateAndWrite ) {
+		newAction->actionType = ActionTypeAddFile;
+	}
+
+	newAction->path = getFullFilePath(file);
+	if (newAction->path == NULL) {
+		fprintf(stderr, "flushFile: getFullFilePath() failed: %s\n", strerror(errno));
+		free(newContent);
+		free(newAction);
+		return 7;
+	}
+	newAction->content = newContent;
+	newAction->contentLen = newContentLen;
+	newAction->size = newSize;
+	newAction->blockSize = newBlockSize;
+
+	addToDynArray(&actions, newAction);
+
+	// TODO: work here
+	// TODO: implement getFullFilePath()
+
+	// TODO: write to json, call destination->addActionFile()
 	// TODO: update file
+	// ==
 
 	// TODO: call flushFile where needed
 	// TODO: implement destination->putStorageFile() for dest_local
