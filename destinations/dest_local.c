@@ -247,6 +247,7 @@ int destLocalAddActionFile(char* filename, char *buf, size_t size)
 	}
 	fclose(file);
 
+	addAction(&handledActions, filename);
 	return 0;
 }
 
