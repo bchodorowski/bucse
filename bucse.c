@@ -804,9 +804,9 @@ static int flushFile(FilesystemFile* file)
 		// apply write operations
 		for (int i=0; i<file->pendingWrites.len; i++) {
 			PendingWrite* pw = file->pendingWrites.objects[i];
-			int relOffset = pw->offset - i * file->blockSize;
+			int relOffset = pw->offset - i * newBlockSize;
 
-			if (relOffset >= file->blockSize) {
+			if (relOffset >= newBlockSize) {
 				continue;
 			} else if (relOffset + pw->size < 0) {
 				continue;
@@ -814,14 +814,14 @@ static int flushFile(FilesystemFile* file)
 
 			if (relOffset <= 0) {
 				int bytesToCopy = pw->size + relOffset;
-				if (bytesToCopy > file->blockSize) {
-					bytesToCopy = file->blockSize;
+				if (bytesToCopy > newBlockSize) {
+					bytesToCopy = newBlockSize;
 				}
 				memcpy(decryptedBlockBuf, pw->buf - relOffset, bytesToCopy);
 			} else {
 				int bytesToCopy = pw->size;
-				if (bytesToCopy > file->blockSize - relOffset) {
-					bytesToCopy = file->blockSize - relOffset;
+				if (bytesToCopy > newBlockSize - relOffset) {
+					bytesToCopy = newBlockSize - relOffset;
 				}
 				memcpy(decryptedBlockBuf + relOffset, pw->buf, bytesToCopy);
 			}
