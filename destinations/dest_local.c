@@ -152,7 +152,34 @@ void destLocalShutdown()
 
 int destLocalPutStorageFile(const char* filename, char *buf, size_t size)
 {
-	return -1;
+	char* storageFilePath = malloc(MAX_FILEPATH_LEN);
+	if (storageFilePath == NULL) {
+		fprintf(stderr, "destLocalPutStorageFile: malloc(): %s\n", strerror(errno));
+
+		return 1;
+	}
+
+	snprintf(storageFilePath, MAX_FILEPATH_LEN, "%s/%s", repositoryStoragePath, filename);
+
+	FILE* file = fopen(storageFilePath, "wb");
+	free(storageFilePath);
+	if (file == NULL) {
+		fprintf(stderr, "destLocalPutStorageFile: fopen(): %s\n", strerror(errno));
+		return 2;
+	}
+
+	size_t bytesWritten = 0;
+	while (!ferror(file) && bytesWritten < size) {
+		bytesWritten += fwrite(buf + bytesWritten, 1, size - bytesWritten, file);
+	}
+	if (ferror(file)) {
+		fprintf(stderr, "destLocalPutStorageFile: ferror() returned a non-zero value\n");
+		fclose(file);
+		return 3;
+	}
+	fclose(file);
+
+	return 0;
 }
 
 int destLocalGetStorageFile(const char* filename, char *buf, size_t *size)
@@ -193,7 +220,34 @@ int destLocalGetStorageFile(const char* filename, char *buf, size_t *size)
 
 int destLocalAddActionFile(char* filename, char *buf, size_t size)
 {
-	return -1;
+	char* actionFilePath = malloc(MAX_FILEPATH_LEN);
+	if (actionFilePath == NULL) {
+		fprintf(stderr, "destLocalAddActionFile: malloc(): %s\n", strerror(errno));
+
+		return 1;
+	}
+
+	snprintf(actionFilePath, MAX_FILEPATH_LEN, "%s/%s", repositoryActionsPath, filename);
+
+	FILE* file = fopen(actionFilePath, "wb");
+	free(actionFilePath);
+	if (file == NULL) {
+		fprintf(stderr, "destLocalAddActionFile: fopen(): %s\n", strerror(errno));
+		return 2;
+	}
+
+	size_t bytesWritten = 0;
+	while (!ferror(file) && bytesWritten < size) {
+		bytesWritten += fwrite(buf + bytesWritten, 1, size - bytesWritten, file);
+	}
+	if (ferror(file)) {
+		fprintf(stderr, "destLocalAddActionFile: ferror() returned a non-zero value\n");
+		fclose(file);
+		return 3;
+	}
+	fclose(file);
+
+	return 0;
 }
 
 int destLocalGetRepositoryFile(char *buf, size_t *size)

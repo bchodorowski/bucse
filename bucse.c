@@ -979,15 +979,22 @@ static int flushFile(FilesystemFile* file)
 
 	addToDynArray(&actions, newAction);
 
-	
-	// TODO: work here
+	// update file
+	file->time = newAction->time;
+	file->content = newAction->content;
+	file->contentLen = newAction->contentLen;
+	file->size = newAction->size;
+	file->blockSize = newAction->blockSize;
+	file->dirtyFlags = DirtyFlagNotDirty;
 
-	// TODO: update file
-	// ==
+	for (int i=0; i<file->pendingWrites.len; i++) {
+		PendingWrite* pw = file->pendingWrites.objects[i];
+		free(pw->buf);
+		free(pw);
+	}
+	freeDynArray(&file->pendingWrites);
 
 	// TODO: call flushFile where needed
-	// TODO: implement destination->putStorageFile() for dest_local
-	// TODO: implement destination->addActionFile() for dest_local
 
 	return 0;
 }
