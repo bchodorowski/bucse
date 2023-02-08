@@ -826,8 +826,15 @@ static int flushFile(FilesystemFile* file)
 				memcpy(decryptedBlockBuf + relOffset, pw->buf, bytesToCopy);
 			}
 		}
+
+		size_t expectedWriteSize = newSize - (i * newBlockSize);
+		if (expectedWriteSize > newBlockSize) {
+			expectedWriteSize = newBlockSize;
+		}
+		encryptedBlockBufSize = maxEncryptedBlockSize;
+
 		// encrypt
-		int res = encryption->encrypt(decryptedBlockBuf, decryptedBlockBufSize,
+		int res = encryption->encrypt(decryptedBlockBuf, expectedWriteSize,
 			encryptedBlockBuf, &encryptedBlockBufSize,
 			""); // TODO: manage encryption key
 		if (res != 0) {
@@ -980,6 +987,13 @@ static int flushFile(FilesystemFile* file)
 	addToDynArray(&actions, newAction);
 
 	// update file
+	if (file->dirtyFlags & DirtyFlagPendingCreate) {
+		free((char*)file->name);
+		DynArray pathArray;
+		memset(&pathArray, 0, sizeof(DynArray));
+		file->name = path_split(newAction->path, &pathArray);
+		path_free(&pathArray);
+	}
 	file->time = newAction->time;
 	file->content = newAction->content;
 	file->contentLen = newAction->contentLen;
