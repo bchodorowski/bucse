@@ -5,6 +5,7 @@
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
+#include <sys/time.h>
 
 #include <fuse_lowlevel.h>
 #include <fuse.h>
@@ -26,8 +27,10 @@ typedef struct {
 
 static int64_t getCurrentTime()
 {
-	// TODO
-	return 0;
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+
+	return (int64_t)tv.tv_sec*1000000 + (int64_t)tv.tv_usec;
 }
 
 static int addToDynArray(DynArray *dynArray, void* newObject)
@@ -480,6 +483,8 @@ static void parseAction(char* buf, size_t size)
 			actionType = ActionTypeAddDirectory;
 		} else if (strcmp(actionTypeStr, "removeDirectory") == 0) {
 			actionType = ActionTypeRemoveDirectory;
+		} else if (strcmp(actionTypeStr, "editFile") == 0) {
+			actionType = ActionTypeEditFile;
 		} else {
 			fprintf(stderr, "actionAdded: unknown action\n");
 			continue;
@@ -886,11 +891,97 @@ static int flushFile(FilesystemFile* file)
 	newAction->size = newSize;
 	newAction->blockSize = newBlockSize;
 
+	// write to json, call destination->addActionFile()
+	json_object* jsonNewActions = json_object_new_array();
+	if (!jsonNewActions) {
+		free(newContent);
+		free(newAction->path);
+		free(newAction);
+		return 8;
+	}
+	json_object* jsonNewAction = json_object_new_object();
+	if (!jsonNewAction) {
+		json_object_put(jsonNewActions);
+		free(newContent);
+		free(newAction->path);
+		free(newAction);
+		return 9;
+	}
+	json_object* jsonNewContent = json_object_new_array();
+	if (!jsonNewAction) {
+		json_object_put(jsonNewActions);
+		json_object_put(jsonNewAction);
+		free(newContent);
+		free(newAction->path);
+		free(newAction);
+		return 10;
+	}
+	for (int i=0; i<newContentLen; i++) {
+		json_object_array_add(jsonNewContent,
+			json_object_new_string(newContent + i*MAX_STORAGE_NAME_LEN));
+	}
+
+	json_object_object_add(jsonNewAction,
+		"time", json_object_new_int64(newAction->time));
+
+	const char* actionStr = NULL;
+	if (newAction->actionType == ActionTypeAddFile) {
+		actionStr = "addFile";
+	} else if (newAction->actionType == ActionTypeRemoveFile) {
+		actionStr = "removeFile";
+	} else if (newAction->actionType == ActionTypeAddDirectory) {
+		actionStr = "addDirectory";
+	} else if (newAction->actionType == ActionTypeRemoveDirectory) {
+		actionStr = "removeDirectory";
+	} else if (newAction->actionType == ActionTypeEditFile) {
+		actionStr = "editFile";
+	} else {
+		actionStr = "unknown";
+	}
+	json_object_object_add(jsonNewAction,
+		"action", json_object_new_string(actionStr));
+	json_object_object_add(jsonNewAction,
+		"path", json_object_new_string(newAction->path));
+	json_object_object_add(jsonNewAction,
+		"content", jsonNewContent);
+	json_object_object_add(jsonNewAction,
+		"size", json_object_new_int(newAction->size));
+	json_object_object_add(jsonNewAction,
+		"blockSize", json_object_new_int(newAction->blockSize));
+
+	json_object_array_add(jsonNewActions, jsonNewAction);
+
+	char newActionFileName[MAX_STORAGE_NAME_LEN];
+	if (getRandomStorageFileName(newActionFileName) != 0) {
+		fprintf(stderr, "flushFile: getRandomStorageFileName failed\n");
+		json_object_put(jsonNewActions);
+		free(newContent);
+		free(newAction->path);
+		free(newAction);
+		return 11;
+	}
+	char* jsonData = (char*)json_object_to_json_string_ext(
+		jsonNewActions, JSON_C_TO_STRING_PRETTY);
+
+	int res = destination->addActionFile(
+		newActionFileName,
+		jsonData, strlen(jsonData));
+
+	json_object_put(jsonNewActions);
+
+	if (res != 0) {
+		fprintf(stderr, "flushFile: destination->addActionFile failed\n");
+		free(newContent);
+		free(newAction->path);
+		free(newAction);
+		return 11;
+	}
+
 	addToDynArray(&actions, newAction);
 
+	
 	// TODO: work here
 
-	// TODO: write to json, call destination->addActionFile()
 	// TODO: update file
 	// ==
 
