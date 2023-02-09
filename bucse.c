@@ -175,11 +175,14 @@ typedef struct
 
 static FilesystemDir* root;
 
+static int flushFile(FilesystemFile* file);
+
 static void recursivelyFreeFilesystem(FilesystemDir* dir) {
 	for (int i=0; i<dir->dirs.len; i++) {
 		recursivelyFreeFilesystem(dir->dirs.objects[i]);
 	}
 	for (int i=0; i<dir->files.len; i++) {
+		flushFile((FilesystemFile*)dir->files.objects[i]);
 		free(dir->files.objects[i]);
 	}
 	
@@ -659,7 +662,8 @@ static int getFullFilePathRecursion(char* result, int index, FilesystemDir* dir)
 	return index;
 }
 
-static char* getFullFilePath(FilesystemFile* file) {
+static char* getFullFilePath(FilesystemFile* file)
+{
 	int len = strlen(file->name) + 1;
 	FilesystemDir *current = file->parentDir;
 	while (current) {
@@ -691,13 +695,17 @@ static int flushFile(FilesystemFile* file)
 
 	int newSize = file->size;
 	int newBlockSize = file->blockSize;
-	int newContentLen;
+	int newContentLen = file->contentLen;
 
 	for (int i=0; i<file->pendingWrites.len; i++) {
 		PendingWrite* pw = file->pendingWrites.objects[i];
 		if (newSize < (pw->offset + pw->size)) {
 			newSize = (pw->offset + pw->size);
 		}
+	}
+
+	if (file->dirtyFlags == DirtyFlagPendingCreate) {
+		goto constructAction;
 	}
 
 	// block size may not be determined yet if the file hasn't been flushed
@@ -730,8 +738,6 @@ static int flushFile(FilesystemFile* file)
 		blocksToWriteNum += blocksToWrite[i];
 	}
 	fprintf(stderr, "DEBUG: flush file: %d blocks to write\n", blocksToWriteNum);
-
-
 
 	// construct and save new blocks (with destination->putStorageFile() calls)
 	size_t maxEncryptedBlockSize = getMaxEncryptedBlockSize(newBlockSize);
@@ -871,25 +877,31 @@ static int flushFile(FilesystemFile* file)
 		return 5;
 	}
 
+constructAction:;
+
 	// construct new action, add it to actions
 	Action* newAction = malloc(sizeof(Action));
 	if (newAction == NULL) {
 		fprintf(stderr, "flushFile: malloc(): %s\n", strerror(errno));
-		free(newContent);
+		if (newContent) {
+			free(newContent);
+		}
 		return 6;
 	}
 	newAction->time = getCurrentTime();
 
 	if (file->dirtyFlags == DirtyFlagPendingWrite) {
 		newAction->actionType = ActionTypeEditFile;
-	} else if (file->dirtyFlags == DirtyFlagPendingCreateAndWrite ) {
+	} else if (file->dirtyFlags & DirtyFlagPendingCreate) {
 		newAction->actionType = ActionTypeAddFile;
 	}
 
 	newAction->path = getFullFilePath(file);
 	if (newAction->path == NULL) {
 		fprintf(stderr, "flushFile: getFullFilePath() failed: %s\n", strerror(errno));
-		free(newContent);
+		if (newContent) {
+			free(newContent);
+		}
 		free(newAction);
 		return 7;
 	}
@@ -901,7 +913,9 @@ static int flushFile(FilesystemFile* file)
 	// write to json, call destination->addActionFile()
 	json_object* jsonNewActions = json_object_new_array();
 	if (!jsonNewActions) {
-		free(newContent);
+		if (newContent) {
+			free(newContent);
+		}
 		free(newAction->path);
 		free(newAction);
 		return 8;
@@ -909,7 +923,9 @@ static int flushFile(FilesystemFile* file)
 	json_object* jsonNewAction = json_object_new_object();
 	if (!jsonNewAction) {
 		json_object_put(jsonNewActions);
-		free(newContent);
+		if (newContent) {
+			free(newContent);
+		}
 		free(newAction->path);
 		free(newAction);
 		return 9;
@@ -918,7 +934,9 @@ static int flushFile(FilesystemFile* file)
 	if (!jsonNewAction) {
 		json_object_put(jsonNewActions);
 		json_object_put(jsonNewAction);
-		free(newContent);
+		if (newContent) {
+			free(newContent);
+		}
 		free(newAction->path);
 		free(newAction);
 		return 10;
@@ -962,7 +980,9 @@ static int flushFile(FilesystemFile* file)
 	if (getRandomStorageFileName(newActionFileName) != 0) {
 		fprintf(stderr, "flushFile: getRandomStorageFileName failed\n");
 		json_object_put(jsonNewActions);
-		free(newContent);
+		if (newContent) {
+			free(newContent);
+		}
 		free(newAction->path);
 		free(newAction);
 		return 11;
@@ -978,7 +998,9 @@ static int flushFile(FilesystemFile* file)
 
 	if (res != 0) {
 		fprintf(stderr, "flushFile: destination->addActionFile failed\n");
-		free(newContent);
+		if (newContent) {
+			free(newContent);
+		}
 		free(newAction->path);
 		free(newAction);
 		return 11;
@@ -1041,6 +1063,8 @@ static int bucse_getattr(const char *path, struct stat *stbuf, struct fuse_file_
 
 		FilesystemFile *file = findFile(containingDir, fileName);
 		if (file) {
+			flushFile(file);
+
 			stbuf->st_mode = S_IFREG | 0644;
 			stbuf->st_nlink = 1;
 			stbuf->st_size = file->size;
@@ -1345,6 +1369,8 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 	} else {
 		return -ENOENT;
 	}
+
+	flushFile(file);
 
 	// determine which blocks should be read
 	DynArray blocksToRead;
