@@ -808,8 +808,8 @@ static int flushFile(FilesystemFile* file)
 		// right now we have data in decryptedBlockBuf
 		
 		// apply write operations
-		for (int i=0; i<file->pendingWrites.len; i++) {
-			PendingWrite* pw = file->pendingWrites.objects[i];
+		for (int j=0; j<file->pendingWrites.len; j++) {
+			PendingWrite* pw = file->pendingWrites.objects[j];
 			int relOffset = pw->offset - i * newBlockSize;
 
 			if (relOffset >= newBlockSize) {
