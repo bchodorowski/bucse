@@ -704,7 +704,7 @@ static int flushFile(FilesystemFile* file)
 		}
 	}
 
-	if (file->dirtyFlags == DirtyFlagPendingCreate) {
+	if (file->pendingWrites.len == 0) {
 		goto constructAction;
 	}
 
@@ -1029,8 +1029,6 @@ constructAction:;
 		free(pw);
 	}
 	freeDynArray(&file->pendingWrites);
-
-	// TODO: call flushFile where needed
 
 	return 0;
 }
@@ -1520,6 +1518,11 @@ struct fuse_operations bucse_oper = {
 	.read = bucse_read,
 	.readdir = bucse_readdir,
 	.write = bucse_write,
+	
+	// TODO: implement truncate
+	// TODO: implement mkdir
+	// TODO: implement rmdir
+	// TODO: implement unlink
 };
 
 struct bucse_config {
