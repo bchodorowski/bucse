@@ -15,6 +15,7 @@
 #include <pthread.h>
 
 #include "dynarray.h"
+#include "filesystem.h"
 
 #include "destinations/dest.h"
 #include "encryption/encr.h"
@@ -94,43 +95,6 @@ typedef struct {
 
 // -- filesystem
 
-typedef enum {
-	DirtyFlagNotDirty = 0,
-	DirtyFlagPendingCreate = 1,
-	DirtyFlagPendingWrite = 2,
-	DirtyFlagPendingCreateAndWrite = 3,
-} DirtyFlags;
-
-typedef struct {
-	char *buf;
-	size_t size;
-	off_t offset;
-} PendingWrite;
-
-typedef struct _FilesystemDir
-{
-	char* name;
-	int64_t time;
-	DynArray files;
-	DynArray dirs;
-	struct _FilesystemDir* parentDir;
-} FilesystemDir;
-
-typedef struct
-{
-	const char* name;
-	int64_t time;
-	char* content;
-	int contentLen;
-	int size;
-	int blockSize;
-	DirtyFlags dirtyFlags;
-	DynArray pendingWrites;
-	FilesystemDir* parentDir;
-} FilesystemFile;
-
-static FilesystemDir* root;
-
 static int flushFile(FilesystemFile* file);
 
 static void recursivelyFreeFilesystem(FilesystemDir* dir) {
@@ -145,100 +109,6 @@ static void recursivelyFreeFilesystem(FilesystemDir* dir) {
 	freeDynArray(&dir->dirs);
 	freeDynArray(&dir->files);
 	free(dir);
-}
-
-// path_split splits path into directories and file names. It returns a const pointer
-// to the part of path string that corresponds to the file name
-static const char* path_split(const char* path, DynArray *result)
-{
-	char* pathCopy = strdup(path);
-	if (pathCopy == NULL) {
-		fprintf(stderr, "splitPath: strdup(): %s\n", strerror(errno));
-		return NULL;
-	}
-
-	char* last = pathCopy;
-	int len = strlen(pathCopy);
-	for (int i=0; i<len; i++) {
-		if (pathCopy[i] == '/') {
-			pathCopy[i] = 0;
-			addToDynArray(result, last);
-			last = pathCopy + i + 1;
-		}
-	}
-	addToDynArray(result, last);
-	return path + (last - pathCopy);
-}
-
-static void path_free(DynArray *pathArray)
-{
-	if (pathArray->len > 0 && pathArray->objects[0] != NULL) {
-		free(pathArray->objects[0]);
-	}
-	freeDynArray(pathArray);
-}
-
-static char* path_getFilename(DynArray *pathArray)
-{
-	return pathArray->objects[pathArray->len-1];
-}
-
-static void path_debugPrint(DynArray *pathArray)
-{
-	fprintf(stderr, "DEBUG: print debug path:\n");
-	for (int i=0; i<pathArray->len; i++) {
-		fprintf(stderr, "\t%d: %s\n", i, pathArray->objects[i]);
-	}
-}
-
-static FilesystemFile* findFile(FilesystemDir* dir, const char* fileName)
-{
-	for (int i=0; i<dir->files.len; i++) {
-		FilesystemFile* f = dir->files.objects[i];
-		if (strcmp(f->name, fileName) == 0) {
-			return f;
-		}
-	}
-
-	return NULL;
-}
-
-static FilesystemDir* findDir(FilesystemDir* dir, const char* dirName)
-{
-	for (int i=0; i<dir->dirs.len; i++) {
-		FilesystemDir* d = dir->dirs.objects[i];
-		if (strcmp(d->name, dirName) == 0) {
-			return d;
-		}
-	}
-}
-
-static FilesystemDir* findContainingDir(DynArray *pathArray)
-{
-	FilesystemDir* current = root;
-	for (int i=0; i<pathArray->len-1; i++) {
-		char found = 0;
-
-		current = findDir(current, pathArray->objects[i]);
-		if (current == NULL) {
-			return NULL;
-		}
-	}
-	return current;
-}
-
-static FilesystemDir* findDirByPath(DynArray *pathArray)
-{
-	FilesystemDir* current = root;
-	for (int i=0; i<pathArray->len; i++) {
-		char found = 0;
-
-		current = findDir(current, pathArray->objects[i]);
-		if (current == NULL) {
-			return NULL;
-		}
-	}
-	return current;
 }
 
 #define MIN_BLOCK_SIZE 512
@@ -604,42 +474,6 @@ static int getRandomStorageFileName(char* filename)
 	}
 
 	return 0;
-}
-
-static int getFullFilePathRecursion(char* result, int index, FilesystemDir* dir)
-{
-	if (dir->parentDir) {
-		index = getFullFilePathRecursion(result, index, dir->parentDir);
-	}
-	if (dir->name) {
-		sprintf(result+index, "%s/", dir->name);
-		index += strlen(dir->name) + 1;
-	}
-	return index;
-}
-
-static char* getFullFilePath(FilesystemFile* file)
-{
-	int len = strlen(file->name) + 1;
-	FilesystemDir *current = file->parentDir;
-	while (current) {
-		if (current->name) {
-			len += 1 + strlen(current->name);
-		}
-		current = current->parentDir;
-	}
-
-	char* result = malloc(len);
-	if (result == NULL) {
-		fprintf(stderr, "getFullFilePath: malloc(): %s\n", strerror(errno));
-		return NULL;
-	}
-
-	int index = 0;
-	index = getFullFilePathRecursion(result, index, file->parentDir);
-	sprintf(result+index, "%s", file->name);
-
-	return result;
 }
 
 static int flushFile(FilesystemFile* file)
