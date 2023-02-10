@@ -2,10 +2,10 @@ CC=gcc -g
 CFLAGS=`pkg-config fuse3 --cflags` `pkg-config json-c --cflags`
 LIBS=`pkg-config fuse3 --libs` `pkg-config json-c --libs` -lpthread
 
-bucse: bucse.o destinations/dest_local.o encryption/encr_none.o
-	$(CC) -o bucse $(CFLAGS) bucse.o destinations/dest_local.o encryption/encr_none.o $(LIBS)
+bucse: bucse.o destinations/dest_local.o encryption/encr_none.o dynarray.o
+	$(CC) -o bucse $(CFLAGS) bucse.o destinations/dest_local.o encryption/encr_none.o dynarray.o $(LIBS)
 
-bucse.o: bucse.c destinations/dest.h encryption/encr.h
+bucse.o: bucse.c destinations/dest.h encryption/encr.h dynarray.h
 	$(CC) -c bucse.c $(CFLAGS)
 
 destinations/dest_local.o: destinations/dest_local.c destinations/dest.h
@@ -14,5 +14,8 @@ destinations/dest_local.o: destinations/dest_local.c destinations/dest.h
 encryption/encr_none.o: encryption/encr_none.c encryption/encr.h
 	$(CC) -c encryption/encr_none.c -o encryption/encr_none.o $(CFLAGS)
 
+dynarray.o: dynarray.h
+	$(CC) -c dynarray.c -o dynarray.o $(CFLAGS)
+
 clean:
-	-rm -f bucse bucse.o destinations/dest_local.o encryption/encr_none.o
+	-rm -f bucse bucse.o destinations/dest_local.o encryption/encr_none.o dynarray.o

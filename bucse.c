@@ -14,16 +14,13 @@
 
 #include <pthread.h>
 
+#include "dynarray.h"
+
 #include "destinations/dest.h"
 #include "encryption/encr.h"
 
 #define PACKAGE_VERSION "current"
 
-typedef struct {
-	void** objects;
-	int len;
-	int size;
-} DynArray;
 
 static int64_t getCurrentTime()
 {
@@ -31,47 +28,6 @@ static int64_t getCurrentTime()
 	gettimeofday(&tv, NULL);
 
 	return (int64_t)tv.tv_sec*1000000 + (int64_t)tv.tv_usec;
-}
-
-static int addToDynArray(DynArray *dynArray, void* newObject)
-{
-	int oldDynArraySize = dynArray->size;
-
-	if (dynArray->len == dynArray->size) {
-		int newSize;
-
-		if (dynArray->size == 0) {
-			newSize = 16;
-		} else {
-			newSize = oldDynArraySize * 2;
-		}
-
-		void* newObjects = malloc(newSize * sizeof(void*));
-		if (newObjects == NULL) {
-			fprintf(stderr, "addToDynArray: malloc(): %s\n", strerror(errno));
-			return 1;
-		}
-		if (dynArray->objects != NULL) {
-			memcpy(newObjects, dynArray->objects, oldDynArraySize * sizeof(void*));
-			free(dynArray->objects);
-		}
-		dynArray->objects = newObjects;
-		dynArray->size = newSize;
-	}
-
-	dynArray->objects[dynArray->len] = newObject;
-	dynArray->len++;
-
-	return 0;
-}
-
-static void freeDynArray(DynArray *dynArray)
-{
-	if (dynArray->objects != NULL) {
-		free(dynArray->objects);
-	}
-	dynArray->objects = NULL;
-	dynArray->len = dynArray->size = 0;
 }
 
 typedef enum {
