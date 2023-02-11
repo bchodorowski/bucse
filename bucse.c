@@ -887,7 +887,9 @@ static int bucse_getattr(const char *path, struct stat *stbuf, struct fuse_file_
 
 		FilesystemFile *file = findFile(containingDir, fileName);
 		if (file) {
-			flushFile(file);
+			if (file->pendingWrites.len > 0) {
+				flushFile(file);
+			}
 
 			stbuf->st_mode = S_IFREG | 0644;
 			stbuf->st_nlink = 1;
