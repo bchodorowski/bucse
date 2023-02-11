@@ -22,6 +22,7 @@
 
 #define PACKAGE_VERSION "current"
 
+static pthread_mutex_t bucseMutex;
 
 static int64_t getCurrentTime()
 {
@@ -185,7 +186,6 @@ static int doAction(Action* action)
 			fprintf(stderr, "doAction: path_split() failed\n");
 			return 1;
 		}
-		//path_debugPrint(&pathArray);
 
 		FilesystemDir *containingDir = findContainingDir(&pathArray);
 		path_free(&pathArray);
@@ -213,6 +213,43 @@ static int doAction(Action* action)
 
 		addToDynArray(&containingDir->files, newFile);
 		return 0;
+
+	} else if (action->actionType == ActionTypeEditFile) {
+		DynArray pathArray;
+		memset(&pathArray, 0, sizeof(DynArray));
+		const char *fileName = path_split(action->path, &pathArray);
+		if (fileName == NULL) {
+			fprintf(stderr, "doAction: path_split() failed\n");
+			return 1;
+		}
+
+		FilesystemDir *containingDir = findContainingDir(&pathArray);
+		path_free(&pathArray);
+
+		if (containingDir == NULL) {
+			fprintf(stderr, "doAction: path not found when editing file %s\n", action->path);
+			return 2;
+		}
+
+		FilesystemFile* newFile = findFile(containingDir, fileName);
+		if (newFile == NULL) {
+			fprintf(stderr, "doAction: file not found: %s\n", action->path);
+			return 3;
+		}
+
+		newFile->time = action->time;
+		newFile->content = action->content;
+		newFile->contentLen = action->contentLen;
+		newFile->size = action->size;
+		newFile->blockSize = action->blockSize;
+		newFile->dirtyFlags = 0;
+		memset(&newFile->pendingWrites, 0, sizeof(DynArray));
+
+		return 0;
+
+	} else {
+		fprintf(stderr, "doAction: unknown action type: %d\n", action->actionType);
+		return -1;
 	}
 
 	return -1;
@@ -823,7 +860,6 @@ constructAction:;
 	return 0;
 }
 
-
 static int bucse_getattr(const char *path, struct stat *stbuf, struct fuse_file_info *fi)
 {
 	(void) fi;
@@ -872,6 +908,14 @@ static int bucse_getattr(const char *path, struct stat *stbuf, struct fuse_file_
 	return 0;
 }
 
+static int bucse_getattr_guarded(const char *path, struct stat *stbuf, struct fuse_file_info *fi)
+{
+	pthread_mutex_lock(&bucseMutex);
+	int result = bucse_getattr(path, stbuf, fi);
+	pthread_mutex_unlock(&bucseMutex);
+	return result;
+}
+
 static int bucse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 		off_t offset, struct fuse_file_info *fi, enum fuse_readdir_flags flags)
 {
@@ -918,12 +962,18 @@ static int bucse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	return 0;
 }
 
+static int bucse_readdir_guarded(const char *path, void *buf, fuse_fill_dir_t filler,
+		off_t offset, struct fuse_file_info *fi, enum fuse_readdir_flags flags)
+{
+	pthread_mutex_lock(&bucseMutex);
+	int result = bucse_readdir(path, buf, filler, offset, fi, flags);
+	pthread_mutex_unlock(&bucseMutex);
+	return result;
+}
+
 static int bucse_open(const char *path, struct fuse_file_info *fi)
 {
 	fprintf(stderr, "DEBUG: open %s, access mode %d\n", path, (fi->flags & O_ACCMODE));
-
-	//if ((fi->flags & O_ACCMODE) != O_RDONLY)
-	//	return -EACCES;
 
 	if (strcmp(path, "/") == 0) {
 		return -EACCES;
@@ -959,6 +1009,14 @@ static int bucse_open(const char *path, struct fuse_file_info *fi)
 	} else {
 		return -ENOENT;
 	}
+}
+
+static int bucse_open_guarded(const char *path, struct fuse_file_info *fi)
+{
+	pthread_mutex_lock(&bucseMutex);
+	int result = bucse_open(path, fi);
+	pthread_mutex_unlock(&bucseMutex);
+	return result;
 }
 
 static int bucse_create(const char *path, mode_t mode, struct fuse_file_info *fi)
@@ -1027,6 +1085,14 @@ static int bucse_create(const char *path, mode_t mode, struct fuse_file_info *fi
 	return 0;
 }
 
+static int bucse_create_guarded(const char *path, mode_t mode, struct fuse_file_info *fi)
+{
+	pthread_mutex_lock(&bucseMutex);
+	int result = bucse_create(path, mode, fi);
+	pthread_mutex_unlock(&bucseMutex);
+	return result;
+}
+
 static int bucse_release(const char *path, struct fuse_file_info *fi)
 {
 	fprintf(stderr, "DEBUG: release %s, access mode %d\n", path, (fi->flags & O_ACCMODE));
@@ -1062,7 +1128,15 @@ static int bucse_release(const char *path, struct fuse_file_info *fi)
 	} else {
 		return -ENOENT;
 	}
+
 	return 0;
+}
+static int bucse_release_guarded(const char *path, struct fuse_file_info *fi)
+{
+	pthread_mutex_lock(&bucseMutex);
+	int result = bucse_release(path, fi);
+	pthread_mutex_unlock(&bucseMutex);
+	return result;
 }
 
 // use offset and size to determine which blocks contain the data that's needed
@@ -1106,22 +1180,6 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 
 	fprintf(stderr, "DEBUG: read %s, size: %u, offset: %u\n", path, size, offset);
 
-	/*
-	size_t len;
-	if(strcmp(path+1, TESTFILENAME) != 0)
-		return -ENOENT;
-
-	len = strlen(TESTCONTENT);
-	if (offset < len) {
-		if (offset + size > len)
-			size = len - offset;
-		memcpy(buf, TESTCONTENT + offset, size);
-	} else
-		size = 0;
-
-	return size;
-	*/
-
 	FilesystemFile *file = NULL;
 
 	if (strcmp(path, "/") == 0) {
@@ -1158,7 +1216,9 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 		return -ENOENT;
 	}
 
-	flushFile(file);
+	if (file->pendingWrites.len > 0) {
+		flushFile(file);
+	}
 
 	// determine which blocks should be read
 	DynArray blocksToRead;
@@ -1235,6 +1295,15 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 	return copiedBytes;
 }
 
+static int bucse_read_guarded(const char *path, char *buf, size_t size, off_t offset,
+		struct fuse_file_info *fi)
+{
+	pthread_mutex_lock(&bucseMutex);
+	int result = bucse_read(path, buf, size, offset, fi);
+	pthread_mutex_unlock(&bucseMutex);
+	return result;
+}
+
 static int bucse_write(const char *path, const char *buf, size_t size, off_t offset,
 		struct fuse_file_info *fi)
 {
@@ -1300,14 +1369,23 @@ static int bucse_write(const char *path, const char *buf, size_t size, off_t off
 	return size;
 }
 
+static int bucse_write_guarded(const char *path, const char *buf, size_t size, off_t offset,
+		struct fuse_file_info *fi)
+{
+	pthread_mutex_lock(&bucseMutex);
+	int result = bucse_write(path, buf, size, offset, fi);
+	pthread_mutex_unlock(&bucseMutex);
+	return result;
+}
+
 struct fuse_operations bucse_oper = {
-	.getattr = bucse_getattr,
-	.open = bucse_open,
-	.create = bucse_create,
-	.release = bucse_release,
-	.read = bucse_read,
-	.readdir = bucse_readdir,
-	.write = bucse_write,
+	.getattr = bucse_getattr_guarded,
+	.open = bucse_open_guarded,
+	.create = bucse_create_guarded,
+	.release = bucse_release_guarded,
+	.read = bucse_read_guarded,
+	.readdir = bucse_readdir_guarded,
+	.write = bucse_write_guarded,
 	
 	// TODO: implement truncate
 	// TODO: implement mkdir
@@ -1363,18 +1441,19 @@ static int bucse_opt_proc(void *data, const char *arg, int key, struct fuse_args
 void* tickThreadFunc(void* param)
 {
 	printf("DEBUG: Hello from tickThreadFunc\n");
-	for (;;)
-	{
+	for (;;) {
 		pthread_mutex_lock(&shutdownMutex);
-		if (shutdownTicking)
-		{
+		if (shutdownTicking) {
 			pthread_mutex_unlock(&shutdownMutex);
 			break;
 		}
 		pthread_mutex_unlock(&shutdownMutex);
 
-		if (destination->tick() != 0)
-		{
+		pthread_mutex_lock(&bucseMutex);
+		int tickResult = destination->tick();
+		pthread_mutex_unlock(&bucseMutex);
+
+		if (tickResult != 0) {
 			break;
 		}
 		sleep(1);

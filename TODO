@@ -1,5 +1,5 @@
-- implement writing files
-- refactor: extract parts of bucse.c into action.c[?], filesystem.c[?], etc.
+- fix obvious bugs
+- refactor: extract parts of bucse.c into action.c[?], fuse_operations.c[?]
 - -Wall
 - consider big files -> use 64 bit variables?
 - handle addToDynArray failures
