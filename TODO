@@ -1,4 +1,3 @@
-- fix obvious bugs (write large file)
 - refactor: extract parts of bucse.c into fuse_operations.c
 - -Wall
 - consider big files -> use 64 bit variables?

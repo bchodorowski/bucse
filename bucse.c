@@ -281,7 +281,7 @@ static int flushFile(FilesystemFile* file)
 
 			if (relOffset >= newBlockSize) {
 				continue;
-			} else if (relOffset + pw->size < 0) {
+			} else if (relOffset + (int)pw->size <= 0) {
 				continue;
 			}
 
@@ -853,9 +853,9 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 			ioerror = 1;
 			break;
 		}
-		if (decryptedBlockBufSize != block->len) {
-			fprintf(stderr, "bucse_read: expected decrypted block size %d, got %d\n",
-				block->len, decryptedBlockBufSize);
+		if (decryptedBlockBufSize < block->offset + block->len) {
+			fprintf(stderr, "bucse_read: expected decrypted block size at least %d, got %d\n",
+				block->offset + block->len, decryptedBlockBufSize);
 			ioerror = 1;
 			break;
 		}
