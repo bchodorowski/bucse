@@ -1,5 +1,5 @@
-- fix obvious bugs
-- refactor: extract parts of bucse.c into action.c[?], fuse_operations.c[?]
+- fix obvious bugs (write large file)
+- refactor: extract parts of bucse.c into fuse_operations.c
 - -Wall
 - consider big files -> use 64 bit variables?
 - handle addToDynArray failures
