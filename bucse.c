@@ -119,6 +119,7 @@ static size_t getMaxEncryptedBlockSize(size_t blockSize)
 
 extern Destination destinationLocal;
 extern Encryption encryptionNone;
+extern Encryption encryptionAes;
 
 static Destination *destination;
 static Encryption *encryption;
@@ -1149,9 +1150,6 @@ int main(int argc, char** argv)
 
 	destination->setCallbackActionAdded(&actionAdded);
 
-	encryption = &encryptionNone;
-
-
 	struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
 	struct bucse_config conf;
 
@@ -1217,12 +1215,13 @@ int main(int argc, char** argv)
 	const char* encryptionFieldStr = json_object_get_string(encryptionField);
 
 	printf("DEBUG: enc: %s\n", encryptionFieldStr);
-	if (strcmp(encryptionFieldStr, "none") == 0)
-	{
+	if (strcmp(encryptionFieldStr, "none") == 0) {
 		printf("DEBUG: encryption none\n");
-	}
-	else
-	{
+		encryption = &encryptionNone;
+	} else if (strcmp(encryptionFieldStr, "aes") == 0) {
+		printf("DEBUG: encryption aes\n");
+		encryption = &encryptionAes;
+	} else {
 		fprintf(stderr, "Unsupported encryption: %s\n", encryptionFieldStr);
 		json_object_put(repositoryJson);
 		return 8;

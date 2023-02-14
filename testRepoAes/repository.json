@@ -1,0 +1,5 @@
+{
+	"name": "AES test repository",
+	"comment": "Just a test repository to test AES encryption",
+	"encryption": "aes"
+}

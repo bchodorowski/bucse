@@ -1,0 +1,83 @@
+#include <stddef.h>
+#include <string.h>
+#include <errno.h>
+
+#include <openssl/evp.h>
+
+#include "encr.h"
+
+// try to implement something that works like
+// openssl enc -aes-256-cbc -in TODO -md sha1 -iter 1 > TODO.aes
+int encrAesEncrypt(char *inBuf, size_t inSize, char *outBuf, size_t *outSize, char *pass)
+{
+	EVP_CIPHER_CTX *ctx;
+
+	if (!(ctx = EVP_CIPHER_CTX_new())) {
+		fprintf(stderr, "encrAesEncrypt: EVP_CIPHER_CTX_new failed\n");
+		return 1;
+	}
+	unsigned char salt[8];
+	unsigned char key[32];
+	unsigned char iv[32];
+	
+	bzero(key, sizeof(key));
+	bzero(iv, sizeof(iv));
+
+	FILE* f = fopen("/dev/urandom", "rb");
+	if (f == NULL) {
+		fprintf(stderr, "encrAesEncrypt: fopen(): %s\n", strerror(errno));
+		return 2;
+	}
+
+	size_t got = fread(salt, 8, 1, f);
+	if (got == 0) {
+		fprintf(stderr, "encrAesEncrypt: fread failed\n");
+		fclose(f);
+		return 3;
+	}
+
+	fclose(f);
+
+	EVP_BytesToKey(
+		EVP_aes_256_cbc(),
+		EVP_sha1(),
+		salt, (unsigned char*)pass, strlen(pass), 1, key, iv);
+
+	if (EVP_EncryptInit(ctx, EVP_aes_256_cbc(), key, iv) != 1) {
+		fprintf(stderr, "encrAesEncrypt: EVP_EncryptInit failed\n");
+		return 4;
+	}
+
+	EVP_CIPHER_CTX_set_key_length(ctx, EVP_MAX_KEY_LENGTH);
+
+	if (EVP_EncryptUpdate(ctx, outBuf, (int*)outSize, inBuf, inSize) != 1) {
+		fprintf(stderr, "encrAesEncrypt: EVP_EncryptUpdate failed\n");
+		return 5;
+	}
+
+	int tmpLen = 0;
+
+	if (!EVP_EncryptFinal(ctx, outBuf + *outSize, &tmpLen)) {
+		fprintf(stderr, "encrAesEncrypt: EVP_EncryptFinal failed\n");
+		return 6;
+	}
+	*outSize += tmpLen;
+
+	EVP_CIPHER_CTX_free(ctx);
+
+	return 0;
+}
+
+int encrAesDecrypt(char *inBuf, size_t inSize, char *outBuf, size_t *outSize, char *key)
+{
+	(void) key;
+	memcpy(outBuf, inBuf, inSize);
+	*outSize = inSize;
+	return 0;
+}
+
+Encryption encryptionAes = {
+	.encrypt = encrAesEncrypt,
+	.decrypt = encrAesDecrypt
+};
+
