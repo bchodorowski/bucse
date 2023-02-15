@@ -1,3 +1,4 @@
+- encryption: encrypt actions as well
 - refactor: extract parts of bucse.c into fuse_operations.c
 - -Wall
 - consider big files -> use 64 bit variables?
@@ -5,7 +6,6 @@
 - add / remove dir actions
 (at this point we should have working MVP -- with local destination and no encryption
 - improve local destination by applying a filesystem hook to be notified about changes in the filesystem
-- AES encryption
 - ssh destination
 - s3 destination
 - investigate memory leaks in fuse_opt_parse reported by valgrind

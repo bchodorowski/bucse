@@ -8,6 +8,7 @@
 
 // try to implement something that works like
 // openssl enc -aes-256-cbc -in TODO -md sha1 -iter 1 > TODO.aes
+
 int encrAesEncrypt(char *inBuf, size_t inSize, char *outBuf, size_t *outSize, char *pass)
 {
 	EVP_CIPHER_CTX *ctx;
@@ -20,9 +21,6 @@ int encrAesEncrypt(char *inBuf, size_t inSize, char *outBuf, size_t *outSize, ch
 	unsigned char key[32];
 	unsigned char iv[32];
 	
-	bzero(key, sizeof(key));
-	bzero(iv, sizeof(iv));
-
 	FILE* f = fopen("/dev/urandom", "rb");
 	if (f == NULL) {
 		fprintf(stderr, "encrAesEncrypt: fopen(): %s\n", strerror(errno));
@@ -38,12 +36,14 @@ int encrAesEncrypt(char *inBuf, size_t inSize, char *outBuf, size_t *outSize, ch
 
 	fclose(f);
 
-	EVP_BytesToKey(
-		EVP_aes_256_cbc(),
-		EVP_sha1(),
-		salt, (unsigned char*)pass, strlen(pass), 1, key, iv);
+	unsigned char keyiv[64];
+	PKCS5_PBKDF2_HMAC_SHA1((const char*)pass, strlen(pass),
+		salt, 8, 1, sizeof(keyiv), keyiv);
+	memcpy(key, keyiv, sizeof(key));
+	memcpy(iv, keyiv+sizeof(key), sizeof(iv));
 	
 	outBuf += 16; // make space for Salted__ header
+	*outSize -= 16;
 
 	if (EVP_EncryptInit(ctx, EVP_aes_256_cbc(), key, iv) != 1) {
 		fprintf(stderr, "encrAesEncrypt: EVP_EncryptInit failed\n");
@@ -87,9 +87,6 @@ int encrAesDecrypt(char *inBuf, size_t inSize, char *outBuf, size_t *outSize, ch
 	unsigned char key[32];
 	unsigned char iv[32];
 	
-	bzero(key, sizeof(key));
-	bzero(iv, sizeof(iv));
-
 	if (inSize >= 16 && strncmp((const char*)inBuf, "Salted__", 8) == 0) {
 		memcpy(salt, &inBuf[8], 8);
 		inBuf += 16;
@@ -98,10 +95,11 @@ int encrAesDecrypt(char *inBuf, size_t inSize, char *outBuf, size_t *outSize, ch
 		return 2;
 	}
 
-	EVP_BytesToKey(
-		EVP_aes_256_cbc(),
-		EVP_sha1(),
-		salt, (unsigned char*)pass, strlen(pass), 1, key, iv);
+	unsigned char keyiv[64];
+	PKCS5_PBKDF2_HMAC_SHA1((const char*)pass, strlen(pass),
+		salt, 8, 1, sizeof(keyiv), keyiv);
+	memcpy(key, keyiv, sizeof(key));
+	memcpy(iv, keyiv+sizeof(key), sizeof(iv));
 
 	if (EVP_DecryptInit(ctx, EVP_aes_256_cbc(), key, iv) != 1) {
 		fprintf(stderr, "encrAesDecrypt: EVP_DecryptInit failed\n");

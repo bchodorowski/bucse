@@ -23,6 +23,16 @@
 
 #define PACKAGE_VERSION "current"
 
+// We need a bit larger buffer for decryption due to how EVP_DecryptUpdate() works.
+// Quote from https://www.openssl.org/docs/man1.1.1/man3/EVP_DecryptUpdate.html
+//
+// > The parameters and restrictions are identical to the encryption operations
+// > except that if padding is enabled the decrypted data buffer out passed to
+// > EVP_DecryptUpdate() should have sufficient room for (inl +
+// > cipher_block_size) bytes unless the cipher block size is 1 in which case inl
+// > bytes is sufficient. 
+#define DECRYPTED_BUFFER_MARGIN 16
+
 static pthread_mutex_t bucseMutex;
 
 static int64_t getCurrentTime()
@@ -217,7 +227,7 @@ static int flushFile(FilesystemFile* file)
 	}
 
 	size_t maxDecryptedBlockSize = newBlockSize;
-	char* decryptedBlockBuf = malloc(maxDecryptedBlockSize);
+	char* decryptedBlockBuf = malloc(maxDecryptedBlockSize + DECRYPTED_BUFFER_MARGIN);
 	if (decryptedBlockBuf == NULL) {
 		fprintf(stderr, "flushFile: malloc(): %s\n", strerror(errno));
 		free(blocksToWrite);
@@ -260,7 +270,7 @@ static int flushFile(FilesystemFile* file)
 
 			res = encryption->decrypt(encryptedBlockBuf, encryptedBlockBufSize,
 				decryptedBlockBuf, &decryptedBlockBufSize,
-				""); // TODO: manage encryption key
+				"12345"); // TODO: manage encryption key
 			if (res != 0) {
 				fprintf(stderr, "flushFile: decrypt failed: %d\n", res);
 				ioerror = 1;
@@ -310,7 +320,7 @@ static int flushFile(FilesystemFile* file)
 		// encrypt
 		int res = encryption->encrypt(decryptedBlockBuf, expectedWriteSize,
 			encryptedBlockBuf, &encryptedBlockBufSize,
-			""); // TODO: manage encryption key
+			"12345"); // TODO: manage encryption key
 		if (res != 0) {
 			fprintf(stderr, "flushFile: encrypt failed: %d\n", res);
 			ioerror = 1;
@@ -825,7 +835,7 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 	}
 
 	size_t maxDecryptedBlockSize = file->blockSize;
-	char* decryptedBlockBuf = malloc(maxDecryptedBlockSize);
+	char* decryptedBlockBuf = malloc(maxDecryptedBlockSize + DECRYPTED_BUFFER_MARGIN);
 	if (decryptedBlockBuf == NULL) {
 		fprintf(stderr, "bucse_read: malloc(): %s\n", strerror(errno));
 		free(encryptedBlockBuf);
@@ -848,7 +858,7 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 		size_t decryptedBlockBufSize = maxDecryptedBlockSize;
 		res = encryption->decrypt(encryptedBlockBuf, encryptedBlockBufSize,
 			decryptedBlockBuf, &decryptedBlockBufSize,
-			""); // TODO: manage encryption key
+			"12345"); // TODO: manage encryption key
 		if (res != 0) {
 			fprintf(stderr, "bucse_read: decrypt failed: %d\n", res);
 			ioerror = 1;
