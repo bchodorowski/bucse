@@ -42,6 +42,8 @@ int encrAesEncrypt(char *inBuf, size_t inSize, char *outBuf, size_t *outSize, ch
 		EVP_aes_256_cbc(),
 		EVP_sha1(),
 		salt, (unsigned char*)pass, strlen(pass), 1, key, iv);
+	
+	outBuf += 16; // make space for Salted__ header
 
 	if (EVP_EncryptInit(ctx, EVP_aes_256_cbc(), key, iv) != 1) {
 		fprintf(stderr, "encrAesEncrypt: EVP_EncryptInit failed\n");
@@ -65,14 +67,64 @@ int encrAesEncrypt(char *inBuf, size_t inSize, char *outBuf, size_t *outSize, ch
 
 	EVP_CIPHER_CTX_free(ctx);
 
+	memcpy(outBuf - 16, "Salted__", 8);
+	memcpy(outBuf - 8, salt, 8);
+
+	*outSize += 16;
+
 	return 0;
 }
 
-int encrAesDecrypt(char *inBuf, size_t inSize, char *outBuf, size_t *outSize, char *key)
+int encrAesDecrypt(char *inBuf, size_t inSize, char *outBuf, size_t *outSize, char *pass)
 {
-	(void) key;
-	memcpy(outBuf, inBuf, inSize);
-	*outSize = inSize;
+	EVP_CIPHER_CTX *ctx;
+
+	if (!(ctx = EVP_CIPHER_CTX_new())) {
+		fprintf(stderr, "encrAesDecrypt: EVP_CIPHER_CTX_new failed\n");
+		return 1;
+	}
+	unsigned char salt[8];
+	unsigned char key[32];
+	unsigned char iv[32];
+	
+	bzero(key, sizeof(key));
+	bzero(iv, sizeof(iv));
+
+	if (inSize >= 16 && strncmp((const char*)inBuf, "Salted__", 8) == 0) {
+		memcpy(salt, &inBuf[8], 8);
+		inBuf += 16;
+		inSize -= 16;
+	} else {
+		return 2;
+	}
+
+	EVP_BytesToKey(
+		EVP_aes_256_cbc(),
+		EVP_sha1(),
+		salt, (unsigned char*)pass, strlen(pass), 1, key, iv);
+
+	if (EVP_DecryptInit(ctx, EVP_aes_256_cbc(), key, iv) != 1) {
+		fprintf(stderr, "encrAesDecrypt: EVP_DecryptInit failed\n");
+		return 3;
+	}
+
+	EVP_CIPHER_CTX_set_key_length(ctx, EVP_MAX_KEY_LENGTH);
+
+	if (EVP_DecryptUpdate(ctx, outBuf, (int*)outSize, inBuf, inSize) != 1) {
+		fprintf(stderr, "encrAesDecrypt: EVP_DecryptUpdate failed\n");
+		return 4;
+	}
+
+	int tmpLen = 0;
+
+	if (!EVP_DecryptFinal(ctx, outBuf + *outSize, &tmpLen)) {
+		fprintf(stderr, "encrAesDecrypt: EVP_DecryptFinal failed\n");
+		return 5;
+	}
+	*outSize += tmpLen;
+
+	EVP_CIPHER_CTX_free(ctx);
+
 	return 0;
 }
 
