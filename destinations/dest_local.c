@@ -10,11 +10,6 @@
 
 #include "dest.h"
 
-#define MAX_FILEPATH_LEN 1024
-
-#define MAX_ACTION_NAME_LEN 64
-#define MAX_ACTION_LEN (1024 * 1024)
-
 static char* repositoryJsonFilePath;
 static char* repositoryActionsPath;
 static char* repositoryStoragePath;

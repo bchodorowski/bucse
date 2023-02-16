@@ -1,3 +1,8 @@
+#define MAX_FILEPATH_LEN 1024
+
+#define MAX_ACTION_LEN (1024 * 1024)
+#define MAX_ACTION_NAME_LEN 64
+
 typedef void (*ActionAddedCallback)(char* actionName, char* buf, size_t size, int moreInThisBatch);
 
 typedef struct {

@@ -164,6 +164,52 @@ static int getRandomStorageFileName(char* filename)
 	return 0;
 }
 
+static int encryptAndAddActionFile(char* filename, char *buf, size_t size)
+{
+	size_t encryptedBufLen = 2 * MAX_ACTION_LEN;
+	char* encryptedBuf = malloc(encryptedBufLen);
+	if (encryptedBuf == NULL) {
+		fprintf(stderr, "encryptAndAddActionFile: malloc(): %s\n", strerror(errno));
+		return -1;
+	}
+	int result = encryption->encrypt(buf, size,
+		encryptedBuf, &encryptedBufLen,
+		"12345"); // TODO: manage encryption key
+
+	if (result != 0) {
+		fprintf(stderr, "encryptAndAddActionFile: encrypt failed: %d\n", result);
+		free(encryptedBuf);
+		return -2;
+	}
+
+	result = destination->addActionFile(filename, encryptedBuf, encryptedBufLen);
+	free(encryptedBuf);
+	return result;
+}
+
+static void actionAddedDecrypt(char* actionName, char* buf, size_t size, int moreInThisBatch)
+{
+	size_t decryptedBufLen = MAX_ACTION_LEN + DECRYPTED_BUFFER_MARGIN;
+	char* decryptedBuf = malloc(decryptedBufLen);
+	if (decryptedBuf == NULL) {
+		fprintf(stderr, "decryptAndAddActionFile: malloc(): %s\n", strerror(errno));
+		return;
+	}
+
+	int result = encryption->decrypt(buf, size,
+		decryptedBuf, &decryptedBufLen,
+		"12345"); // TODO: manage encryption key
+	
+	if (result != 0) {
+		fprintf(stderr, "actionAddedDecrypt: decrypt failed: %d\n", result);
+		free(decryptedBuf);
+		return;
+	}
+	actionAdded(actionName, decryptedBuf, decryptedBufLen, moreInThisBatch);
+	free(decryptedBuf);
+}
+
+
 static int flushFile(FilesystemFile* file)
 {
 	if (file->dirtyFlags == DirtyFlagNotDirty) {
@@ -410,7 +456,7 @@ constructAction:;
 		free(newAction);
 		return 9;
 	}
-	int res = destination->addActionFile(
+	int res = encryptAndAddActionFile(
 		newActionFileName,
 		jsonData, strlen(jsonData));
 
@@ -1158,7 +1204,7 @@ int main(int argc, char** argv)
 
 	destination = &destinationLocal;
 
-	destination->setCallbackActionAdded(&actionAdded);
+	destination->setCallbackActionAdded(&actionAddedDecrypt);
 
 	struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
 	struct bucse_config conf;
