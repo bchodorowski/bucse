@@ -17,13 +17,13 @@ encryption/encr_none.o: encryption/encr_none.c encryption/encr.h
 encryption/encr_aes.o: encryption/encr_aes.c encryption/encr.h
 	$(CC) -c encryption/encr_aes.c -o encryption/encr_aes.o $(CFLAGS)
 
-dynarray.o: dynarray.h
+dynarray.o: dynarray.c dynarray.h
 	$(CC) -c dynarray.c -o dynarray.o $(CFLAGS)
 
-filesystem.o: filesystem.h dynarray.h
+filesystem.o: filesystem.c filesystem.h dynarray.h
 	$(CC) -c filesystem.c -o filesystem.o $(CFLAGS)
 
-actions.o: actions.h dynarray.h filesystem.h
+actions.o: actions.c actions.h dynarray.h filesystem.h
 	$(CC) -c actions.c -o actions.o $(CFLAGS)
 
 clean:

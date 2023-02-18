@@ -164,25 +164,41 @@ static int getRandomStorageFileName(char* filename)
 	return 0;
 }
 
-static int encryptAndAddActionFile(char* filename, char *buf, size_t size)
+static int encryptAndAddActionFile(Action* newAction)
 {
+	char* jsonData = serializeAction(newAction);
+	if (jsonData == NULL) {
+		fprintf(stderr, "encryptAndAddActionFile: serializeAction() failed\n");
+		return -1;
+	}
+
+	char newActionFileName[MAX_STORAGE_NAME_LEN];
+	if (getRandomStorageFileName(newActionFileName) != 0) {
+		fprintf(stderr, "encryptAndAddActionFile: getRandomStorageFileName failed\n");
+		free(jsonData);
+		return -2;
+	}
+
 	size_t encryptedBufLen = 2 * MAX_ACTION_LEN;
 	char* encryptedBuf = malloc(encryptedBufLen);
 	if (encryptedBuf == NULL) {
 		fprintf(stderr, "encryptAndAddActionFile: malloc(): %s\n", strerror(errno));
-		return -1;
+		free(jsonData);
+		return -3;
 	}
-	int result = encryption->encrypt(buf, size,
+	int result = encryption->encrypt(jsonData, strlen(jsonData),
 		encryptedBuf, &encryptedBufLen,
 		"12345"); // TODO: manage encryption key
 
 	if (result != 0) {
 		fprintf(stderr, "encryptAndAddActionFile: encrypt failed: %d\n", result);
+		free(jsonData);
 		free(encryptedBuf);
-		return -2;
+		return -4;
 	}
 
-	result = destination->addActionFile(filename, encryptedBuf, encryptedBufLen);
+	result = destination->addActionFile(newActionFileName, encryptedBuf, encryptedBufLen);
+	free(jsonData);
 	free(encryptedBuf);
 	return result;
 }
@@ -434,36 +450,9 @@ constructAction:;
 	newAction->size = newSize;
 	newAction->blockSize = newBlockSize;
 
-	// write to json, call destination->addActionFile()
-	char* jsonData = serializeAction(newAction);
-	if (jsonData == NULL) {
-		fprintf(stderr, "flushFile: serializeAction() failed\n");
-		if (newContent) {
-			free(newContent);
-		}
-		free(newAction->path);
-		free(newAction);
-		return 8;
-	}
-
-	char newActionFileName[MAX_STORAGE_NAME_LEN];
-	if (getRandomStorageFileName(newActionFileName) != 0) {
-		fprintf(stderr, "flushFile: getRandomStorageFileName failed\n");
-		if (newContent) {
-			free(newContent);
-		}
-		free(newAction->path);
-		free(newAction);
-		return 9;
-	}
-	int res = encryptAndAddActionFile(
-		newActionFileName,
-		jsonData, strlen(jsonData));
-
-	free(jsonData);
-
-	if (res != 0) {
-		fprintf(stderr, "flushFile: destination->addActionFile failed\n");
+	// write to json, encrypt call destination->addActionFile()
+	if (encryptAndAddActionFile(newAction) != 0) {
+		fprintf(stderr, "flushFile: encryptAndAddActionFile failed\n");
 		if (newContent) {
 			free(newContent);
 		}
@@ -472,6 +461,7 @@ constructAction:;
 		return 10;
 	}
 
+	// add to actions array
 	addAction(newAction);
 
 	// update file
@@ -1019,6 +1009,96 @@ static int bucse_write_guarded(const char *path, const char *buf, size_t size, o
 	return result;
 }
 
+static int bucse_unlink(const char *path)
+{
+	fprintf(stderr, "DEBUG: unlink %s\n", path);
+
+	FilesystemFile *file = NULL;
+	FilesystemDir *containingDir = NULL;
+
+	if (strcmp(path, "/") == 0) {
+		return -EACCES;
+	} else if (path[0] == '/') {
+		DynArray pathArray;
+		memset(&pathArray, 0, sizeof(DynArray));
+		const char *fileName = path_split(path+1, &pathArray);
+		if (fileName == NULL) {
+			fprintf(stderr, "bucse_unlink: path_split() failed\n");
+			return -ENOMEM;
+		}
+		//path_debugPrint(&pathArray);
+
+		containingDir = findContainingDir(&pathArray);
+		path_free(&pathArray);
+
+		if (containingDir == NULL) {
+			fprintf(stderr, "bucse_unlink: path not found when reading file %s\n", path);
+			return -ENOENT;
+		}
+
+		file = findFile(containingDir, fileName);
+		if (file == NULL) {
+			FilesystemDir* dir = findDir(containingDir, fileName);
+			if (dir) {
+				return -EACCES;
+			} else {
+				return -ENOENT;
+			}
+		}
+		// continue working with the file below
+	} else {
+		return -ENOENT;
+	}
+
+	// construct new action, add it to actions
+	Action* newAction = malloc(sizeof(Action));
+	if (newAction == NULL) {
+		fprintf(stderr, "bucse_unlink: malloc(): %s\n", strerror(errno));
+		return -ENOMEM;
+	}
+	newAction->time = getCurrentTime();
+	newAction->actionType = ActionTypeRemoveFile;
+
+	newAction->path = getFullFilePath(file);
+	if (newAction->path == NULL) {
+		fprintf(stderr, "bucse_unlink: getFullFilePath() failed: %s\n", strerror(errno));
+		free(newAction);
+		return -ENOMEM;
+	}
+	newAction->content = NULL;
+	newAction->contentLen = 0;
+	newAction->size = 0;
+	newAction->blockSize = 0;
+
+	// write to json, encrypt call destination->addActionFile()
+	if (encryptAndAddActionFile(newAction) != 0) {
+		fprintf(stderr, "bucse_unlink: encryptAndAddActionFile failed\n");
+		free(newAction->path);
+		free(newAction);
+		return -EIO;
+	}
+
+	// add to actions array
+	addAction(newAction);
+
+	// update filesystem
+	if (removeFromDynArrayUnordered(&containingDir->files, (void*)file) != 0) {
+		fprintf(stderr, "bucse_unlink: removeFromDynArrayUnordered() failed\n");
+		return -EIO;
+	}
+	free(file);
+
+	return 0;
+}
+
+static int bucse_unlink_guarded(const char *path)
+{
+	pthread_mutex_lock(&bucseMutex);
+	int result = bucse_unlink(path);
+	pthread_mutex_unlock(&bucseMutex);
+	return result;
+}
+
 struct fuse_operations bucse_oper = {
 	.getattr = bucse_getattr_guarded,
 	.open = bucse_open_guarded,
@@ -1027,11 +1107,11 @@ struct fuse_operations bucse_oper = {
 	.read = bucse_read_guarded,
 	.readdir = bucse_readdir_guarded,
 	.write = bucse_write_guarded,
+	.unlink = bucse_unlink_guarded,
 	
 	// TODO: implement truncate
 	// TODO: implement mkdir
 	// TODO: implement rmdir
-	// TODO: implement unlink
 };
 
 struct bucse_config {

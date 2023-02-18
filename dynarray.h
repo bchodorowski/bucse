@@ -6,3 +6,4 @@ typedef struct {
 
 int addToDynArray(DynArray *dynArray, void* newObject);
 void freeDynArray(DynArray *dynArray);
+int removeFromDynArrayUnordered(DynArray *dynArray, void* element);

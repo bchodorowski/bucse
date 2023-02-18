@@ -94,7 +94,7 @@ static int doAction(Action* action)
 		const char *fileName = path_split(action->path, &pathArray);
 		if (fileName == NULL) {
 			fprintf(stderr, "doAction: path_split() failed\n");
-			return 1;
+			return 4;
 		}
 
 		FilesystemDir *containingDir = findContainingDir(&pathArray);
@@ -102,24 +102,53 @@ static int doAction(Action* action)
 
 		if (containingDir == NULL) {
 			fprintf(stderr, "doAction: path not found when editing file %s\n", action->path);
-			return 2;
+			return 5;
 		}
 
-		FilesystemFile* newFile = findFile(containingDir, fileName);
-		if (newFile == NULL) {
+		FilesystemFile* file = findFile(containingDir, fileName);
+		if (file == NULL) {
 			fprintf(stderr, "doAction: file not found: %s\n", action->path);
-			return 3;
+			return 6;
 		}
 
-		newFile->time = action->time;
-		newFile->content = action->content;
-		newFile->contentLen = action->contentLen;
-		newFile->size = action->size;
-		newFile->blockSize = action->blockSize;
-		newFile->dirtyFlags = 0;
-		memset(&newFile->pendingWrites, 0, sizeof(DynArray));
+		file->time = action->time;
+		file->content = action->content;
+		file->contentLen = action->contentLen;
+		file->size = action->size;
+		file->blockSize = action->blockSize;
+		file->dirtyFlags = 0;
+		memset(&file->pendingWrites, 0, sizeof(DynArray));
 
 		return 0;
+
+	} else if (action->actionType == ActionTypeRemoveFile) {
+		DynArray pathArray;
+		memset(&pathArray, 0, sizeof(DynArray));
+		const char *fileName = path_split(action->path, &pathArray);
+		if (fileName == NULL) {
+			fprintf(stderr, "doAction: path_split() failed\n");
+			return 7;
+		}
+
+		FilesystemDir *containingDir = findContainingDir(&pathArray);
+		path_free(&pathArray);
+
+		if (containingDir == NULL) {
+			fprintf(stderr, "doAction: path not found when editing file %s\n", action->path);
+			return 8;
+		}
+
+		FilesystemFile* file = findFile(containingDir, fileName);
+		if (file == NULL) {
+			fprintf(stderr, "doAction: file not found: %s\n", action->path);
+			return 9;
+		}
+
+		if (removeFromDynArrayUnordered(&containingDir->files, (void*)file) != 0) {
+			fprintf(stderr, "doAction: removeFromDynArrayUnordered() failed\n");
+			return 10;
+		}
+		free(file);
 
 	} else {
 		fprintf(stderr, "doAction: unknown action type: %d\n", action->actionType);
