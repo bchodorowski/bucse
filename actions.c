@@ -12,6 +12,9 @@
 
 #include "actions.h"
 
+// TODO: unused fields should not be serialized nor parsed
+// -- e.g. content, size, blockSize for removeFile action
+
 static void printActions(DynArray* array)
 {
 	for (int i=0; i<array->len; i++) {
