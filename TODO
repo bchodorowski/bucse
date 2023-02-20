@@ -1,4 +1,3 @@
-- remove dir actions
 - truncate action
 - refactor: extract parts of bucse.c into fuse_operations.c
 - -Wall

@@ -185,6 +185,38 @@ static int doAction(Action* action)
 		addToDynArray(&containingDir->dirs, newDir);
 		return 0;
 
+	} else if (action->actionType == ActionTypeRemoveDirectory) {
+		DynArray pathArray;
+		memset(&pathArray, 0, sizeof(DynArray));
+		const char *dirName = path_split(action->path, &pathArray);
+		if (dirName == NULL) {
+			fprintf(stderr, "doAction: path_split() failed\n");
+			return 14;
+		}
+
+		FilesystemDir *containingDir = findContainingDir(&pathArray);
+		path_free(&pathArray);
+
+		if (containingDir == NULL) {
+			fprintf(stderr, "doAction: path not found when adding directory %s\n", action->path);
+			return 15;
+		}
+
+		FilesystemDir* dir = findDir(containingDir, dirName);
+		if (dir == NULL) {
+			fprintf(stderr, "doAction: dir not found: %s\n", action->path);
+			return 16;
+		}
+
+		if (removeFromDynArrayUnordered(&containingDir->dirs, (void*)dir) != 0) {
+			fprintf(stderr, "doAction: removeFromDynArrayUnordered() failed\n");
+			return 17;
+		}
+		freeDynArray(&dir->dirs);
+		freeDynArray(&dir->files);
+		free(dir);
+		return 0;
+
 	} else {
 		fprintf(stderr, "doAction: unknown action type: %d\n", action->actionType);
 		return -1;
