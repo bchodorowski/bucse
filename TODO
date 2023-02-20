@@ -1,4 +1,4 @@
-- add / remove dir actions
+- remove dir actions
 - truncate action
 - refactor: extract parts of bucse.c into fuse_operations.c
 - -Wall
@@ -10,3 +10,4 @@
 - s3 destination
 - investigate memory leaks in fuse_opt_parse reported by valgrind
 - implement tests
+- implement undo actions

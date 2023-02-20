@@ -31,6 +31,8 @@ FilesystemDir* findDir(FilesystemDir* dir, const char* dirName)
 			return d;
 		}
 	}
+
+	return NULL;
 }
 
 FilesystemDir* findContainingDir(DynArray *pathArray)

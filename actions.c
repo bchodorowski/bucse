@@ -137,7 +137,7 @@ static int doAction(Action* action)
 		path_free(&pathArray);
 
 		if (containingDir == NULL) {
-			fprintf(stderr, "doAction: path not found when editing file %s\n", action->path);
+			fprintf(stderr, "doAction: path not found when removing file %s\n", action->path);
 			return 8;
 		}
 
@@ -152,6 +152,38 @@ static int doAction(Action* action)
 			return 10;
 		}
 		free(file);
+		return 0;
+
+	} else if (action->actionType == ActionTypeAddDirectory) {
+		DynArray pathArray;
+		memset(&pathArray, 0, sizeof(DynArray));
+		const char *dirName = path_split(action->path, &pathArray);
+		if (dirName == NULL) {
+			fprintf(stderr, "doAction: path_split() failed\n");
+			return 11;
+		}
+
+		FilesystemDir *containingDir = findContainingDir(&pathArray);
+		path_free(&pathArray);
+
+		if (containingDir == NULL) {
+			fprintf(stderr, "doAction: path not found when adding directory %s\n", action->path);
+			return 12;
+		}
+
+		FilesystemDir* newDir = malloc(sizeof(FilesystemDir));
+		if (newDir == NULL) {
+			fprintf(stderr, "doAction: malloc(): %s\n", strerror(errno));
+			return 13;
+		}
+		memset(newDir, 0, sizeof(FilesystemDir));
+
+		newDir->name = dirName;
+		newDir->time = action->time;
+		newDir->parentDir = containingDir;
+
+		addToDynArray(&containingDir->dirs, newDir);
+		return 0;
 
 	} else {
 		fprintf(stderr, "doAction: unknown action type: %d\n", action->actionType);

@@ -960,7 +960,7 @@ static int bucse_write(const char *path, const char *buf, size_t size, off_t off
 		path_free(&pathArray);
 
 		if (containingDir == NULL) {
-			fprintf(stderr, "bucse_write: path not found when reading file %s\n", path);
+			fprintf(stderr, "bucse_write: path not found when writing file %s\n", path);
 			return -ENOENT;
 		}
 
@@ -1032,7 +1032,7 @@ static int bucse_unlink(const char *path)
 		path_free(&pathArray);
 
 		if (containingDir == NULL) {
-			fprintf(stderr, "bucse_unlink: path not found when reading file %s\n", path);
+			fprintf(stderr, "bucse_unlink: path not found when deleting file %s\n", path);
 			return -ENOENT;
 		}
 
@@ -1099,6 +1099,111 @@ static int bucse_unlink_guarded(const char *path)
 	return result;
 }
 
+static int bucse_mkdir(const char *path, mode_t mode)
+{
+	(void) mode;
+
+	fprintf(stderr, "DEBUG: mkdir %s\n", path);
+
+	FilesystemDir *containingDir = NULL;
+	const char *dirName = NULL;
+
+	if (strcmp(path, "/") == 0) {
+		return -EACCES;
+	} else if (path[0] == '/') {
+		DynArray pathArray;
+		memset(&pathArray, 0, sizeof(DynArray));
+		dirName = path_split(path+1, &pathArray);
+		if (dirName == NULL) {
+			fprintf(stderr, "bucse_mkdir: path_split() failed\n");
+			return -ENOMEM;
+		}
+		//path_debugPrint(&pathArray);
+
+		containingDir = findContainingDir(&pathArray);
+		path_free(&pathArray);
+
+		if (containingDir == NULL) {
+			fprintf(stderr, "bucse_mkdir: path not found when adding directory %s\n", path);
+			return -ENOENT;
+		}
+
+		FilesystemDir *dir = findDir(containingDir, dirName);
+		if (dir != NULL) {
+			return -EEXIST;
+		}
+		FilesystemFile* file = findFile(containingDir, dirName);
+		if (file != NULL) {
+			return -EEXIST;
+		}
+	} else {
+		return -ENOENT;
+	}
+
+	// construct new action, add it to actions
+	Action* newAction = malloc(sizeof(Action));
+	if (newAction == NULL) {
+		fprintf(stderr, "bucse_mkdir: malloc(): %s\n", strerror(errno));
+		return -ENOMEM;
+	}
+	newAction->time = getCurrentTime();
+	newAction->actionType = ActionTypeAddDirectory;
+
+	newAction->path = strdup(path+1);
+	if (newAction->path == NULL) {
+		fprintf(stderr, "bucse_mkdir: strdup() failed: %s\n", strerror(errno));
+		free(newAction);
+		return -ENOMEM;
+	}
+	newAction->content = NULL;
+	newAction->contentLen = 0;
+	newAction->size = 0;
+	newAction->blockSize = 0;
+
+	FilesystemDir* newDir = malloc(sizeof(FilesystemDir));
+	if (newDir == NULL) {
+		fprintf(stderr, "bucse_mkdir: malloc(): %s\n", strerror(errno));
+		free(newAction->path);
+		free(newAction);
+		return -ENOMEM;
+	}
+	memset(newDir, 0, sizeof(FilesystemDir));
+
+	// funny way to find the const char* filename that's owned by the action
+	DynArray pathArray;
+	memset(&pathArray, 0, sizeof(DynArray));
+	newDir->name = path_split(newAction->path, &pathArray);
+	path_free(&pathArray);
+
+	newDir->time = newAction->time;
+	newDir->parentDir = containingDir;
+
+	// write to json, encrypt call destination->addActionFile()
+	if (encryptAndAddActionFile(newAction) != 0) {
+		fprintf(stderr, "bucse_mkdir: encryptAndAddActionFile failed\n");
+		free(newAction->path);
+		free(newAction);
+		free(newDir);
+		return -EIO;
+	}
+
+	// add to actions array
+	addAction(newAction);
+
+	// update filesystem
+	addToDynArray(&containingDir->dirs, newDir);
+
+	return 0;
+}
+
+static int bucse_mkdir_guarded(const char *path, mode_t mode)
+{
+	pthread_mutex_lock(&bucseMutex);
+	int result = bucse_mkdir(path, mode);
+	pthread_mutex_unlock(&bucseMutex);
+	return result;
+}
+
 struct fuse_operations bucse_oper = {
 	.getattr = bucse_getattr_guarded,
 	.open = bucse_open_guarded,
@@ -1108,9 +1213,9 @@ struct fuse_operations bucse_oper = {
 	.readdir = bucse_readdir_guarded,
 	.write = bucse_write_guarded,
 	.unlink = bucse_unlink_guarded,
+	.mkdir = bucse_mkdir_guarded,
 	
 	// TODO: implement truncate
-	// TODO: implement mkdir
 	// TODO: implement rmdir
 };
 

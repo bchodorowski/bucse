@@ -13,7 +13,7 @@ typedef struct {
 
 typedef struct _FilesystemDir
 {
-	char* name;
+	const char* name;
 	int64_t time;
 	DynArray files;
 	DynArray dirs;
