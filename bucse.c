@@ -234,6 +234,10 @@ static int flushFile(FilesystemFile* file)
 	// TODO: what if create only, no writes?
 
 	int newSize = file->size;
+	if (file->dirtyFlags & DirtyFlagPendingTrunc) {
+		newSize = file->truncSize;
+		file->truncSize = 0;
+	}
 	int newBlockSize = file->blockSize;
 	int newContentLen = file->contentLen;
 	char* newContent = NULL;
@@ -352,7 +356,7 @@ static int flushFile(FilesystemFile* file)
 				ioerror = 1;
 				break;
 			}
-			if (decryptedBlockBufSize < expectedReadSize) {
+			if (decryptedBlockBufSize != expectedReadSize) {
 				fprintf(stderr, "flushFile: expected decrypted block size %d, got %d\n",
 					expectedReadSize, decryptedBlockBufSize);
 				ioerror = 1;
@@ -509,6 +513,10 @@ static int bucse_getattr(const char *path, struct stat *stbuf, struct fuse_file_
 {
 	(void) fi;
 
+	if (path == NULL) {
+		return -EIO;
+	}
+
 	memset(stbuf, 0, sizeof(struct stat));
 	if (strcmp(path, "/") == 0) {
 		stbuf->st_mode = S_IFDIR | 0755;
@@ -532,18 +540,20 @@ static int bucse_getattr(const char *path, struct stat *stbuf, struct fuse_file_
 
 		FilesystemFile *file = findFile(containingDir, fileName);
 		if (file) {
-			if (file->pendingWrites.len > 0) {
+			if (file->dirtyFlags != DirtyFlagNotDirty) {
 				flushFile(file);
 			}
 
 			stbuf->st_mode = S_IFREG | 0644;
 			stbuf->st_nlink = 1;
 			stbuf->st_size = file->size;
+			//stbuf->st_ino = MurmurHash64(path, strlen(path), 0);
 		} else {
 			FilesystemDir* dir = findDir(containingDir, fileName);
 			if (dir) {
 				stbuf->st_mode = S_IFDIR | 0755;
 				stbuf->st_nlink = 1;
+				//stbuf->st_ino = MurmurHash64(path, strlen(path), 0);
 			} else {
 				return -ENOENT;
 			}
@@ -569,6 +579,10 @@ static int bucse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	(void) offset;
 	(void) fi;
 	(void) flags;
+
+	if (path == NULL) {
+		return -EIO;
+	}
 
 	FilesystemDir *dir;
 
@@ -622,6 +636,10 @@ static int bucse_open(const char *path, struct fuse_file_info *fi)
 {
 	fprintf(stderr, "DEBUG: open %s, access mode %d\n", path, fi->flags);
 
+	if (path == NULL) {
+		return -EIO;
+	}
+
 	if (strcmp(path, "/") == 0) {
 		return -EACCES;
 	} else if (path[0] == '/') {
@@ -644,16 +662,46 @@ static int bucse_open(const char *path, struct fuse_file_info *fi)
 
 		FilesystemFile *file = findFile(containingDir, fileName);
 		if (file) {
-			if (fi->flags & O_TRUNC) {
-				file->size = 0;
-				file->dirtyFlags |= DirtyFlagPendingWrite;
+			if ((fi->flags & O_CREAT) && (fi->flags & O_EXCL)) {
+				return -EEXIST;
 			}
+
+			if (fi->flags & O_TRUNC) {
+				file->truncSize = 0;
+				file->dirtyFlags |= DirtyFlagPendingTrunc;
+			}
+
 			return 0;
 		} else {
 			FilesystemDir* dir = findDir(containingDir, fileName);
 			if (dir) {
 				return -EACCES;
 			} else {
+				if (fi->flags & O_CREAT) {
+					FilesystemFile* newFile = malloc(sizeof(FilesystemFile));
+					if (newFile == NULL) {
+						fprintf(stderr, "bucse_open: malloc(): %s\n", strerror(errno));
+						return -ENOMEM;
+					}
+
+					newFile->name = strdup(fileName);
+					if (newFile->name == NULL) {
+						fprintf(stderr, "splitPath: strdup(): %s\n", strerror(errno));
+						free(newFile);
+						return -ENOMEM;
+					}
+					newFile->time = getCurrentTime();
+					newFile->content = NULL;
+					newFile->contentLen = 0;
+					newFile->size = 0;
+					newFile->blockSize = 0;
+					newFile->dirtyFlags = DirtyFlagPendingCreate;
+					memset(&newFile->pendingWrites, 0, sizeof(DynArray));
+					newFile->parentDir = containingDir;
+
+					addToDynArray(&containingDir->files, newFile);
+					return 0;
+				}
 				return -ENOENT;
 			}
 		}
@@ -673,6 +721,10 @@ static int bucse_open_guarded(const char *path, struct fuse_file_info *fi)
 static int bucse_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 {
 	fprintf(stderr, "DEBUG: create %s, mode %d, access mode %d\n", path, mode, fi->flags);
+
+	if (path == NULL) {
+		return -EIO;
+	}
 
 	FilesystemDir *containingDir = NULL;
 	const char *fileName = NULL;
@@ -698,7 +750,10 @@ static int bucse_create(const char *path, mode_t mode, struct fuse_file_info *fi
 
 		FilesystemFile *file = findFile(containingDir, fileName);
 		if (file) {
-			return -EEXIST;
+			if ((fi->flags & O_CREAT) && (fi->flags & O_EXCL)) {
+				return -EEXIST;
+			}
+			return bucse_open(path, fi);
 		} else {
 			FilesystemDir* dir = findDir(containingDir, fileName);
 			if (dir) {
@@ -747,6 +802,10 @@ static int bucse_create_guarded(const char *path, mode_t mode, struct fuse_file_
 static int bucse_release(const char *path, struct fuse_file_info *fi)
 {
 	fprintf(stderr, "DEBUG: release %s, access mode %d\n", path, fi->flags);
+
+	if (path == NULL) {
+		return -EIO;
+	}
 
 	if ((fi->flags & O_ACCMODE) == O_RDONLY) {
 		return 0;
@@ -831,6 +890,10 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 
 	fprintf(stderr, "DEBUG: read %s, size: %u, offset: %u\n", path, size, offset);
 
+	if (path == NULL) {
+		return -EIO;
+	}
+
 	FilesystemFile *file = NULL;
 
 	if (strcmp(path, "/") == 0) {
@@ -867,7 +930,7 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 		return -ENOENT;
 	}
 
-	if (file->pendingWrites.len > 0) {
+	if (file->dirtyFlags != DirtyFlagNotDirty) {
 		flushFile(file);
 	}
 
@@ -962,6 +1025,10 @@ static int bucse_write(const char *path, const char *buf, size_t size, off_t off
 
 	fprintf(stderr, "DEBUG: write %s, size: %u, offset: %u\n", path, size, offset);
 
+	if (path == NULL) {
+		return -EIO;
+	}
+
 	FilesystemFile *file = NULL;
 
 	if (strcmp(path, "/") == 0) {
@@ -1032,6 +1099,10 @@ static int bucse_write_guarded(const char *path, const char *buf, size_t size, o
 static int bucse_unlink(const char *path)
 {
 	fprintf(stderr, "DEBUG: unlink %s\n", path);
+
+	if (path == NULL) {
+		return -EIO;
+	}
 
 	FilesystemFile *file = NULL;
 	FilesystemDir *containingDir = NULL;
@@ -1124,6 +1195,10 @@ static int bucse_mkdir(const char *path, mode_t mode)
 	(void) mode;
 
 	fprintf(stderr, "DEBUG: mkdir %s\n", path);
+
+	if (path == NULL) {
+		return -EIO;
+	}
 
 	FilesystemDir *containingDir = NULL;
 	const char *dirName = NULL;
@@ -1228,6 +1303,10 @@ static int bucse_rmdir(const char *path)
 {
 	fprintf(stderr, "DEBUG: rmdir %s\n", path);
 
+	if (path == NULL) {
+		return -EIO;
+	}
+
 	FilesystemDir *containingDir = NULL;
 	const char *dirName = NULL;
 	FilesystemDir *dir = NULL;
@@ -1328,6 +1407,10 @@ static int bucse_truncate(const char *path, long int newSize, struct fuse_file_i
 
 	fprintf(stderr, "DEBUG: truncate %s, size: %ld\n", path, newSize);
 
+	if (path == NULL) {
+		return -EIO;
+	}
+
 	FilesystemFile *file = NULL;
 
 	if (strcmp(path, "/") == 0) {
@@ -1364,6 +1447,10 @@ static int bucse_truncate(const char *path, long int newSize, struct fuse_file_i
 		return -ENOENT;
 	}
 
+	if (file->dirtyFlags != DirtyFlagNotDirty) {
+		flushFile(file);
+	}
+
 	int size = file->size;
 	for (int i=0; i<file->pendingWrites.len; i++) {
 		PendingWrite* pw = file->pendingWrites.objects[i];
@@ -1396,7 +1483,7 @@ static int bucse_truncate(const char *path, long int newSize, struct fuse_file_i
 
 	// (newSize < size), so
 	
-	file->size = newSize;
+	file->truncSize = newSize;
 	file->dirtyFlags |= DirtyFlagPendingWrite;
 
 	return 0;
@@ -1406,6 +1493,79 @@ static int bucse_truncate_guarded(const char *path, long int newSize, struct fus
 {
 	pthread_mutex_lock(&bucseMutex);
 	int result = bucse_truncate(path, newSize, fi);
+	pthread_mutex_unlock(&bucseMutex);
+	return result;
+}
+
+static int bucse_flush(const char *path, struct fuse_file_info *fi)
+{
+	(void) fi;
+
+	fprintf(stderr, "DEBUG: flush %s\n", path);
+
+	if (path == NULL) {
+		return -EIO;
+	}
+
+	FilesystemFile *file = NULL;
+
+	if (strcmp(path, "/") == 0) {
+		return -EACCES;
+	} else if (path[0] == '/') {
+		DynArray pathArray;
+		memset(&pathArray, 0, sizeof(DynArray));
+		const char *fileName = path_split(path+1, &pathArray);
+		if (fileName == NULL) {
+			fprintf(stderr, "bucse_flush: path_split() failed\n");
+			return -ENOMEM;
+		}
+		//path_debugPrint(&pathArray);
+
+		FilesystemDir *containingDir = findContainingDir(&pathArray);
+		path_free(&pathArray);
+
+		if (containingDir == NULL) {
+			fprintf(stderr, "bucse_flush: path not found when writing file %s\n", path);
+			return -ENOENT;
+		}
+
+		file = findFile(containingDir, fileName);
+		if (file == NULL) {
+			FilesystemDir* dir = findDir(containingDir, fileName);
+			if (dir) {
+				return -EACCES;
+			} else {
+				return -ENOENT;
+			}
+		}
+		// continue working with the file below
+	} else {
+		return -ENOENT;
+	}
+
+	flushFile(file);
+
+	return 0;
+}
+
+static int bucse_flush_guarded(const char *path, struct fuse_file_info *fi)
+{
+	pthread_mutex_lock(&bucseMutex);
+	int result = bucse_flush(path, fi);
+	pthread_mutex_unlock(&bucseMutex);
+	return result;
+}
+
+static void* bucse_init(struct fuse_conn_info *conn, struct fuse_config *cfg)
+{
+	//cfg->use_ino = 1;
+	cfg->hard_remove = 1;
+}
+
+static void* bucse_init_guarded(struct fuse_conn_info *conn, struct fuse_config *cfg)
+{
+	pthread_mutex_lock(&bucseMutex);
+	void* result = bucse_init(conn, cfg);
 	pthread_mutex_unlock(&bucseMutex);
 	return result;
 }
@@ -1422,6 +1582,8 @@ struct fuse_operations bucse_oper = {
 	.mkdir = bucse_mkdir_guarded,
 	.rmdir = bucse_rmdir_guarded,
 	.truncate = bucse_truncate_guarded,
+	.flush = bucse_flush_guarded,
+	.init = bucse_init_guarded,
 };
 
 struct bucse_config {

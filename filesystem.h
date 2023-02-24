@@ -3,6 +3,7 @@ typedef enum {
 	DirtyFlagPendingCreate = 1,
 	DirtyFlagPendingWrite = 2,
 	DirtyFlagPendingCreateAndWrite = 3,
+	DirtyFlagPendingTrunc = 4,
 } DirtyFlags;
 
 typedef struct {
@@ -31,6 +32,7 @@ typedef struct
 	DirtyFlags dirtyFlags;
 	DynArray pendingWrites;
 	FilesystemDir* parentDir;
+	int truncSize;
 } FilesystemFile;
 
 extern FilesystemDir* root;
