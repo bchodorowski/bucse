@@ -236,6 +236,7 @@ static int flushFile(FilesystemFile* file)
 	int newSize = file->size;
 	int newBlockSize = file->blockSize;
 	int newContentLen = file->contentLen;
+	char* newContent = NULL;
 
 	for (int i=0; i<file->pendingWrites.len; i++) {
 		PendingWrite* pw = file->pendingWrites.objects[i];
@@ -244,20 +245,33 @@ static int flushFile(FilesystemFile* file)
 		}
 	}
 
-	if (file->pendingWrites.len == 0) {
-		goto constructAction;
-	}
-
 	// block size may not be determined yet if the file hasn't been flushed
 	// with any data
 	if (file->blockSize == 0) {
 		newBlockSize = getBlockSize(newSize);
 	}
 
-	newContentLen = newSize / newBlockSize + (int)(newSize % newBlockSize != 0);
+	if (newBlockSize == 0) {
+		newContentLen = 0;
+	} else {
+		newContentLen = newSize / newBlockSize + (int)(newSize % newBlockSize != 0);
+	}
 
 	// TODO: if newContentLen is big, consider changing the blockSize and
 	//       rewriting the whole file
+
+	if (file->pendingWrites.len == 0) {
+		if (newContentLen > 0) {
+			newContent = malloc(newContentLen * MAX_STORAGE_NAME_LEN);
+			if (newContent == NULL) {
+				fprintf(stderr, "flushFile: malloc(): %s\n", strerror(errno));
+				return 1;
+			}
+			memcpy(newContent, file->content, newContentLen * MAX_STORAGE_NAME_LEN);
+		}
+
+		goto constructAction;
+	}
 
 	// determine which blocks have been changed -- one byte per block
 	char* blocksToWrite = malloc(newContentLen);
@@ -296,7 +310,7 @@ static int flushFile(FilesystemFile* file)
 		free(encryptedBlockBuf);
 		return 3;
 	}
-	char* newContent = malloc(newContentLen * MAX_STORAGE_NAME_LEN);
+	newContent = malloc(newContentLen * MAX_STORAGE_NAME_LEN);
 	if (newContent == NULL) {
 		free(blocksToWrite);
 		free(encryptedBlockBuf);
@@ -338,7 +352,7 @@ static int flushFile(FilesystemFile* file)
 				ioerror = 1;
 				break;
 			}
-			if (decryptedBlockBufSize != expectedReadSize) {
+			if (decryptedBlockBufSize < expectedReadSize) {
 				fprintf(stderr, "flushFile: expected decrypted block size %d, got %d\n",
 					expectedReadSize, decryptedBlockBufSize);
 				ioerror = 1;
@@ -413,7 +427,9 @@ static int flushFile(FilesystemFile* file)
 	free(blocksToWrite);
 
 	if (ioerror) {
-		free(newContent);
+		if (newContent) {
+			free(newContent);
+		}
 		return 5;
 	}
 
@@ -604,7 +620,7 @@ static int bucse_readdir_guarded(const char *path, void *buf, fuse_fill_dir_t fi
 
 static int bucse_open(const char *path, struct fuse_file_info *fi)
 {
-	fprintf(stderr, "DEBUG: open %s, access mode %d\n", path, (fi->flags & O_ACCMODE));
+	fprintf(stderr, "DEBUG: open %s, access mode %d\n", path, fi->flags);
 
 	if (strcmp(path, "/") == 0) {
 		return -EACCES;
@@ -628,6 +644,10 @@ static int bucse_open(const char *path, struct fuse_file_info *fi)
 
 		FilesystemFile *file = findFile(containingDir, fileName);
 		if (file) {
+			if (fi->flags & O_TRUNC) {
+				file->size = 0;
+				file->dirtyFlags |= DirtyFlagPendingWrite;
+			}
 			return 0;
 		} else {
 			FilesystemDir* dir = findDir(containingDir, fileName);
@@ -652,7 +672,7 @@ static int bucse_open_guarded(const char *path, struct fuse_file_info *fi)
 
 static int bucse_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 {
-	fprintf(stderr, "DEBUG: create %s, mode %d, access mode %d\n", path, mode, (fi->flags & O_ACCMODE));
+	fprintf(stderr, "DEBUG: create %s, mode %d, access mode %d\n", path, mode, fi->flags);
 
 	FilesystemDir *containingDir = NULL;
 	const char *fileName = NULL;
@@ -726,7 +746,7 @@ static int bucse_create_guarded(const char *path, mode_t mode, struct fuse_file_
 
 static int bucse_release(const char *path, struct fuse_file_info *fi)
 {
-	fprintf(stderr, "DEBUG: release %s, access mode %d\n", path, (fi->flags & O_ACCMODE));
+	fprintf(stderr, "DEBUG: release %s, access mode %d\n", path, fi->flags);
 
 	if ((fi->flags & O_ACCMODE) == O_RDONLY) {
 		return 0;
@@ -739,7 +759,7 @@ static int bucse_release(const char *path, struct fuse_file_info *fi)
 		memset(&pathArray, 0, sizeof(DynArray));
 		const char *fileName = path_split(path+1, &pathArray);
 		if (fileName == NULL) {
-			fprintf(stderr, "bucse_open: path_split() failed\n");
+			fprintf(stderr, "bucse_release: path_split() failed\n");
 			return -ENOMEM;
 		}
 		//path_debugPrint(&pathArray);
@@ -748,7 +768,7 @@ static int bucse_release(const char *path, struct fuse_file_info *fi)
 		path_free(&pathArray);
 
 		if (containingDir == NULL) {
-			fprintf(stderr, "bucse_open: path not found when opening file %s\n", path);
+			fprintf(stderr, "bucse_release: path not found when releasing file %s\n", path);
 			return -ENOENT;
 		}
 
@@ -978,7 +998,6 @@ static int bucse_write(const char *path, const char *buf, size_t size, off_t off
 		return -ENOENT;
 	}
 
-	file->dirtyFlags |= DirtyFlagPendingWrite;
 	PendingWrite* newPendingWrite = malloc(sizeof(PendingWrite));
 	if (newPendingWrite == NULL) {
 		fprintf(stderr, "bucse_write: malloc(): %s\n", strerror(errno));
@@ -994,6 +1013,7 @@ static int bucse_write(const char *path, const char *buf, size_t size, off_t off
 	memcpy(newPendingWrite->buf, buf, size);
 	newPendingWrite->offset = offset;
 	addToDynArray(&file->pendingWrites, newPendingWrite);
+	file->dirtyFlags |= DirtyFlagPendingWrite;
 
 	// TODO: flush file if pendingWrites are too large
 
@@ -1302,6 +1322,94 @@ static int bucse_rmdir_guarded(const char *path)
 	return result;
 }
 
+static int bucse_truncate(const char *path, long int newSize, struct fuse_file_info *fi)
+{
+	(void) fi;
+
+	fprintf(stderr, "DEBUG: truncate %s, size: %ld\n", path, newSize);
+
+	FilesystemFile *file = NULL;
+
+	if (strcmp(path, "/") == 0) {
+		return -EACCES;
+	} else if (path[0] == '/') {
+		DynArray pathArray;
+		memset(&pathArray, 0, sizeof(DynArray));
+		const char *fileName = path_split(path+1, &pathArray);
+		if (fileName == NULL) {
+			fprintf(stderr, "bucse_truncate: path_split() failed\n");
+			return -ENOMEM;
+		}
+		//path_debugPrint(&pathArray);
+
+		FilesystemDir *containingDir = findContainingDir(&pathArray);
+		path_free(&pathArray);
+
+		if (containingDir == NULL) {
+			fprintf(stderr, "bucse_truncate: path not found when writing file %s\n", path);
+			return -ENOENT;
+		}
+
+		file = findFile(containingDir, fileName);
+		if (file == NULL) {
+			FilesystemDir* dir = findDir(containingDir, fileName);
+			if (dir) {
+				return -EACCES;
+			} else {
+				return -ENOENT;
+			}
+		}
+		// continue working with the file below
+	} else {
+		return -ENOENT;
+	}
+
+	int size = file->size;
+	for (int i=0; i<file->pendingWrites.len; i++) {
+		PendingWrite* pw = file->pendingWrites.objects[i];
+		if (size < (pw->offset + pw->size)) {
+			size = (pw->offset + pw->size);
+		}
+	}
+
+	if (newSize == size) {
+		return 0;
+	} else if (newSize > size) {
+		PendingWrite* newPendingWrite = malloc(sizeof(PendingWrite));
+		if (newPendingWrite == NULL) {
+			fprintf(stderr, "bucse_truncate: malloc(): %s\n", strerror(errno));
+			return -ENOMEM;
+		}
+		newPendingWrite->size = newSize - size;
+		newPendingWrite->buf = malloc(newSize - size);
+		if (newPendingWrite->buf == NULL) {
+			fprintf(stderr, "bucse_truncate: malloc(): %s\n", strerror(errno));
+			free(newPendingWrite);
+			return -ENOMEM;
+		}
+		memset(newPendingWrite->buf, 0, newSize - size);
+		newPendingWrite->offset = size;
+		addToDynArray(&file->pendingWrites, newPendingWrite);
+		file->dirtyFlags |= DirtyFlagPendingWrite;
+		return 0;
+	}
+
+	// (newSize < size), so
+	
+	file->size = newSize;
+	file->dirtyFlags |= DirtyFlagPendingWrite;
+
+	return 0;
+}
+
+static int bucse_truncate_guarded(const char *path, long int newSize, struct fuse_file_info *fi)
+{
+	pthread_mutex_lock(&bucseMutex);
+	int result = bucse_truncate(path, newSize, fi);
+	pthread_mutex_unlock(&bucseMutex);
+	return result;
+}
+
 struct fuse_operations bucse_oper = {
 	.getattr = bucse_getattr_guarded,
 	.open = bucse_open_guarded,
@@ -1313,8 +1421,7 @@ struct fuse_operations bucse_oper = {
 	.unlink = bucse_unlink_guarded,
 	.mkdir = bucse_mkdir_guarded,
 	.rmdir = bucse_rmdir_guarded,
-	
-	// TODO: implement truncate
+	.truncate = bucse_truncate_guarded,
 };
 
 struct bucse_config {

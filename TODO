@@ -1,4 +1,4 @@
-- truncate action
+- O_EXCL may not work as intended
 - refactor: extract parts of bucse.c into fuse_operations.c
 - -Wall
 - consider big files -> use 64 bit variables?
