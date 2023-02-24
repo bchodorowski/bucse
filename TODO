@@ -1,8 +1,9 @@
-- O_EXCL may not work as intended
 - refactor: extract parts of bucse.c into fuse_operations.c
 - -Wall
 - consider big files -> use 64 bit variables?
 - handle addToDynArray failures
+- verbose / non verbose logging
+- daemonize
 (at this point we should have working MVP -- with local destination and no encryption
 - improve local destination by applying a filesystem hook to be notified about changes in the filesystem
 - ssh destination
