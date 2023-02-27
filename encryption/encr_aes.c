@@ -126,8 +126,14 @@ int encrAesDecrypt(char *inBuf, size_t inSize, char *outBuf, size_t *outSize, ch
 	return 0;
 }
 
+int encrAesNeedsPassphrase()
+{
+	return 1;
+}
+
 Encryption encryptionAes = {
 	.encrypt = encrAesEncrypt,
-	.decrypt = encrAesDecrypt
+	.decrypt = encrAesDecrypt,
+	.needsPassphrase = encrAesNeedsPassphrase
 };
 

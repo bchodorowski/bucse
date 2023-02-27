@@ -35,6 +35,15 @@
 
 static pthread_mutex_t bucseMutex;
 
+struct bucse_config {
+	char *repository;
+	int verbose;
+	char *passphrase;
+};
+
+static struct bucse_config conf;
+
+
 static int64_t getCurrentTime()
 {
 	struct timeval tv;
@@ -188,7 +197,7 @@ static int encryptAndAddActionFile(Action* newAction)
 	}
 	int result = encryption->encrypt(jsonData, strlen(jsonData),
 		encryptedBuf, &encryptedBufLen,
-		"12345"); // TODO: manage encryption key
+		conf.passphrase);
 
 	if (result != 0) {
 		fprintf(stderr, "encryptAndAddActionFile: encrypt failed: %d\n", result);
@@ -214,7 +223,7 @@ static void actionAddedDecrypt(char* actionName, char* buf, size_t size, int mor
 
 	int result = encryption->decrypt(buf, size,
 		decryptedBuf, &decryptedBufLen,
-		"12345"); // TODO: manage encryption key
+		conf.passphrase);
 	
 	if (result != 0) {
 		fprintf(stderr, "actionAddedDecrypt: decrypt failed: %d\n", result);
@@ -350,7 +359,7 @@ static int flushFile(FilesystemFile* file)
 
 			res = encryption->decrypt(encryptedBlockBuf, encryptedBlockBufSize,
 				decryptedBlockBuf, &decryptedBlockBufSize,
-				"12345"); // TODO: manage encryption key
+				conf.passphrase);
 			if (res != 0) {
 				fprintf(stderr, "flushFile: decrypt failed: %d\n", res);
 				ioerror = 1;
@@ -400,7 +409,7 @@ static int flushFile(FilesystemFile* file)
 		// encrypt
 		int res = encryption->encrypt(decryptedBlockBuf, expectedWriteSize,
 			encryptedBlockBuf, &encryptedBlockBufSize,
-			"12345"); // TODO: manage encryption key
+			conf.passphrase);
 		if (res != 0) {
 			fprintf(stderr, "flushFile: encrypt failed: %d\n", res);
 			ioerror = 1;
@@ -540,13 +549,15 @@ static int bucse_getattr(const char *path, struct stat *stbuf, struct fuse_file_
 
 		FilesystemFile *file = findFile(containingDir, fileName);
 		if (file) {
-			if (file->dirtyFlags != DirtyFlagNotDirty) {
+			if (file->dirtyFlags & DirtyFlagPendingWrite) {
 				flushFile(file);
 			}
 
 			stbuf->st_mode = S_IFREG | 0644;
 			stbuf->st_nlink = 1;
-			stbuf->st_size = file->size;
+			stbuf->st_size = (file->dirtyFlags & DirtyFlagPendingTrunc)
+				? file->truncSize
+				: file->size;
 			//stbuf->st_ino = MurmurHash64(path, strlen(path), 0);
 		} else {
 			FilesystemDir* dir = findDir(containingDir, fileName);
@@ -977,7 +988,7 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 		size_t decryptedBlockBufSize = maxDecryptedBlockSize;
 		res = encryption->decrypt(encryptedBlockBuf, encryptedBlockBufSize,
 			decryptedBlockBuf, &decryptedBlockBufSize,
-			"12345"); // TODO: manage encryption key
+			conf.passphrase);
 		if (res != 0) {
 			fprintf(stderr, "bucse_read: decrypt failed: %d\n", res);
 			ioerror = 1;
@@ -1543,7 +1554,9 @@ static int bucse_flush(const char *path, struct fuse_file_info *fi)
 		return -ENOENT;
 	}
 
-	flushFile(file);
+	if (file->dirtyFlags & DirtyFlagPendingWrite) {
+		flushFile(file);
+	}
 
 	return 0;
 }
@@ -1586,10 +1599,6 @@ struct fuse_operations bucse_oper = {
 	.init = bucse_init_guarded,
 };
 
-struct bucse_config {
-	char *repository;
-};
-
 enum {
 	KEY_HELP,
 	KEY_VERSION,
@@ -1600,6 +1609,10 @@ enum {
 static struct fuse_opt bucse_opts[] = {
 	BUCSE_OPT("repository=%s", repository, 0),
 	BUCSE_OPT("-r %s", repository, 0),
+	BUCSE_OPT("verbose=%d", verbose, 0),
+	BUCSE_OPT("-v %d", verbose, 0),
+	BUCSE_OPT("passphrase=%s", passphrase, 0),
+	BUCSE_OPT("-p %s", passphrase, 0),
 
 	FUSE_OPT_KEY("-V",             KEY_VERSION),
 	FUSE_OPT_KEY("--version",      KEY_VERSION),
@@ -1619,6 +1632,10 @@ static int bucse_opt_proc(void *data, const char *arg, int key, struct fuse_args
 				"bucse options:\n"
 				"    -o repository=STRING   TODO\n"
 				"    -r STRING              same as '-orepository=STRING'\n"
+				"    -o verbose=INTEGER     TODO\n"
+				"    -v INTEGER             same as '-overbose=INTEGER'\n"
+				"    -o passphrase=STRING   TODO\n"
+				"    -p STRING              same as '-opassphrase=STRING'\n"
 				, outargs->argv[0]);
 		exit(1);
 
@@ -1702,13 +1719,10 @@ int bucse_fuse_main(int argc, char *argv[], const struct fuse_operations *op,
 		goto out2;
 	}
 
-	// TODO: switch daemonize with an argument[?]
-	/*
 	if (fuse_daemonize(opts.foreground) != 0) {
 		res = 5;
 		goto out3;
 	}
-	*/
 
 	// initialize destination thread
 	if (destination->isTickable())
@@ -1759,24 +1773,32 @@ int main(int argc, char** argv)
 	destination->setCallbackActionAdded(&actionAddedDecrypt);
 
 	struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
-	struct bucse_config conf;
 
 	memset(&conf, 0, sizeof(conf));
 
 	fuse_opt_parse(&args, &conf, bucse_opts, bucse_opt_proc);
 
 	printf("Repository: %s\n", conf.repository);
+
 	int err = destination->init(conf.repository);
 	if (err != 0)
 	{
 		fprintf(stderr, "destination->init(): %d\n", err);
+		recursivelyFreeFilesystem(root);
+		actionsCleanup();
+		fuse_opt_free_args(&args);
 		return 2;
 	}
 
+	// TODO: move json parsing to a separate function
 	char* repositoryJsonFileContents = malloc(MAX_REPOSITORY_JSON_LEN);
 	if (repositoryJsonFileContents == NULL)
 	{
 		fprintf(stderr, "malloc(): %s\n", strerror(errno));
+		destination->shutdown();
+		recursivelyFreeFilesystem(root);
+		actionsCleanup();
+		fuse_opt_free_args(&args);
 		return 3;
 	}
 	size_t repositoryJsonFileLen = MAX_REPOSITORY_JSON_LEN;
@@ -1787,6 +1809,10 @@ int main(int argc, char** argv)
 		fprintf(stderr, "destination->getRepositoryFile(): %d\n", err);
 
 		free(repositoryJsonFileContents);
+		destination->shutdown();
+		recursivelyFreeFilesystem(root);
+		actionsCleanup();
+		fuse_opt_free_args(&args);
 		return 4;
 	}
 
@@ -1799,6 +1825,10 @@ int main(int argc, char** argv)
 	if (repositoryJson == NULL)
 	{
 		fprintf(stderr, "json_tokener_parse_ex(): %s\n", json_tokener_error_desc(json_tokener_get_error(tokener)));
+		destination->shutdown();
+		recursivelyFreeFilesystem(root);
+		actionsCleanup();
+		fuse_opt_free_args(&args);
 		return 5;
 	}
 
@@ -1810,6 +1840,10 @@ int main(int argc, char** argv)
 	{
 		fprintf(stderr, "repository object doesn't have 'encryption' field\n");
 		json_object_put(repositoryJson);
+		destination->shutdown();
+		recursivelyFreeFilesystem(root);
+		actionsCleanup();
+		fuse_opt_free_args(&args);
 		return 6;
 	}
 
@@ -1817,6 +1851,10 @@ int main(int argc, char** argv)
 	{
 		fprintf(stderr, "'encryption' field is not a string\n");
 		json_object_put(repositoryJson);
+		destination->shutdown();
+		recursivelyFreeFilesystem(root);
+		actionsCleanup();
+		fuse_opt_free_args(&args);
 		return 7;
 	}
 
@@ -1832,10 +1870,23 @@ int main(int argc, char** argv)
 	} else {
 		fprintf(stderr, "Unsupported encryption: %s\n", encryptionFieldStr);
 		json_object_put(repositoryJson);
+		destination->shutdown();
+		recursivelyFreeFilesystem(root);
+		actionsCleanup();
+		fuse_opt_free_args(&args);
 		return 8;
 	}
 
 	json_object_put(repositoryJson);
+
+	if (encryption->needsPassphrase() && conf.passphrase == NULL) {
+		fprintf(stderr, "Encryption needs a passphrase\n");
+		destination->shutdown();
+		recursivelyFreeFilesystem(root);
+		actionsCleanup();
+		fuse_opt_free_args(&args);
+		return 9;
+	}
 
 	int fuse_stat;
 	fuse_stat = bucse_fuse_main(args.argc, args.argv, &bucse_oper, sizeof(bucse_oper), NULL);
@@ -1856,5 +1907,6 @@ int main(int argc, char** argv)
 
 	actionsCleanup();
 
+	fuse_opt_free_args(&args);
 	return fuse_stat;
 }
