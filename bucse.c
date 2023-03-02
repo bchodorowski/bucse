@@ -33,6 +33,9 @@
 // > bytes is sufficient. 
 #define DECRYPTED_BUFFER_MARGIN 16
 
+static uid_t cachedUid;
+static gid_t cachedGid;
+
 static pthread_mutex_t bucseMutex;
 
 struct bucse_config {
@@ -555,6 +558,8 @@ static int bucse_getattr(const char *path, struct stat *stbuf, struct fuse_file_
 		stbuf->st_mode = S_IFDIR | 0755;
 		stbuf->st_nlink = 2;
 		// TODO: provide root (repository?) access and modification time
+		stbuf->st_uid = cachedUid;
+		stbuf->st_gid = cachedGid;
 	} else if (path[0] == '/') {
 		DynArray pathArray;
 		memset(&pathArray, 0, sizeof(DynArray));
@@ -588,6 +593,9 @@ static int bucse_getattr(const char *path, struct stat *stbuf, struct fuse_file_
 			stbuf->st_mtim = microsecondsToNanoseconds(file->mtime);
 			stbuf->st_ctim = microsecondsToNanoseconds(file->mtime);
 
+			stbuf->st_uid = cachedUid;
+			stbuf->st_gid = cachedGid;
+
 		} else {
 			FilesystemDir* dir = findDir(containingDir, fileName);
 			if (dir) {
@@ -597,6 +605,9 @@ static int bucse_getattr(const char *path, struct stat *stbuf, struct fuse_file_
 				stbuf->st_atim = microsecondsToNanoseconds(dir->atime);
 				stbuf->st_mtim = microsecondsToNanoseconds(dir->mtime);
 				stbuf->st_ctim = microsecondsToNanoseconds(dir->mtime);
+
+				stbuf->st_uid = cachedUid;
+				stbuf->st_gid = cachedGid;
 			} else {
 				return -ENOENT;
 			}
@@ -1795,6 +1806,9 @@ out1:
 
 int main(int argc, char** argv)
 {
+	cachedUid = geteuid();
+	cachedGid = getegid();
+
 	root = malloc(sizeof(FilesystemDir));
 	if (root == NULL) {
 		fprintf(stderr, "malloc(): %s\n", strerror(errno));

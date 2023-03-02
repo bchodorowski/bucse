@@ -1,4 +1,4 @@
-- research how fuse program should work with Uid/Gid priviledges
+- provide root (repository?) access and modification time
 - ssh destination
 - be able to read the passphrase from the terminal input
 - rename bucse to bucse-mount
