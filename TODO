@@ -1,10 +1,14 @@
+- research how fuse program should work with Uid/Gid priviledges
+- ssh destination
+- be able to read the passphrase from the terminal input
+- rename bucse to bucse-mount
+- record a gif that explains what bucse does
 - verbose / non verbose logging
 - refactor: extract parts of bucse.c into fuse_operations.c
 - -Wall
 - consider big files -> use 64 bit variables?
 - handle addToDynArray failures
 (at this point we should have working MVP -- with local destination and no encryption
-- ssh destination
 - improve local destination by applying a filesystem hook to be notified about changes in the filesystem
 - s3 destination
 - implement tests
