@@ -79,7 +79,7 @@ static int doAction(Action* action)
 		}
 
 		newFile->name = fileName;
-		newFile->time = action->time;
+		newFile->atime = newFile->mtime = action->time;
 		newFile->content = action->content;
 		newFile->contentLen = action->contentLen;
 		newFile->size = action->size;
@@ -114,7 +114,7 @@ static int doAction(Action* action)
 			return 6;
 		}
 
-		file->time = action->time;
+		file->mtime = action->time;
 		file->content = action->content;
 		file->contentLen = action->contentLen;
 		file->size = action->size;
@@ -179,7 +179,7 @@ static int doAction(Action* action)
 		memset(newDir, 0, sizeof(FilesystemDir));
 
 		newDir->name = dirName;
-		newDir->time = action->time;
+		newDir->atime = newDir->mtime = action->time;
 		newDir->parentDir = containingDir;
 
 		addToDynArray(&containingDir->dirs, newDir);

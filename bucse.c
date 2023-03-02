@@ -52,6 +52,14 @@ static int64_t getCurrentTime()
 	return (int64_t)tv.tv_sec*1000000 + (int64_t)tv.tv_usec;
 }
 
+static struct timespec microsecondsToNanoseconds(int64_t t)
+{
+	struct timespec ts;
+	ts.tv_sec = t / 1000000L;
+	ts.tv_nsec = (t % 1000000L) * 1000L;
+	return ts;
+}
+
 typedef struct {
 	const char* block;
 	off_t offset;
@@ -501,7 +509,7 @@ constructAction:;
 		file->name = path_split(newAction->path, &pathArray);
 		path_free(&pathArray);
 	}
-	file->time = newAction->time;
+	file->mtime = newAction->time;
 	file->content = newAction->content;
 	file->contentLen = newAction->contentLen;
 	file->size = newAction->size;
@@ -530,6 +538,7 @@ static int bucse_getattr(const char *path, struct stat *stbuf, struct fuse_file_
 	if (strcmp(path, "/") == 0) {
 		stbuf->st_mode = S_IFDIR | 0755;
 		stbuf->st_nlink = 2;
+		// TODO: provide root (repository?) access and modification time
 	} else if (path[0] == '/') {
 		DynArray pathArray;
 		memset(&pathArray, 0, sizeof(DynArray));
@@ -559,12 +568,19 @@ static int bucse_getattr(const char *path, struct stat *stbuf, struct fuse_file_
 				? file->truncSize
 				: file->size;
 			//stbuf->st_ino = MurmurHash64(path, strlen(path), 0);
+			stbuf->st_atim = microsecondsToNanoseconds(file->atime);
+			stbuf->st_mtim = microsecondsToNanoseconds(file->mtime);
+			stbuf->st_ctim = microsecondsToNanoseconds(file->mtime);
+
 		} else {
 			FilesystemDir* dir = findDir(containingDir, fileName);
 			if (dir) {
 				stbuf->st_mode = S_IFDIR | 0755;
 				stbuf->st_nlink = 1;
 				//stbuf->st_ino = MurmurHash64(path, strlen(path), 0);
+				stbuf->st_atim = microsecondsToNanoseconds(dir->atime);
+				stbuf->st_mtim = microsecondsToNanoseconds(dir->mtime);
+				stbuf->st_ctim = microsecondsToNanoseconds(dir->mtime);
 			} else {
 				return -ENOENT;
 			}
@@ -631,6 +647,7 @@ static int bucse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 		FilesystemFile* f = dir->files.objects[i];
 		filler(buf, f->name, NULL, 0, 0);
 	}
+	dir->atime = getCurrentTime();
 	return 0;
 }
 
@@ -701,7 +718,7 @@ static int bucse_open(const char *path, struct fuse_file_info *fi)
 						free(newFile);
 						return -ENOMEM;
 					}
-					newFile->time = getCurrentTime();
+					newFile->atime = newFile->mtime = getCurrentTime();
 					newFile->content = NULL;
 					newFile->contentLen = 0;
 					newFile->size = 0;
@@ -789,7 +806,7 @@ static int bucse_create(const char *path, mode_t mode, struct fuse_file_info *fi
 		free(newFile);
 		return -ENOMEM;
 	}
-	newFile->time = getCurrentTime();
+	newFile->atime = newFile->mtime = getCurrentTime();
 	newFile->content = NULL;
 	newFile->contentLen = 0;
 	newFile->size = 0;
@@ -1017,6 +1034,7 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 		return -EIO;
 	}
 
+	file->atime = getCurrentTime();
 	return copiedBytes;
 }
 
@@ -1281,7 +1299,7 @@ static int bucse_mkdir(const char *path, mode_t mode)
 	newDir->name = path_split(newAction->path, &pathArray);
 	path_free(&pathArray);
 
-	newDir->time = newAction->time;
+	newDir->atime = newDir->mtime = newAction->time;
 	newDir->parentDir = containingDir;
 
 	// write to json, encrypt call destination->addActionFile()

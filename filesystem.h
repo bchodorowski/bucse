@@ -15,7 +15,8 @@ typedef struct {
 typedef struct _FilesystemDir
 {
 	const char* name;
-	int64_t time;
+	int64_t atime;
+	int64_t mtime;
 	DynArray files;
 	DynArray dirs;
 	struct _FilesystemDir* parentDir;
@@ -24,7 +25,8 @@ typedef struct _FilesystemDir
 typedef struct
 {
 	const char* name;
-	int64_t time;
+	int64_t atime;
+	int64_t mtime;
 	char* content;
 	int contentLen;
 	int size;
