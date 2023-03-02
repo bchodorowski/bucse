@@ -39,9 +39,25 @@ struct bucse_config {
 	char *repository;
 	int verbose;
 	char *passphrase;
+	char *repositoryRealPath;
 };
 
 static struct bucse_config conf;
+
+static void confCleanup() {
+	if (conf.repository) {
+		free(conf.repository);
+		conf.repository = NULL;
+	}
+	if (conf.repositoryRealPath) {
+		free(conf.repositoryRealPath);
+		conf.repositoryRealPath = NULL;
+	}
+	if (conf.passphrase) {
+		free(conf.passphrase);
+		conf.passphrase = NULL;
+	}
+}
 
 
 static int64_t getCurrentTime()
@@ -1786,27 +1802,35 @@ int main(int argc, char** argv)
 	}
 	memset(root, 0, sizeof(FilesystemDir));
 
-	destination = &destinationLocal;
-
-	destination->setCallbackActionAdded(&actionAddedDecrypt);
-
 	struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
 
 	memset(&conf, 0, sizeof(conf));
 
 	fuse_opt_parse(&args, &conf, bucse_opts, bucse_opt_proc);
 
-	printf("Repository: %s\n", conf.repository);
+	int err = 0;
+	if (strncmp(conf.repository, "file://", 7) == 0) {
+		conf.repositoryRealPath = realpath(conf.repository + 7, NULL);
+		destination = &destinationLocal;
+		err = destination->init(conf.repositoryRealPath);
+	// TODO: implement more destinations
+	//} else if (strncmp(conf.repository, "ssh://", 6) == 0) {
+	} else {
+		conf.repositoryRealPath = realpath(conf.repository, NULL);
+		destination = &destinationLocal;
+		err = destination->init(conf.repositoryRealPath);
+	}
 
-	int err = destination->init(conf.repository);
 	if (err != 0)
 	{
 		fprintf(stderr, "destination->init(): %d\n", err);
 		recursivelyFreeFilesystem(root);
 		actionsCleanup();
 		fuse_opt_free_args(&args);
+		confCleanup();
 		return 2;
 	}
+	destination->setCallbackActionAdded(&actionAddedDecrypt);
 
 	// TODO: move json parsing to a separate function
 	char* repositoryJsonFileContents = malloc(MAX_REPOSITORY_JSON_LEN);
@@ -1817,6 +1841,7 @@ int main(int argc, char** argv)
 		recursivelyFreeFilesystem(root);
 		actionsCleanup();
 		fuse_opt_free_args(&args);
+		confCleanup();
 		return 3;
 	}
 	size_t repositoryJsonFileLen = MAX_REPOSITORY_JSON_LEN;
@@ -1831,6 +1856,7 @@ int main(int argc, char** argv)
 		recursivelyFreeFilesystem(root);
 		actionsCleanup();
 		fuse_opt_free_args(&args);
+		confCleanup();
 		return 4;
 	}
 
@@ -1847,11 +1873,9 @@ int main(int argc, char** argv)
 		recursivelyFreeFilesystem(root);
 		actionsCleanup();
 		fuse_opt_free_args(&args);
+		confCleanup();
 		return 5;
 	}
-
-	printf("DEBUG: type: %s\n", json_type_to_name(
-				json_object_get_type(repositoryJson)));
 
 	json_object* encryptionField;
 	if (json_object_object_get_ex(repositoryJson, "encryption", &encryptionField) == 0)
@@ -1862,6 +1886,7 @@ int main(int argc, char** argv)
 		recursivelyFreeFilesystem(root);
 		actionsCleanup();
 		fuse_opt_free_args(&args);
+		confCleanup();
 		return 6;
 	}
 
@@ -1873,17 +1898,15 @@ int main(int argc, char** argv)
 		recursivelyFreeFilesystem(root);
 		actionsCleanup();
 		fuse_opt_free_args(&args);
+		confCleanup();
 		return 7;
 	}
 
 	const char* encryptionFieldStr = json_object_get_string(encryptionField);
 
-	printf("DEBUG: enc: %s\n", encryptionFieldStr);
 	if (strcmp(encryptionFieldStr, "none") == 0) {
-		printf("DEBUG: encryption none\n");
 		encryption = &encryptionNone;
 	} else if (strcmp(encryptionFieldStr, "aes") == 0) {
-		printf("DEBUG: encryption aes\n");
 		encryption = &encryptionAes;
 	} else {
 		fprintf(stderr, "Unsupported encryption: %s\n", encryptionFieldStr);
@@ -1892,6 +1915,7 @@ int main(int argc, char** argv)
 		recursivelyFreeFilesystem(root);
 		actionsCleanup();
 		fuse_opt_free_args(&args);
+		confCleanup();
 		return 8;
 	}
 
@@ -1903,6 +1927,7 @@ int main(int argc, char** argv)
 		recursivelyFreeFilesystem(root);
 		actionsCleanup();
 		fuse_opt_free_args(&args);
+		confCleanup();
 		return 9;
 	}
 
@@ -1926,5 +1951,6 @@ int main(int argc, char** argv)
 	actionsCleanup();
 
 	fuse_opt_free_args(&args);
+	confCleanup();
 	return fuse_stat;
 }

@@ -1,4 +1,3 @@
-- parse destination protocols, make local destination work with relative paths
 - verbose / non verbose logging
 - refactor: extract parts of bucse.c into fuse_operations.c
 - -Wall
@@ -8,6 +7,5 @@
 - ssh destination
 - improve local destination by applying a filesystem hook to be notified about changes in the filesystem
 - s3 destination
-- investigate memory leaks in fuse_opt_parse reported by valgrind
 - implement tests
 - implement undo actions
