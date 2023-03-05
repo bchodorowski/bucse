@@ -165,6 +165,7 @@ static size_t getMaxEncryptedBlockSize(size_t blockSize)
 }
 
 extern Destination destinationLocal;
+extern Destination destinationSsh;
 extern Encryption encryptionNone;
 extern Encryption encryptionAes;
 
@@ -1967,8 +1968,9 @@ int main(int argc, char** argv)
 		conf.repositoryRealPath = realpath(conf.repository + 7, NULL);
 		destination = &destinationLocal;
 		err = destination->init(conf.repositoryRealPath);
-	// TODO: implement more destinations
-	//} else if (strncmp(conf.repository, "ssh://", 6) == 0) {
+	} else if (strncmp(conf.repository, "ssh://", 6) == 0) {
+		destination = &destinationSsh;
+		err = destination->init(conf.repository + 6);
 	} else {
 		conf.repositoryRealPath = realpath(conf.repository, NULL);
 		destination = &destinationLocal;
