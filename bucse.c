@@ -557,7 +557,11 @@ static int bucse_getattr(const char *path, struct stat *stbuf, struct fuse_file_
 	if (strcmp(path, "/") == 0) {
 		stbuf->st_mode = S_IFDIR | 0755;
 		stbuf->st_nlink = 2;
-		// TODO: provide root (repository?) access and modification time
+
+		stbuf->st_atim = microsecondsToNanoseconds(root->atime);
+		stbuf->st_mtim = microsecondsToNanoseconds(root->mtime);
+		stbuf->st_ctim = microsecondsToNanoseconds(root->mtime);
+
 		stbuf->st_uid = cachedUid;
 		stbuf->st_gid = cachedGid;
 	} else if (path[0] == '/') {
@@ -1803,6 +1807,141 @@ out1:
 }
 
 #define MAX_REPOSITORY_JSON_LEN (1024 * 1024)
+int parseRepositoryJsonFile() {
+	char* repositoryJsonFileContents = malloc(MAX_REPOSITORY_JSON_LEN);
+	if (repositoryJsonFileContents == NULL)
+	{
+		fprintf(stderr, "malloc(): %s\n", strerror(errno));
+		return 1;
+	}
+	size_t repositoryJsonFileLen = MAX_REPOSITORY_JSON_LEN;
+
+	int err = destination->getRepositoryJsonFile(repositoryJsonFileContents, &repositoryJsonFileLen);
+	if (err != 0)
+	{
+		fprintf(stderr, "destination->getRepositoryJsonFile(): %d\n", err);
+
+		free(repositoryJsonFileContents);
+		return 2;
+	}
+
+	json_tokener* tokener = json_tokener_new();
+	json_object* repositoryJson = json_tokener_parse_ex(tokener, repositoryJsonFileContents, repositoryJsonFileLen);
+
+	free(repositoryJsonFileContents);
+	json_tokener_free(tokener);
+
+	if (repositoryJson == NULL)
+	{
+		fprintf(stderr, "json_tokener_parse_ex(): %s\n", json_tokener_error_desc(json_tokener_get_error(tokener)));
+		return 3;
+	}
+
+	json_object* encryptionField;
+	if (json_object_object_get_ex(repositoryJson, "encryption", &encryptionField) == 0)
+	{
+		fprintf(stderr, "repository object doesn't have 'encryption' field\n");
+		json_object_put(repositoryJson);
+		return 4;
+	}
+
+	if (json_object_get_type(encryptionField) != json_type_string)
+	{
+		fprintf(stderr, "'encryption' field is not a string\n");
+		json_object_put(repositoryJson);
+		return 5;
+	}
+
+	const char* encryptionFieldStr = json_object_get_string(encryptionField);
+
+	if (strcmp(encryptionFieldStr, "none") == 0) {
+		encryption = &encryptionNone;
+	} else if (strcmp(encryptionFieldStr, "aes") == 0) {
+		encryption = &encryptionAes;
+	} else {
+		fprintf(stderr, "Unsupported encryption: %s\n", encryptionFieldStr);
+		json_object_put(repositoryJson);
+		return 6;
+	}
+
+	json_object_put(repositoryJson);
+	return 0;
+}
+
+#define MAX_REPOSITORY_LEN (1024 * 1024)
+int parseRepositoryFile() {
+	char* repositoryFileContents = malloc(MAX_REPOSITORY_LEN);
+	if (repositoryFileContents == NULL)
+	{
+		fprintf(stderr, "malloc(): %s\n", strerror(errno));
+		return 1;
+	}
+	size_t repositoryFileLen = MAX_REPOSITORY_LEN;
+
+	int err = destination->getRepositoryFile(repositoryFileContents, &repositoryFileLen);
+	if (err != 0)
+	{
+		fprintf(stderr, "destination->getRepositoryFile(): %d\n", err);
+
+		free(repositoryFileContents);
+		return 2;
+	}
+
+	size_t decryptedBufLen = MAX_REPOSITORY_LEN + DECRYPTED_BUFFER_MARGIN;
+	char* decryptedBuf = malloc(decryptedBufLen);
+	if (decryptedBuf == NULL) {
+		fprintf(stderr, "parseRepositoryFile: malloc(): %s\n", strerror(errno));
+
+		free(repositoryFileContents);
+		return 3;
+	}
+
+	int result = encryption->decrypt(repositoryFileContents, repositoryFileLen,
+		decryptedBuf, &decryptedBufLen,
+		conf.passphrase);
+	
+	if (result != 0) {
+		fprintf(stderr, "parseRepositoryFile: decrypt failed: %d\n", result);
+
+		free(repositoryFileContents);
+		free(decryptedBuf);
+		return 4;
+	}
+
+	json_tokener* tokener = json_tokener_new();
+	json_object* repository = json_tokener_parse_ex(tokener, decryptedBuf, decryptedBufLen);
+
+	free(repositoryFileContents);
+	free(decryptedBuf);
+	json_tokener_free(tokener);
+
+	if (repository == NULL)
+	{
+		fprintf(stderr, "json_tokener_parse_ex(): %s\n", json_tokener_error_desc(json_tokener_get_error(tokener)));
+		return 5;
+	}
+
+	json_object* timeField;
+	if (json_object_object_get_ex(repository, "time", &timeField) == 0)
+	{
+		fprintf(stderr, "repository object doesn't have 'time' field\n");
+		json_object_put(repository);
+		return 6;
+	}
+
+	if (json_object_get_type(timeField) != json_type_int)
+	{
+		fprintf(stderr, "'time' field is not a string\n");
+		json_object_put(repository);
+		return 7;
+	}
+	int64_t time = json_object_get_int64(timeField);
+
+	root->mtime = root->atime = time;
+
+	json_object_put(repository);
+	return 0;
+}
 
 int main(int argc, char** argv)
 {
@@ -1847,10 +1986,9 @@ int main(int argc, char** argv)
 	destination->setCallbackActionAdded(&actionAddedDecrypt);
 
 	// TODO: move json parsing to a separate function
-	char* repositoryJsonFileContents = malloc(MAX_REPOSITORY_JSON_LEN);
-	if (repositoryJsonFileContents == NULL)
-	{
-		fprintf(stderr, "malloc(): %s\n", strerror(errno));
+	if (parseRepositoryJsonFile() != 0) {
+		fprintf(stderr, "parseRepositoryJsonFile() failed\n");
+
 		destination->shutdown();
 		recursivelyFreeFilesystem(root);
 		actionsCleanup();
@@ -1858,14 +1996,10 @@ int main(int argc, char** argv)
 		confCleanup();
 		return 3;
 	}
-	size_t repositoryJsonFileLen = MAX_REPOSITORY_JSON_LEN;
 
-	err = destination->getRepositoryFile(repositoryJsonFileContents, &repositoryJsonFileLen);
-	if (err != 0)
-	{
-		fprintf(stderr, "destination->getRepositoryFile(): %d\n", err);
+	if (encryption->needsPassphrase() && conf.passphrase == NULL) {
+		fprintf(stderr, "Encryption needs a passphrase\n");
 
-		free(repositoryJsonFileContents);
 		destination->shutdown();
 		recursivelyFreeFilesystem(root);
 		actionsCleanup();
@@ -1874,75 +2008,19 @@ int main(int argc, char** argv)
 		return 4;
 	}
 
-	json_tokener* tokener = json_tokener_new();
-	json_object* repositoryJson = json_tokener_parse_ex(tokener, repositoryJsonFileContents, repositoryJsonFileLen);
+	err = parseRepositoryFile();
+	if (err != 0) {
+		fprintf(stderr, "parseRepositoryFile() failed\n");
+		if (err == 4) {
+			fprintf(stderr, "Is the passphrase correct?\n");
+		}
 
-	free(repositoryJsonFileContents);
-	json_tokener_free(tokener);
-
-	if (repositoryJson == NULL)
-	{
-		fprintf(stderr, "json_tokener_parse_ex(): %s\n", json_tokener_error_desc(json_tokener_get_error(tokener)));
 		destination->shutdown();
 		recursivelyFreeFilesystem(root);
 		actionsCleanup();
 		fuse_opt_free_args(&args);
 		confCleanup();
 		return 5;
-	}
-
-	json_object* encryptionField;
-	if (json_object_object_get_ex(repositoryJson, "encryption", &encryptionField) == 0)
-	{
-		fprintf(stderr, "repository object doesn't have 'encryption' field\n");
-		json_object_put(repositoryJson);
-		destination->shutdown();
-		recursivelyFreeFilesystem(root);
-		actionsCleanup();
-		fuse_opt_free_args(&args);
-		confCleanup();
-		return 6;
-	}
-
-	if (json_object_get_type(encryptionField) != json_type_string)
-	{
-		fprintf(stderr, "'encryption' field is not a string\n");
-		json_object_put(repositoryJson);
-		destination->shutdown();
-		recursivelyFreeFilesystem(root);
-		actionsCleanup();
-		fuse_opt_free_args(&args);
-		confCleanup();
-		return 7;
-	}
-
-	const char* encryptionFieldStr = json_object_get_string(encryptionField);
-
-	if (strcmp(encryptionFieldStr, "none") == 0) {
-		encryption = &encryptionNone;
-	} else if (strcmp(encryptionFieldStr, "aes") == 0) {
-		encryption = &encryptionAes;
-	} else {
-		fprintf(stderr, "Unsupported encryption: %s\n", encryptionFieldStr);
-		json_object_put(repositoryJson);
-		destination->shutdown();
-		recursivelyFreeFilesystem(root);
-		actionsCleanup();
-		fuse_opt_free_args(&args);
-		confCleanup();
-		return 8;
-	}
-
-	json_object_put(repositoryJson);
-
-	if (encryption->needsPassphrase() && conf.passphrase == NULL) {
-		fprintf(stderr, "Encryption needs a passphrase\n");
-		destination->shutdown();
-		recursivelyFreeFilesystem(root);
-		actionsCleanup();
-		fuse_opt_free_args(&args);
-		confCleanup();
-		return 9;
 	}
 
 	int fuse_stat;

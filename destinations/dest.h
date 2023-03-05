@@ -11,6 +11,7 @@ typedef struct {
 	int (*putStorageFile)(const char* filename, char *buf, size_t size);
 	int (*getStorageFile)(const char* filename, char *buf, size_t *size);
 	int (*addActionFile)(char* filename, char *buf, size_t size);
+	int (*getRepositoryJsonFile)(char *buf, size_t *size);
 	int (*getRepositoryFile)(char *buf, size_t *size);
 	int (*setCallbackActionAdded)(ActionAddedCallback callback);
 	int (*isTickable)();
