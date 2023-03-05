@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <sys/time.h>
+#include <termios.h>
 
 #include <fuse_lowlevel.h>
 #include <fuse.h>
@@ -1998,14 +1999,51 @@ int main(int argc, char** argv)
 	}
 
 	if (encryption->needsPassphrase() && conf.passphrase == NULL) {
-		fprintf(stderr, "Encryption needs a passphrase\n");
+		int gotPass = 0;
 
-		destination->shutdown();
-		recursivelyFreeFilesystem(root);
-		actionsCleanup();
-		fuse_opt_free_args(&args);
-		confCleanup();
-		return 4;
+		if (isatty(fileno(stdin)) && isatty(fileno(stdout))) {
+			fprintf(stdout, "Passphrase: ");
+			fflush(stdout);
+
+			struct termios term;
+			tcgetattr(fileno(stdin), &term);
+
+			term.c_lflag &= ~ECHO;
+			tcsetattr(fileno(stdin), 0, &term);
+
+			char passwd[1024];
+			memset(passwd, 0, 1024);
+			fgets(passwd, sizeof(passwd), stdin);
+
+			term.c_lflag |= ECHO;
+			tcsetattr(fileno(stdin), 0, &term);
+			fprintf(stdout, "\n");
+
+			passwd[1024 - 1] = 0;
+			if (strlen(passwd) > 0 && passwd[strlen(passwd)-1] == '\n') {
+				passwd[strlen(passwd)-1] = 0;
+			}
+			if (strlen(passwd) > 0) {
+				conf.passphrase = malloc(strlen(passwd) + 1);
+				if (conf.passphrase == NULL) {
+					fprintf(stderr, "malloc() failed\n");
+				} else {
+					memcpy(conf.passphrase, passwd, strlen(passwd)+1);
+					gotPass = 1;
+				}
+			}
+		}
+
+		if (gotPass == 0) {
+			fprintf(stderr, "Encryption needs a passphrase\n");
+
+			destination->shutdown();
+			recursivelyFreeFilesystem(root);
+			actionsCleanup();
+			fuse_opt_free_args(&args);
+			confCleanup();
+			return 4;
+		}
 	}
 
 	err = parseRepositoryFile();

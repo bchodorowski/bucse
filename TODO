@@ -1,5 +1,4 @@
 - ssh destination
-- be able to read the passphrase from the terminal input
 - rename bucse to bucse-mount
 - record a gif that explains what bucse does
 - verbose / non verbose logging
