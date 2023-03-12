@@ -1,6 +1,6 @@
 CC=gcc -g
 CFLAGS=`pkg-config fuse3 --cflags` `pkg-config json-c --cflags`
-LIBS=`pkg-config fuse3 --libs` `pkg-config json-c --libs` -lpthread -lssl -lcrypto
+LIBS=`pkg-config fuse3 --libs` `pkg-config json-c --libs` -lpthread -lssl -lcrypto -lssh
 
 bucse: bucse.o destinations/dest_local.o destinations/dest_ssh.o encryption/encr_none.o encryption/encr_aes.o dynarray.o filesystem.o actions.o
 	$(CC) -o bucse $(CFLAGS) bucse.o destinations/dest_local.o destinations/dest_ssh.o encryption/encr_none.o encryption/encr_aes.o dynarray.o filesystem.o actions.o $(LIBS)

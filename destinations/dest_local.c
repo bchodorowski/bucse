@@ -122,21 +122,7 @@ int destLocalInit(char* repository)
 	snprintf(repositoryActionsPath, MAX_FILEPATH_LEN, "%s/actions", repository);
 	snprintf(repositoryStoragePath, MAX_FILEPATH_LEN, "%s/storage", repository);
 
-	// open repository.json
-	FILE* file = fopen(repositoryJsonFilePath, "r");
-	if (file == NULL) {
-		fprintf(stderr, "destLocalInit: fopen(): %s\n", strerror(errno));
-
-		free(repositoryJsonFilePath);
-		free(repositoryFilePath);
-		free(repositoryActionsPath);
-		free(repositoryStoragePath);
-		return 5;
-	}
-	fclose(file);
-
 	return 0;
-
 }
 
 void destLocalShutdown()
@@ -266,7 +252,7 @@ int destLocalGetRepositoryJsonFile(char *buf, size_t *size)
 {
 	FILE* file = fopen(repositoryJsonFilePath, "r");
 	if (file == NULL) {
-		fprintf(stderr, "destLocalInit: fopen(): %s\n", strerror(errno));
+		fprintf(stderr, "destLocalGetRepositoryJsonFile: fopen(): %s\n", strerror(errno));
 
 		return 1;
 	}
@@ -278,7 +264,7 @@ int destLocalGetRepositoryJsonFile(char *buf, size_t *size)
 	fclose(file);
 
 	if (bytesRead >= *size) {
-		fprintf(stderr, "destLocalInit: repository.json file is too large\n");
+		fprintf(stderr, "destLocalGetRepositoryJsonFile: repository.json file is too large\n");
 
 		return 2;
 	}

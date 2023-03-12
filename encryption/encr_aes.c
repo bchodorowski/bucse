@@ -47,6 +47,7 @@ int encrAesEncrypt(char *inBuf, size_t inSize, char *outBuf, size_t *outSize, ch
 
 	if (EVP_EncryptInit(ctx, EVP_aes_256_cbc(), key, iv) != 1) {
 		fprintf(stderr, "encrAesEncrypt: EVP_EncryptInit failed\n");
+		EVP_CIPHER_CTX_free(ctx);
 		return 4;
 	}
 
@@ -54,6 +55,7 @@ int encrAesEncrypt(char *inBuf, size_t inSize, char *outBuf, size_t *outSize, ch
 
 	if (EVP_EncryptUpdate(ctx, outBuf, (int*)outSize, inBuf, inSize) != 1) {
 		fprintf(stderr, "encrAesEncrypt: EVP_EncryptUpdate failed\n");
+		EVP_CIPHER_CTX_free(ctx);
 		return 5;
 	}
 
@@ -61,6 +63,7 @@ int encrAesEncrypt(char *inBuf, size_t inSize, char *outBuf, size_t *outSize, ch
 
 	if (!EVP_EncryptFinal(ctx, outBuf + *outSize, &tmpLen)) {
 		fprintf(stderr, "encrAesEncrypt: EVP_EncryptFinal failed\n");
+		EVP_CIPHER_CTX_free(ctx);
 		return 6;
 	}
 	*outSize += tmpLen;
@@ -92,6 +95,7 @@ int encrAesDecrypt(char *inBuf, size_t inSize, char *outBuf, size_t *outSize, ch
 		inBuf += 16;
 		inSize -= 16;
 	} else {
+		EVP_CIPHER_CTX_free(ctx);
 		return 2;
 	}
 
@@ -103,6 +107,7 @@ int encrAesDecrypt(char *inBuf, size_t inSize, char *outBuf, size_t *outSize, ch
 
 	if (EVP_DecryptInit(ctx, EVP_aes_256_cbc(), key, iv) != 1) {
 		fprintf(stderr, "encrAesDecrypt: EVP_DecryptInit failed\n");
+		EVP_CIPHER_CTX_free(ctx);
 		return 3;
 	}
 
@@ -110,6 +115,7 @@ int encrAesDecrypt(char *inBuf, size_t inSize, char *outBuf, size_t *outSize, ch
 
 	if (EVP_DecryptUpdate(ctx, outBuf, (int*)outSize, inBuf, inSize) != 1) {
 		fprintf(stderr, "encrAesDecrypt: EVP_DecryptUpdate failed\n");
+		EVP_CIPHER_CTX_free(ctx);
 		return 4;
 	}
 
@@ -117,6 +123,7 @@ int encrAesDecrypt(char *inBuf, size_t inSize, char *outBuf, size_t *outSize, ch
 
 	if (!EVP_DecryptFinal(ctx, outBuf + *outSize, &tmpLen)) {
 		fprintf(stderr, "encrAesDecrypt: EVP_DecryptFinal failed\n");
+		EVP_CIPHER_CTX_free(ctx);
 		return 5;
 	}
 	*outSize += tmpLen;
