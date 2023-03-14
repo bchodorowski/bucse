@@ -245,7 +245,7 @@ int destSshInit(char* repository)
 
 	// handle path relative to home
 	if (strncmp(firstSlash, "/~/", 3) == 0) {
-		firstSlash++;
+		firstSlash += 3;
 	}
 
 	repositoryPath = malloc(strlen(firstSlash)+1);
@@ -268,12 +268,6 @@ int destSshInit(char* repository)
 		cleanupStrings();
 		return 7;
 	}
-
-	// TODO: remove debug code
-	printf("DEBUG: '%s'\n", repositoryHost);
-	printf("DEBUG: '%s'\n", repositoryPort);
-	printf("DEBUG: '%s'\n", repositoryPath);
-	printf("DEBUG: %d\n", port);
 
 	// construct file path of repository.json file
 	repositoryJsonFilePath = malloc(MAX_FILEPATH_LEN);
