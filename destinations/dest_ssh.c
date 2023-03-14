@@ -15,6 +15,10 @@
 
 #include "dest.h"
 
+static char* repositoryHost;
+static char* repositoryPort;
+static char* repositoryPath;
+
 static char* repositoryJsonFilePath;
 static char* repositoryFilePath;
 static char* repositoryActionsPath;
@@ -180,15 +184,139 @@ static int verify_knownhost(ssh_session session)
 
 static ssh_session bucseSshSession;
 static sftp_session bucseSftpSession;
+static void invalidDestination() {
+	fprintf(stderr, "Invalid destination. Expected format ssh://[host]{:[port]}/[path]\n");
+}
+static void cleanupString(char **s) {
+	if (*s != NULL) {
+		free(*s);
+		*s = NULL;
+	}
+}
+
+static void cleanupStrings() {
+	cleanupString(&repositoryHost);
+	cleanupString(&repositoryPort);
+	cleanupString(&repositoryPath);
+	cleanupString(&repositoryJsonFilePath);
+	cleanupString(&repositoryFilePath);
+	cleanupString(&repositoryActionsPath);
+	cleanupString(&repositoryStoragePath);
+}
+
 int destSshInit(char* repository)
 {
-	int port = 2222;
-	bucseSshSession = ssh_new();
-	if (bucseSshSession == NULL) {
+	char* firstSlash = strstr(repository, "/");
+	char* firstColon = strstr(repository, ":");
+	int port = 22;
+
+	if (firstSlash == NULL) {
+		invalidDestination();
 		return 1;
 	}
-	ssh_options_set(bucseSshSession, SSH_OPTIONS_HOST, "cantor.ddns.net"); // TODO
-	ssh_options_set(bucseSshSession, SSH_OPTIONS_PORT, &port); // TODO
+	if (firstColon && firstColon < firstSlash) {
+		repositoryPort = malloc(firstSlash - firstColon);
+		if (repositoryPort == NULL) {
+			invalidDestination();
+			cleanupStrings();
+			return 2;
+		}
+		memcpy(repositoryPort, firstColon+1, firstSlash - firstColon - 1);
+		repositoryPort[firstSlash - firstColon - 1] = 0;
+
+		repositoryHost = malloc(firstColon - repository + 1);
+		if (repositoryHost == NULL) {
+			invalidDestination();
+			cleanupStrings();
+			return 3;
+		}
+		memcpy(repositoryHost, repository, firstColon - repository);
+		repositoryHost[firstColon - repository] = 0;
+	} else {
+		repositoryHost = malloc(firstSlash - repository + 1);
+		if (repositoryHost == NULL) {
+			invalidDestination();
+			cleanupStrings();
+			return 4;
+		}
+		memcpy(repositoryHost, repository, firstSlash - repository);
+		repositoryHost[firstSlash - repository] = 0;
+	}
+
+	// handle path relative to home
+	if (strncmp(firstSlash, "/~/", 3) == 0) {
+		firstSlash++;
+	}
+
+	repositoryPath = malloc(strlen(firstSlash)+1);
+	if (repositoryPath == NULL) {
+		invalidDestination();
+		cleanupStrings();
+		return 5;
+	}
+	memcpy(repositoryPath, firstSlash, strlen(firstSlash));
+	repositoryPath[strlen(firstSlash)] = 0;
+
+	if (sscanf(repositoryPort, "%d", &port) <= 0) {
+		invalidDestination();
+		cleanupStrings();
+		return 6;
+	}
+
+	if (port <= 0 || port > 0xffff) {
+		invalidDestination();
+		cleanupStrings();
+		return 7;
+	}
+
+	// TODO: remove debug code
+	printf("DEBUG: '%s'\n", repositoryHost);
+	printf("DEBUG: '%s'\n", repositoryPort);
+	printf("DEBUG: '%s'\n", repositoryPath);
+	printf("DEBUG: %d\n", port);
+
+	// construct file path of repository.json file
+	repositoryJsonFilePath = malloc(MAX_FILEPATH_LEN);
+	if (repositoryJsonFilePath == NULL) {
+		fprintf(stderr, "destSshInit: malloc(): %s\n", strerror(errno));
+
+		cleanupStrings();
+		return 1;
+	}
+	repositoryFilePath = malloc(MAX_FILEPATH_LEN);
+	if (repositoryFilePath == NULL) {
+		fprintf(stderr, "destSshInit: malloc(): %s\n", strerror(errno));
+
+		cleanupStrings();
+		return 2;
+	}
+	repositoryActionsPath = malloc(MAX_FILEPATH_LEN);
+	if (repositoryActionsPath == NULL) {
+		fprintf(stderr, "destSshInit: malloc(): %s\n", strerror(errno));
+
+		cleanupStrings();
+		return 3;
+	}
+	repositoryStoragePath = malloc(MAX_FILEPATH_LEN);
+	if (repositoryStoragePath == NULL) {
+		fprintf(stderr, "destSshInit: malloc(): %s\n", strerror(errno));
+
+		cleanupStrings();
+		return 4;
+	}
+
+	snprintf(repositoryJsonFilePath, MAX_FILEPATH_LEN, "%s/repository.json", repositoryPath);
+	snprintf(repositoryFilePath, MAX_FILEPATH_LEN, "%s/repository", repositoryPath);
+	snprintf(repositoryActionsPath, MAX_FILEPATH_LEN, "%s/actions", repositoryPath);
+	snprintf(repositoryStoragePath, MAX_FILEPATH_LEN, "%s/storage", repositoryPath);
+
+	bucseSshSession = ssh_new();
+	if (bucseSshSession == NULL) {
+		cleanupStrings();
+		return 1;
+	}
+	ssh_options_set(bucseSshSession, SSH_OPTIONS_HOST, repositoryHost);
+	ssh_options_set(bucseSshSession, SSH_OPTIONS_PORT, &port);
 
 	// Connect to server
 	int rc = ssh_connect(bucseSshSession);
@@ -198,6 +326,7 @@ int destSshInit(char* repository)
 			ssh_get_error(bucseSshSession));
 		ssh_free(bucseSshSession);
 		bucseSshSession = NULL;
+		cleanupStrings();
 		return 2;
 	}
 
@@ -208,6 +337,7 @@ int destSshInit(char* repository)
 		ssh_disconnect(bucseSshSession);
 		ssh_free(bucseSshSession);
 		bucseSshSession = NULL;
+		cleanupStrings();
 		return 3;
 	}
 
@@ -221,6 +351,7 @@ int destSshInit(char* repository)
 		ssh_disconnect(bucseSshSession);
 		ssh_free(bucseSshSession);
 		bucseSshSession = NULL;
+		cleanupStrings();
 		return 4;
 	}
 
@@ -233,6 +364,7 @@ int destSshInit(char* repository)
 		ssh_disconnect(bucseSshSession);
 		ssh_free(bucseSshSession);
 		bucseSshSession = NULL;
+		cleanupStrings();
 		return 5;
 	}
 
@@ -246,70 +378,16 @@ int destSshInit(char* repository)
 		ssh_disconnect(bucseSshSession);
 		ssh_free(bucseSshSession);
 		bucseSshSession = NULL;
+		cleanupStrings();
 		return 6;
 	}
-
-	// TODO
-
-	// construct file path of repository.json file
-	repositoryJsonFilePath = malloc(MAX_FILEPATH_LEN);
-	if (repositoryJsonFilePath == NULL) {
-		fprintf(stderr, "destSshInit: malloc(): %s\n", strerror(errno));
-
-		return 1;
-	}
-	repositoryFilePath = malloc(MAX_FILEPATH_LEN);
-	if (repositoryFilePath == NULL) {
-		fprintf(stderr, "destSshInit: malloc(): %s\n", strerror(errno));
-		free(repositoryJsonFilePath);
-
-		return 2;
-	}
-	repositoryActionsPath = malloc(MAX_FILEPATH_LEN);
-	if (repositoryActionsPath == NULL) {
-		fprintf(stderr, "destSshInit: malloc(): %s\n", strerror(errno));
-
-		free(repositoryJsonFilePath);
-		free(repositoryFilePath);
-		return 3;
-	}
-	repositoryStoragePath = malloc(MAX_FILEPATH_LEN);
-	if (repositoryStoragePath == NULL) {
-		fprintf(stderr, "destSshInit: malloc(): %s\n", strerror(errno));
-
-		free(repositoryJsonFilePath);
-		free(repositoryFilePath);
-		free(repositoryActionsPath);
-		return 4;
-	}
-
-
-	snprintf(repositoryJsonFilePath, MAX_FILEPATH_LEN, "%s/repository.json", repository);
-	snprintf(repositoryFilePath, MAX_FILEPATH_LEN, "%s/repository", repository);
-	snprintf(repositoryActionsPath, MAX_FILEPATH_LEN, "%s/actions", repository);
-	snprintf(repositoryStoragePath, MAX_FILEPATH_LEN, "%s/storage", repository);
 
 	return 0;
 }
 
 void destSshShutdown()
 {
-	if (repositoryJsonFilePath != NULL) {
-		free(repositoryJsonFilePath);
-		repositoryJsonFilePath = NULL;
-	}
-	if (repositoryFilePath != NULL) {
-		free(repositoryFilePath);
-		repositoryFilePath = NULL;
-	}
-	if (repositoryActionsPath != NULL) {
-		free(repositoryActionsPath);
-		repositoryActionsPath = NULL;
-	}
-	if (repositoryStoragePath != NULL) {
-		free(repositoryStoragePath);
-		repositoryStoragePath = NULL;
-	}
+	cleanupStrings();
 
 	freeActions(&handledActions);
 
@@ -333,9 +411,7 @@ int destSshPutStorageFile(const char* filename, char *buf, size_t size)
 		return 1;
 	}
 
-	// TODO
-	//snprintf(storageFilePath, MAX_FILEPATH_LEN, "%s/%s", repositoryStoragePath, filename);
-	snprintf(storageFilePath, MAX_FILEPATH_LEN, "/home/bchodorowski/testRepoAes/storage/%s", filename);
+	snprintf(storageFilePath, MAX_FILEPATH_LEN, "%s/%s", repositoryStoragePath, filename);
 
 	sftp_file file = sftp_open(bucseSftpSession, storageFilePath, O_WRONLY | O_CREAT | O_EXCL, 0644);
 	free(storageFilePath);
@@ -366,9 +442,7 @@ int destSshGetStorageFile(const char* filename, char *buf, size_t *size)
 		return 1;
 	}
 
-	// TODO
-	//snprintf(storageFilePath, MAX_FILEPATH_LEN, "%s/%s", repositoryStoragePath, filename);
-	snprintf(storageFilePath, MAX_FILEPATH_LEN, "/home/bchodorowski/testRepoAes/storage/%s", filename);
+	snprintf(storageFilePath, MAX_FILEPATH_LEN, "%s/%s", repositoryStoragePath, filename);
 
 	sftp_file file = sftp_open(bucseSftpSession, storageFilePath, O_RDONLY, 0);
 	free(storageFilePath);
@@ -403,9 +477,7 @@ int destSshAddActionFile(char* filename, char *buf, size_t size)
 		return 1;
 	}
 
-	// TODO
-	//snprintf(actionFilePath, MAX_FILEPATH_LEN, "%s/%s", repositoryActionsPath, filename);
-	snprintf(actionFilePath, MAX_FILEPATH_LEN, "/home/bchodorowski/testRepoAes/actions/%s", filename);
+	snprintf(actionFilePath, MAX_FILEPATH_LEN, "%s/%s", repositoryActionsPath, filename);
 
 	sftp_file file = sftp_open(bucseSftpSession, actionFilePath, O_WRONLY | O_CREAT | O_EXCL, 0644);
 	free(actionFilePath);
@@ -430,9 +502,7 @@ int destSshAddActionFile(char* filename, char *buf, size_t size)
 
 int destSshGetRepositoryJsonFile(char *buf, size_t *size)
 {
-	// TODO
-	//FILE* file = fopen(repositoryJsonFilePath, "r");
-	sftp_file file = sftp_open(bucseSftpSession, "/home/bchodorowski/testRepoAes/repository.json", O_RDONLY, 0);
+	sftp_file file = sftp_open(bucseSftpSession, repositoryJsonFilePath, O_RDONLY, 0);
 	if (file == NULL) {
 		fprintf(stderr, "destSshInit: sftp_open(): %d\n",
 			sftp_get_error(bucseSftpSession));
@@ -456,9 +526,7 @@ int destSshGetRepositoryJsonFile(char *buf, size_t *size)
 
 int destSshGetRepositoryFile(char *buf, size_t *size)
 {
-	// TODO
-	//FILE* file = fopen(repositoryJsonFilePath, "r");
-	sftp_file file = sftp_open(bucseSftpSession, "/home/bchodorowski/testRepoAes/repository", O_RDONLY, 0);
+	sftp_file file = sftp_open(bucseSftpSession, repositoryFilePath, O_RDONLY, 0);
 	if (file == NULL) {
 		fprintf(stderr, "destSshInit: sftp_open(): %d\n",
 			sftp_get_error(bucseSftpSession));
@@ -501,9 +569,7 @@ int destSshTick()
 	}
 	counter = TICK_PERIOD_SECONDS;
 
-	// TODO
-	//sftp_dir actionsDir = sftp_opendir(bucseSftpSession, repositoryActionsPath);
-	sftp_dir actionsDir = sftp_opendir(bucseSftpSession, "/home/bchodorowski/testRepoAes/actions");
+	sftp_dir actionsDir = sftp_opendir(bucseSftpSession, repositoryActionsPath);
 	if (actionsDir == NULL) {
 		fprintf(stderr, "warning: destSshTick(): sftp_opendir(): %s\n",
 			ssh_get_error(bucseSshSession));
@@ -554,9 +620,7 @@ int destSshTick()
 	for (int i=0; i<newActions.len; i++) {
 		printf("DEBUG: handle new action: %s\n", getAction(&newActions, i));
 
-		// TODO
-		//snprintf(actionFilePath, MAX_FILEPATH_LEN, "%s/%s", repositoryActionsPath, getAction(&newActions, i));
-		snprintf(actionFilePath, MAX_FILEPATH_LEN, "/home/bchodorowski/testRepoAes/actions/%s", getAction(&newActions, i));
+		snprintf(actionFilePath, MAX_FILEPATH_LEN, "%s/%s", repositoryActionsPath, getAction(&newActions, i));
 
 		sftp_file file = sftp_open(bucseSftpSession, actionFilePath, O_RDONLY, 0);
 		if (file == NULL) {
