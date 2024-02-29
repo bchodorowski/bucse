@@ -1963,6 +1963,11 @@ int main(int argc, char** argv)
 
 	fuse_opt_parse(&args, &conf, bucse_opts, bucse_opt_proc);
 
+	if (conf.repository == NULL) {
+		fprintf(stderr, "no repository specified\n");
+		return 2;
+	}
+
 	int err = 0;
 	if (strncmp(conf.repository, "file://", 7) == 0) {
 		conf.repositoryRealPath = realpath(conf.repository + 7, NULL);
@@ -1984,7 +1989,7 @@ int main(int argc, char** argv)
 		actionsCleanup();
 		fuse_opt_free_args(&args);
 		confCleanup();
-		return 2;
+		return 3;
 	}
 	destination->setCallbackActionAdded(&actionAddedDecrypt);
 
@@ -1997,7 +2002,7 @@ int main(int argc, char** argv)
 		actionsCleanup();
 		fuse_opt_free_args(&args);
 		confCleanup();
-		return 3;
+		return 4;
 	}
 
 	if (encryption->needsPassphrase() && conf.passphrase == NULL) {
@@ -2044,7 +2049,7 @@ int main(int argc, char** argv)
 			actionsCleanup();
 			fuse_opt_free_args(&args);
 			confCleanup();
-			return 4;
+			return 5;
 		}
 	}
 
@@ -2060,7 +2065,7 @@ int main(int argc, char** argv)
 		actionsCleanup();
 		fuse_opt_free_args(&args);
 		confCleanup();
-		return 5;
+		return 6;
 	}
 
 	int fuse_stat;
