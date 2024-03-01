@@ -1,4 +1,3 @@
-- rename bucse to bucse-mount
 - investigate bug with the repository I used for the GIF recording
 - verbose / non verbose logging
 - refactor: extract parts of bucse.c into fuse_operations.c
