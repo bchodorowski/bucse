@@ -72,10 +72,16 @@ static int doAction(Action* action)
 			return 2;
 		}
 
+		FilesystemFile* file = findFile(containingDir, fileName);
+		if (file != NULL) {
+			fprintf(stderr, "doAction: file already exists: %s\n", action->path);
+			return 3;
+		}
+
 		FilesystemFile* newFile = malloc(sizeof(FilesystemFile));
 		if (newFile == NULL) {
 			fprintf(stderr, "doAction: malloc(): %s\n", strerror(errno));
-			return 3;
+			return 4;
 		}
 
 		newFile->name = fileName;

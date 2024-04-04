@@ -488,10 +488,11 @@ constructAction:;
 	}
 	newAction->time = getCurrentTime();
 
-	if (file->dirtyFlags == DirtyFlagPendingWrite) {
-		newAction->actionType = ActionTypeEditFile;
-	} else if (file->dirtyFlags & DirtyFlagPendingCreate) {
+	if (file->dirtyFlags & DirtyFlagPendingCreate) {
 		newAction->actionType = ActionTypeAddFile;
+	}
+	else {
+		newAction->actionType = ActionTypeEditFile;
 	}
 
 	newAction->path = getFullFilePath(file);
