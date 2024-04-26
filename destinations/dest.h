@@ -17,3 +17,5 @@ typedef struct {
 	int (*isTickable)();
 	int (*tick)();
 } Destination;
+
+int getRandomStorageFileName(char* filename);
