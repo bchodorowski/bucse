@@ -43,5 +43,6 @@ vim Makefile \
 	operations/truncate.c \
 	operations/init.h \
 	operations/init.c \
+	bucse-init.c \
 	edit.sh \
 	TODO

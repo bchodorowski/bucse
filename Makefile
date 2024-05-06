@@ -2,6 +2,8 @@ CC=gcc -g -DFUSE_USE_VERSION=34
 CFLAGS=`pkg-config fuse3 --cflags` `pkg-config json-c --cflags`
 LIBS=`pkg-config fuse3 --libs` `pkg-config json-c --libs` -lpthread -lssl -lcrypto -lssh
 
+all: bucse-mount bucse-init
+
 bucse-mount: bucse-mount.o \
 	destinations/dest.o \
 	destinations/dest_local.o \
@@ -241,6 +243,15 @@ operations/init.o: operations/init.c \
 	operations/operations.h
 	$(CC) -c operations/init.c -o operations/init.o $(CFLAGS)
 
+bucse-init: bucse-init.o \
+	destinations/dest.o
+	$(CC) -o bucse-init $(CFLAGS) bucse-init.o \
+		destinations/dest.o
+
+bucse-init.o: bucse-init.c \
+	destinations/dest.h
+	$(CC) -c bucse-init.c $(CFLAGS)
+
 clean:
 	-rm -f bucse-mount bucse-mount.o \
 		destinations/dest.o \
@@ -253,6 +264,7 @@ clean:
 		filesystem.o \
 		actions.o \
 		conf.o \
+		operations/operations.o \
 		operations/getattr.o \
 		operations/flush.o \
 		operations/readdir.o \
@@ -265,4 +277,5 @@ clean:
 		operations/mkdir.o \
 		operations/rmdir.o \
 		operations/truncate.o \
-		operations/init.o
+		operations/init.o \
+		bucse-init bucse-init.o
