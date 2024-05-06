@@ -1,3 +1,9 @@
+/*
+ * destinations/dest.c
+ *
+ * Implementation of auxiliary functions used by destination implementations.
+ */
+
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>

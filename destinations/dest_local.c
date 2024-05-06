@@ -1,3 +1,10 @@
+/*
+ * destinations/dest_local.c
+ *
+ * An implementation of the local destination -- repository files are stored as
+ * files in the filesystem.
+ */
+
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -377,7 +384,7 @@ int destLocalTick()
 
 		FILE* file = fopen(actionFilePath, "r");
 		if (file == NULL) {
-			fprintf(stderr, "destLocalInit: fopen(): %s\n", strerror(errno));
+			fprintf(stderr, "destLocalTick: fopen(): %s\n", strerror(errno));
 			continue;
 		}
 
@@ -388,7 +395,7 @@ int destLocalTick()
 		fclose(file);
 
 		if (bytesRead >= MAX_ACTION_LEN) {
-			fprintf(stderr, "destLocalInit: action file is too large\n");
+			fprintf(stderr, "destLocalTick: action file is too large\n");
 			continue;
 		}
 
@@ -396,7 +403,7 @@ int destLocalTick()
 		if (cachedActionAddedCallback) {
 			cachedActionAddedCallback(getAction(&newActions, i), actionFileBuf, bytesRead, newActions.len - i - 1);
 		} else {
-			fprintf(stderr, "destLocalInit: no action added callback\n");
+			fprintf(stderr, "destLocalTick: no action added callback\n");
 		}
 	}
 	free(actionFilePath);

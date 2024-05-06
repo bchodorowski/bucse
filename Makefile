@@ -203,23 +203,42 @@ operations/write.o: operations/write.c \
 	$(CC) -c operations/write.c -o operations/write.o $(CFLAGS)
 
 operations/unlink.o: operations/unlink.c \
-	operations/unlink.h
+	operations/unlink.h \
+	dynarray.h \
+	filesystem.h \
+	actions.h \
+	operations/operations.h
 	$(CC) -c operations/unlink.c -o operations/unlink.o $(CFLAGS)
 
 operations/mkdir.o: operations/mkdir.c \
-	operations/mkdir.h
+	operations/mkdir.h \
+	dynarray.h \
+	filesystem.h \
+	actions.h \
+	operations/operations.h
 	$(CC) -c operations/mkdir.c -o operations/mkdir.o $(CFLAGS)
 
 operations/rmdir.o: operations/rmdir.c \
-	operations/rmdir.h
+	operations/rmdir.h \
+	dynarray.h \
+	filesystem.h \
+	actions.h \
+	operations/operations.h
 	$(CC) -c operations/rmdir.c -o operations/rmdir.o $(CFLAGS)
 
 operations/truncate.o: operations/truncate.c \
-	operations/truncate.h
+	operations/truncate.h \
+	dynarray.h \
+	filesystem.h \
+	actions.h \
+	operations/operations.h \
+	operations/flush.h
 	$(CC) -c operations/truncate.c -o operations/truncate.o $(CFLAGS)
 
 operations/init.o: operations/init.c \
-	operations/init.h
+	operations/init.h \
+	actions.h \
+	operations/operations.h
 	$(CC) -c operations/init.c -o operations/init.o $(CFLAGS)
 
 clean:
