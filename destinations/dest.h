@@ -38,3 +38,7 @@ typedef struct {
 // needs to point to a buffer of size at least 41 bytes, prefferably
 // MAX_ACTION_NAME_LEN bytes.
 int getRandomStorageFileName(char* filename);
+
+void getDestinationBasedOnPathPrefix(Destination** destPtr,
+	char** realPathPtr,
+	char* path);

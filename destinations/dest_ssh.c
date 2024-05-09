@@ -618,7 +618,7 @@ int destSshTick()
 
 		sftp_file file = sftp_open(bucseSftpSession, actionFilePath, O_RDONLY, 0);
 		if (file == NULL) {
-			fprintf(stderr, "destSshInit: sftp_open(): %s\n",
+			fprintf(stderr, "destSshTick: sftp_open(): %s\n",
 				ssh_get_error(bucseSshSession));
 
 			continue;
@@ -628,7 +628,7 @@ int destSshTick()
 		sftp_close(file);
 
 		if (bytesRead >= MAX_ACTION_LEN) {
-			fprintf(stderr, "destSshInit: action file is too large\n");
+			fprintf(stderr, "destSshTick: action file is too large\n");
 			continue;
 		}
 
@@ -636,7 +636,7 @@ int destSshTick()
 		if (cachedActionAddedCallback) {
 			cachedActionAddedCallback(getAction(&newActions, i), actionFileBuf, bytesRead, newActions.len - i - 1);
 		} else {
-			fprintf(stderr, "destSshInit: no action added callback\n");
+			fprintf(stderr, "destSshTick: no action added callback\n");
 		}
 	}
 	free(actionFilePath);

@@ -429,19 +429,9 @@ int main(int argc, char** argv)
 		return 2;
 	}
 
-	int err = 0;
-	if (strncmp(conf.repository, "file://", 7) == 0) {
-		conf.repositoryRealPath = realpath(conf.repository + 7, NULL);
-		destination = &destinationLocal;
-		err = destination->init(conf.repositoryRealPath);
-	} else if (strncmp(conf.repository, "ssh://", 6) == 0) {
-		destination = &destinationSsh;
-		err = destination->init(conf.repository + 6);
-	} else {
-		conf.repositoryRealPath = realpath(conf.repository, NULL);
-		destination = &destinationLocal;
-		err = destination->init(conf.repositoryRealPath);
-	}
+	getDestinationBasedOnPathPrefix(&destination,
+		&conf.repositoryRealPath, conf.repository);
+	int err = destination->init(conf.repositoryRealPath);
 
 	if (err != 0)
 	{

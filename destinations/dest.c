@@ -7,8 +7,13 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <limits.h>
+#include <stdlib.h>
 
 #include "dest.h"
+
+extern Destination destinationLocal;
+extern Destination destinationSsh;
 
 int getRandomStorageFileName(char* filename)
 {
@@ -36,3 +41,19 @@ int getRandomStorageFileName(char* filename)
 	return 0;
 }
 
+void getDestinationBasedOnPathPrefix(Destination** destPtr,
+	char** realPathPtr,
+	char* path)
+{
+	if (strncmp(path, "file://", 7) == 0) {
+		(*realPathPtr) = realpath(path + 7, NULL);
+		(*destPtr) = &destinationLocal;
+	} else if (strncmp(path, "ssh://", 6) == 0) {
+		(*realPathPtr) = strdup(path + 6);
+		(*destPtr) = &destinationSsh;
+	} else {
+		(*realPathPtr) = realpath(path, NULL);
+		(*destPtr) = &destinationLocal;
+	}
+
+}

@@ -244,9 +244,14 @@ operations/init.o: operations/init.c \
 	$(CC) -c operations/init.c -o operations/init.o $(CFLAGS)
 
 bucse-init: bucse-init.o \
-	destinations/dest.o
+	destinations/dest.o \
+	destinations/dest_local.o \
+	destinations/dest_ssh.o
 	$(CC) -o bucse-init $(CFLAGS) bucse-init.o \
-		destinations/dest.o
+		destinations/dest.o \
+		destinations/dest_local.o \
+		destinations/dest_ssh.o \
+		$(LIBS)
 
 bucse-init.o: bucse-init.c \
 	destinations/dest.h
