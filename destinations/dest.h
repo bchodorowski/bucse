@@ -24,10 +24,13 @@ typedef void (*ActionAddedCallback)(char* actionName, char* buf, size_t size, in
 typedef struct {
 	int (*init)(char* repository);
 	void (*shutdown)();
+	int (*createDirs)();
 	int (*putStorageFile)(const char* filename, char *buf, size_t size);
 	int (*getStorageFile)(const char* filename, char *buf, size_t *size);
 	int (*addActionFile)(char* filename, char *buf, size_t size);
+	int (*putRepositoryJsonFile)(char *buf, size_t size);
 	int (*getRepositoryJsonFile)(char *buf, size_t *size);
+	int (*putRepositoryFile)(char *buf, size_t size);
 	int (*getRepositoryFile)(char *buf, size_t *size);
 	int (*setCallbackActionAdded)(ActionAddedCallback callback);
 	int (*isTickable)();

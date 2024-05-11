@@ -396,6 +396,13 @@ void destSshShutdown()
 	}
 }
 
+int destSshCreateDirs()
+{
+	// TODO
+	fprintf(stderr, "destSshCreateDirs: Not implemented yet()\n");
+	return 1;
+}
+
 int destSshPutStorageFile(const char* filename, char *buf, size_t size)
 {
 	char* storageFilePath = malloc(MAX_FILEPATH_LEN);
@@ -494,6 +501,13 @@ int destSshAddActionFile(char* filename, char *buf, size_t size)
 	return 0;
 }
 
+int destSshPutRepositoryJsonFile(char *buf, size_t size)
+{
+	// TODO
+	fprintf(stderr, "destSshPutRepositoryJsonFile: Not implemented yet()\n");
+	return 1;
+}
+
 int destSshGetRepositoryJsonFile(char *buf, size_t *size)
 {
 	sftp_file file = sftp_open(bucseSftpSession, repositoryJsonFilePath, O_RDONLY, 0);
@@ -516,6 +530,13 @@ int destSshGetRepositoryJsonFile(char *buf, size_t *size)
 	buf[bytesRead] = 0; // null termination
 	*size = bytesRead;
 	return 0;
+}
+
+int destSshPutRepositoryFile(char *buf, size_t size)
+{
+	// TODO
+	fprintf(stderr, "destSshPutRepositoryFile: Not implemented yet()\n");
+	return 1;
 }
 
 int destSshGetRepositoryFile(char *buf, size_t *size)
@@ -655,10 +676,13 @@ int destSshTick()
 Destination destinationSsh = {
 	.init = destSshInit,
 	.shutdown = destSshShutdown,
+	.createDirs = destSshCreateDirs,
 	.putStorageFile = destSshPutStorageFile,
 	.getStorageFile = destSshGetStorageFile,
 	.addActionFile = destSshAddActionFile,
+	.putRepositoryJsonFile = destSshPutRepositoryJsonFile,
 	.getRepositoryJsonFile = destSshGetRepositoryJsonFile,
+	.putRepositoryFile = destSshPutRepositoryFile,
 	.getRepositoryFile = destSshGetRepositoryFile,
 	.setCallbackActionAdded = destSshSetCallbackActionAdded,
 	.isTickable = destSshIsTickable,

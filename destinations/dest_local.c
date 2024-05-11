@@ -12,11 +12,13 @@
 #include <string.h>
 #include <sys/types.h>
 #include <dirent.h>
+#include <sys/stat.h>
 
 #include <json.h>
 
 #include "dest.h"
 
+static char* repositoryPath;
 static char* repositoryJsonFilePath;
 static char* repositoryFilePath;
 static char* repositoryActionsPath;
@@ -24,6 +26,7 @@ static char* repositoryStoragePath;
 
 static ActionAddedCallback cachedActionAddedCallback;
 
+// TODO: the same code is in dest_ssh.c. Fix it.
 // TODO: rename to ActionNames [?]
 typedef struct {
 	char* names;
@@ -123,6 +126,14 @@ int destLocalInit(char* repository)
 		return 4;
 	}
 
+	repositoryPath = strdup(repository);
+	if (repositoryPath == NULL) {
+		free(repositoryJsonFilePath);
+		free(repositoryFilePath);
+		free(repositoryActionsPath);
+		free(repositoryStoragePath);
+		return 5;
+	}
 
 	snprintf(repositoryJsonFilePath, MAX_FILEPATH_LEN, "%s/repository.json", repository);
 	snprintf(repositoryFilePath, MAX_FILEPATH_LEN, "%s/repository", repository);
@@ -150,8 +161,67 @@ void destLocalShutdown()
 		free(repositoryStoragePath);
 		repositoryStoragePath = NULL;
 	}
+	if (repositoryPath != NULL) {
+		free(repositoryPath);
+		repositoryPath = NULL;
+	}
 
 	freeActions(&handledActions);
+}
+
+int destLocalCreateDirs()
+{
+	struct stat s;
+	int err;
+
+	if (mkdir(repositoryPath, S_IRUSR | S_IWUSR | S_IXUSR
+		| S_IRGRP | S_IXGRP
+		| S_IROTH | S_IXOTH) != 0) {
+		fprintf(stderr, "destLocalCreateDirs: mkdir(): %s\n", strerror(errno));
+		return 1;
+	}
+
+	if (mkdir(repositoryActionsPath, S_IRUSR | S_IWUSR | S_IXUSR
+		| S_IRGRP | S_IXGRP
+		| S_IROTH | S_IXOTH) != 0) {
+		fprintf(stderr, "destLocalCreateDirs: mkdir(): %s\n", strerror(errno));
+		return 2;
+	}
+
+	if (mkdir(repositoryStoragePath, S_IRUSR | S_IWUSR | S_IXUSR
+		| S_IRGRP | S_IXGRP
+		| S_IROTH | S_IXOTH) != 0) {
+		fprintf(stderr, "destLocalCreateDirs: mkdir(): %s\n", strerror(errno));
+		return 3;
+	}
+
+	// check if repository json file already exists
+	errno = 0;
+	err = stat(repositoryJsonFilePath, &s);
+	if (err != 0 && errno != ENOENT) {
+		fprintf(stderr, "destLocalCreateDirs: stat(): %s\n", strerror(errno));
+		return 4;
+	} else if (err != 0 && errno == ENOENT) {
+		// OK
+	} else {
+		fprintf(stderr, "destLocalCreateDirs: repository.json file already exists\n", strerror(errno));
+		return 5;
+	}
+
+	// check if repository file already exists
+	errno = 0;
+	err = stat(repositoryFilePath, &s);
+	if (err != 0 && errno != ENOENT) {
+		fprintf(stderr, "destLocalCreateDirs: stat(): %s\n", strerror(errno));
+		return 6;
+	} else if (err != 0 && errno == ENOENT) {
+		// OK
+	} else {
+		fprintf(stderr, "destLocalCreateDirs: repository file already exists\n", strerror(errno));
+		return 7;
+	}
+
+	return 0;
 }
 
 int destLocalPutStorageFile(const char* filename, char *buf, size_t size)
@@ -206,15 +276,20 @@ int destLocalGetStorageFile(const char* filename, char *buf, size_t *size)
 	}
 
 	int bytesRead = 0;
-	while (!feof(file) && bytesRead < *size) {
+	while (!feof(file) && !ferror(file) && bytesRead < *size) {
 		bytesRead += fread(buf + bytesRead, 1, *size - bytesRead, file);
+	}
+	if (ferror(file)) {
+		fprintf(stderr, "destLocalGetStorageFile: ferror() returned a non-zero value\n");
+		fclose(file);
+		return 3;
 	}
 	fclose(file);
 
 	if (bytesRead >= *size) {
 		fprintf(stderr, "destLocalInit: repository.json file is too large\n");
 
-		return 2;
+		return 4;
 	}
 
 	buf[bytesRead] = 0; // null termination
@@ -255,6 +330,28 @@ int destLocalAddActionFile(char* filename, char *buf, size_t size)
 	return 0;
 }
 
+int destLocalPutRepositoryJsonFile(char *buf, size_t size)
+{
+	FILE* file = fopen(repositoryJsonFilePath, "wb");
+	if (file == NULL) {
+		fprintf(stderr, "destLocalPutRepositoryJsonFile: fopen(): %s\n", strerror(errno));
+		return 1;
+	}
+
+	size_t bytesWritten = 0;
+	while (!ferror(file) && bytesWritten < size) {
+		bytesWritten += fwrite(buf + bytesWritten, 1, size - bytesWritten, file);
+	}
+	if (ferror(file)) {
+		fprintf(stderr, "destLocalPutRepositoryJsonFile: ferror() returned a non-zero value\n");
+		fclose(file);
+		return 2;
+	}
+	fclose(file);
+
+	return 0;
+}
+
 int destLocalGetRepositoryJsonFile(char *buf, size_t *size)
 {
 	FILE* file = fopen(repositoryJsonFilePath, "r");
@@ -265,15 +362,20 @@ int destLocalGetRepositoryJsonFile(char *buf, size_t *size)
 	}
 
 	int bytesRead = 0;
-	while (!feof(file) && bytesRead < *size) {
+	while (!feof(file) && !ferror(file) && bytesRead < *size) {
 		bytesRead += fread(buf + bytesRead, 1, *size - bytesRead, file);
+	}
+	if (ferror(file)) {
+		fprintf(stderr, "destLocalGetRepositoryJsonFile: ferror() returned a non-zero value\n");
+		fclose(file);
+		return 2;
 	}
 	fclose(file);
 
 	if (bytesRead >= *size) {
 		fprintf(stderr, "destLocalGetRepositoryJsonFile: repository.json file is too large\n");
 
-		return 2;
+		return 3;
 	}
 
 	buf[bytesRead] = 0; // null termination
@@ -281,25 +383,52 @@ int destLocalGetRepositoryJsonFile(char *buf, size_t *size)
 	return 0;
 }
 
+int destLocalPutRepositoryFile(char *buf, size_t size)
+{
+	FILE* file = fopen(repositoryFilePath, "wb");
+	if (file == NULL) {
+		fprintf(stderr, "destLocalPutRepositoryFile: fopen(): %s\n", strerror(errno));
+		return 1;
+	}
+
+	size_t bytesWritten = 0;
+	while (!ferror(file) && bytesWritten < size) {
+		bytesWritten += fwrite(buf + bytesWritten, 1, size - bytesWritten, file);
+	}
+	if (ferror(file)) {
+		fprintf(stderr, "destLocalPutRepositoryFile: ferror() returned a non-zero value\n");
+		fclose(file);
+		return 2;
+	}
+	fclose(file);
+
+	return 1;
+}
+
 int destLocalGetRepositoryFile(char *buf, size_t *size)
 {
 	FILE* file = fopen(repositoryFilePath, "r");
 	if (file == NULL) {
-		fprintf(stderr, "destLocalInit: fopen(): %s\n", strerror(errno));
+		fprintf(stderr, "destLocalGetRepositoryFile: fopen(): %s\n", strerror(errno));
 
 		return 1;
 	}
 
 	int bytesRead = 0;
-	while (!feof(file) && bytesRead < *size) {
+	while (!feof(file) && !ferror(file) && bytesRead < *size) {
 		bytesRead += fread(buf + bytesRead, 1, *size - bytesRead, file);
+	}
+	if (ferror(file)) {
+		fprintf(stderr, "destLocalGetRepositoryFile: ferror() returned a non-zero value\n");
+		fclose(file);
+		return 2;
 	}
 	fclose(file);
 
 	if (bytesRead >= *size) {
-		fprintf(stderr, "destLocalInit: repository file is too large\n");
+		fprintf(stderr, "destLocalGetRepositoryFile: repository file is too large\n");
 
-		return 2;
+		return 3;
 	}
 
 	buf[bytesRead] = 0; // null termination
@@ -389,8 +518,13 @@ int destLocalTick()
 		}
 
 		size_t bytesRead = 0;
-		while (!feof(file) && bytesRead < MAX_ACTION_LEN) {
+		while (!feof(file) && !ferror(file) && bytesRead < MAX_ACTION_LEN) {
 			bytesRead += fread(actionFileBuf + bytesRead, 1, MAX_ACTION_LEN - bytesRead, file);
+		}
+		if (ferror(file)) {
+			fprintf(stderr, "destLocalTick: ferror() returned a non-zero value\n");
+			fclose(file);
+			continue;
 		}
 		fclose(file);
 
@@ -422,10 +556,13 @@ int destLocalTick()
 Destination destinationLocal = {
 	.init = destLocalInit,
 	.shutdown = destLocalShutdown,
+	.createDirs = destLocalCreateDirs,
 	.putStorageFile = destLocalPutStorageFile,
 	.getStorageFile = destLocalGetStorageFile,
 	.addActionFile = destLocalAddActionFile,
+	.putRepositoryJsonFile = destLocalPutRepositoryJsonFile,
 	.getRepositoryJsonFile = destLocalGetRepositoryJsonFile,
+	.putRepositoryFile = destLocalPutRepositoryFile,
 	.getRepositoryFile = destLocalGetRepositoryFile,
 	.setCallbackActionAdded = destLocalSetCallbackActionAdded,
 	.isTickable = destLocalIsTickable,
