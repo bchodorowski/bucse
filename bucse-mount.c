@@ -429,7 +429,7 @@ int main(int argc, char** argv)
 		return 2;
 	}
 
-	getDestinationBasedOnPathPrefix(&destination,
+	getDestinationByPathPrefix(&destination,
 		&conf.repositoryRealPath, conf.repository);
 	int err = destination->init(conf.repositoryRealPath);
 

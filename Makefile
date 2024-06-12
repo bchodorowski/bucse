@@ -14,6 +14,7 @@ bucse-mount: bucse-mount.o \
 	dynarray.o \
 	filesystem.o \
 	actions.o \
+	time.o \
 	conf.o \
 	operations/operations.o \
 	operations/getattr.o \
@@ -39,6 +40,7 @@ bucse-mount: bucse-mount.o \
 		dynarray.o \
 		filesystem.o \
 		actions.o \
+		time.o \
 		conf.o \
 		operations/operations.o \
 		operations/getattr.o \
@@ -118,6 +120,9 @@ actions.o: actions.c \
 	filesystem.h
 	$(CC) -c actions.c -o actions.o $(CFLAGS)
 
+time.o: time.c
+	$(CC) -c time.c -o time.o $(CFLAGS)
+
 conf.o: conf.c \
 	conf.h
 	$(CC) -c conf.c -o conf.o $(CFLAGS)
@@ -144,6 +149,7 @@ operations/flush.o: operations/flush.c \
 	dynarray.h \
 	filesystem.h \
 	actions.h \
+	time.h \
 	conf.h \
 	destinations/dest.h \
 	encryption/encr.h \
@@ -155,6 +161,7 @@ operations/readdir.o: operations/readdir.c \
 	dynarray.h \
 	filesystem.h \
 	actions.h \
+	time.h \
 	operations/operations.h
 	$(CC) -c operations/readdir.c -o operations/readdir.o $(CFLAGS)
 
@@ -163,6 +170,7 @@ operations/open.o: operations/open.c \
 	dynarray.h \
 	filesystem.h \
 	actions.h \
+	time.h \
 	operations/operations.h
 	$(CC) -c operations/open.c -o operations/open.o $(CFLAGS)
 
@@ -171,6 +179,7 @@ operations/create.o: operations/create.c \
 	dynarray.h \
 	filesystem.h \
 	actions.h \
+	time.h \
 	operations/operations.h \
 	operations/open.h
 	$(CC) -c operations/create.c -o operations/create.o $(CFLAGS)
@@ -189,6 +198,7 @@ operations/read.o: operations/read.c \
 	dynarray.h \
 	filesystem.h \
 	actions.h \
+	time.h \
 	conf.h \
 	destinations/dest.h \
 	encryption/encr.h \
@@ -209,6 +219,7 @@ operations/unlink.o: operations/unlink.c \
 	dynarray.h \
 	filesystem.h \
 	actions.h \
+	time.h \
 	operations/operations.h
 	$(CC) -c operations/unlink.c -o operations/unlink.o $(CFLAGS)
 
@@ -217,6 +228,7 @@ operations/mkdir.o: operations/mkdir.c \
 	dynarray.h \
 	filesystem.h \
 	actions.h \
+	time.h \
 	operations/operations.h
 	$(CC) -c operations/mkdir.c -o operations/mkdir.o $(CFLAGS)
 
@@ -225,6 +237,7 @@ operations/rmdir.o: operations/rmdir.c \
 	dynarray.h \
 	filesystem.h \
 	actions.h \
+	time.h \
 	operations/operations.h
 	$(CC) -c operations/rmdir.c -o operations/rmdir.o $(CFLAGS)
 
@@ -244,17 +257,27 @@ operations/init.o: operations/init.c \
 	$(CC) -c operations/init.c -o operations/init.o $(CFLAGS)
 
 bucse-init: bucse-init.o \
+	time.o \
 	destinations/dest.o \
 	destinations/dest_local.o \
-	destinations/dest_ssh.o
+	destinations/dest_ssh.o \
+	encryption/encr.o \
+	encryption/encr_none.o \
+	encryption/encr_aes.o
 	$(CC) -o bucse-init $(CFLAGS) bucse-init.o \
+		time.o \
 		destinations/dest.o \
 		destinations/dest_local.o \
 		destinations/dest_ssh.o \
+		encryption/encr.o \
+		encryption/encr_none.o \
+		encryption/encr_aes.o \
 		$(LIBS)
 
 bucse-init.o: bucse-init.c \
-	destinations/dest.h
+	time.o \
+	destinations/dest.h \
+	encryption/encr.h
 	$(CC) -c bucse-init.c $(CFLAGS)
 
 clean:
@@ -268,6 +291,7 @@ clean:
 		dynarray.o \
 		filesystem.o \
 		actions.o \
+		time.o \
 		conf.o \
 		operations/operations.o \
 		operations/getattr.o \

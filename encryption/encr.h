@@ -17,3 +17,4 @@ typedef struct {
 
 size_t getMaxEncryptedBlockSize(size_t blockSize);
 
+Encryption* getEncryptionByName(char* name);

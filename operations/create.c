@@ -8,6 +8,7 @@
 #include "../dynarray.h"
 #include "../filesystem.h"
 #include "../actions.h"
+#include "../time.h"
 
 #include "operations.h"
 #include "open.h"

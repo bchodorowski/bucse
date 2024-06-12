@@ -42,6 +42,6 @@ typedef struct {
 // MAX_ACTION_NAME_LEN bytes.
 int getRandomStorageFileName(char* filename);
 
-void getDestinationBasedOnPathPrefix(Destination** destPtr,
+void getDestinationByPathPrefix(Destination** destPtr,
 	char** realPathPtr,
 	char* path);

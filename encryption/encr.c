@@ -1,6 +1,11 @@
 #include <stddef.h>
+#include <stdio.h>
+#include <string.h>
 
 #include "encr.h"
+
+extern Encryption encryptionNone;
+extern Encryption encryptionAes;
 
 size_t getMaxEncryptedBlockSize(size_t blockSize)
 {
@@ -11,3 +16,14 @@ size_t getMaxEncryptedBlockSize(size_t blockSize)
 	return blockSize;
 }
 
+Encryption* getEncryptionByName(char* name)
+{
+	if (name == NULL || strcmp(name, "none") == 0) {
+		return &encryptionNone;
+	} else if (strcmp(name, "aes") == 0) {
+		return &encryptionAes;
+	} else {
+		fprintf(stderr, "getEncryptionByName:() Unsupported encryption: %s\n", name);
+		return NULL;
+	}
+}

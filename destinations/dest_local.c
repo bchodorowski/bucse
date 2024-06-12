@@ -287,7 +287,7 @@ int destLocalGetStorageFile(const char* filename, char *buf, size_t *size)
 	fclose(file);
 
 	if (bytesRead >= *size) {
-		fprintf(stderr, "destLocalInit: repository.json file is too large\n");
+		fprintf(stderr, "destLocalGetStorageFile: repository.json file is too large\n");
 
 		return 4;
 	}
@@ -402,7 +402,7 @@ int destLocalPutRepositoryFile(char *buf, size_t size)
 	}
 	fclose(file);
 
-	return 1;
+	return 0;
 }
 
 int destLocalGetRepositoryFile(char *buf, size_t *size)

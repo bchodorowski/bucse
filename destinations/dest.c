@@ -41,18 +41,24 @@ int getRandomStorageFileName(char* filename)
 	return 0;
 }
 
-void getDestinationBasedOnPathPrefix(Destination** destPtr,
+void getDestinationByPathPrefix(Destination** destPtr,
 	char** realPathPtr,
 	char* path)
 {
 	if (strncmp(path, "file://", 7) == 0) {
 		(*realPathPtr) = realpath(path + 7, NULL);
+		if ((*realPathPtr) == NULL) {
+			(*realPathPtr) = strdup(path + 7);
+		}
 		(*destPtr) = &destinationLocal;
 	} else if (strncmp(path, "ssh://", 6) == 0) {
 		(*realPathPtr) = strdup(path + 6);
 		(*destPtr) = &destinationSsh;
 	} else {
 		(*realPathPtr) = realpath(path, NULL);
+		if ((*realPathPtr) == NULL) {
+			(*realPathPtr) = strdup(path);
+		}
 		(*destPtr) = &destinationLocal;
 	}
 

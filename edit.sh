@@ -15,6 +15,8 @@ vim Makefile \
 	filesystem.c \
 	actions.h \
 	actions.c \
+	time.h \
+	time.c \
 	operations/operations.h \
 	operations/operations.c \
 	operations/getattr.h \
