@@ -4,6 +4,7 @@
 - consider big files -> use 64 bit variables?
 - handle addToDynArray failures
 (at this point we should have working MVP -- with local destination and no encryption
+- optimization: use read cache so we don't download and decrypt the same blocks multiple times
 - improve local destination by applying a filesystem hook to be notified about changes in the filesystem
 - s3 destination
 - implement tests

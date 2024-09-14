@@ -1,0 +1,4 @@
+*.o
+bucse-init
+bucse-mount
+tests/__pycache__
