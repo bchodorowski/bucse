@@ -90,6 +90,13 @@ def getRandomPathInMirror():
     dirs = p.stdout.decode("UTF-8").split("\n")[:-1]
     return random.choice(dirs)
 
+def getRandomFileInMirror():
+    p = subprocess.run(["find", "test_%d_mirror" % pid, "-type", "f"], capture_output = True)
+    p.check_returncode()
+
+    dirs = p.stdout.decode("UTF-8").split("\n")[:-1]
+    return random.choice(dirs)
+
 
 randomCharacters = string.ascii_letters + string.digits
 def getRandomFileName():
@@ -102,8 +109,11 @@ def getRandomNewFileName():
         if not os.path.exists(candidate):
             return candidate.replace("test_%d_mirror" % pid, "__TESTDIR__", 1)
 
-def getRandomExistingFileName():
+def getRandomExistingDirName():
             return getRandomPathInMirror().replace("test_%d_mirror" % pid, "__TESTDIR__", 1)
+
+def getRandomExistingFileName():
+            return getRandomFileInMirror().replace("test_%d_mirror" % pid, "__TESTDIR__", 1)
 
 def makeRandomTmpFile():
     fileSize = random.randint(0, 1024*1024)
@@ -119,3 +129,55 @@ def makeRandomTmpFile():
 
     tmpFiles.append(fileName)
     return fileName
+
+def mirrorOpen(fileName):
+    fileName1 = []
+    fileName2 = []
+
+    fileName1 = fileName.replace("__TESTDIR__", "test_%d" % pid)
+    fileName2 = fileName.replace("__TESTDIR__", "test_%d_mirror" % pid)
+    
+    fd1 = os.open(fileName1, flags=os.O_RDWR)
+    fd2 = os.open(fileName2, flags=os.O_RDWR)
+
+    return fd1, fd2
+
+def mirrorRandomOp(fileName, fd, fdMirror):
+    fileSize = os.stat(fdMirror).st_size
+
+    op = random.choice(["read", "write"])
+    if op == "read":
+        begin = random.randint(0, fileSize-1)
+        end = random.randint(begin, fileSize-1)
+        opsize = end - begin
+        if opsize == 0:
+            return
+
+        os.lseek(fd, begin, os.SEEK_SET)
+        os.lseek(fdMirror, begin, os.SEEK_SET)
+
+        buf1 = os.read(fd, opsize)
+        buf2 = os.read(fdMirror, opsize)
+
+        if buf1 != buf2:
+            raise Exception("Read operation did not end with the same result. Filename %s, begin %d, size %d"%(fileName, begin, opsize))
+
+    elif op == "write":
+        begin = random.randint(0, fileSize-1)
+        end = random.randint(begin, fileSize-1 + 1024*128)
+        opsize = end - begin
+        if opsize == 0:
+            return
+
+        os.lseek(fd, begin, os.SEEK_SET)
+        os.lseek(fdMirror, begin, os.SEEK_SET)
+
+        buf = random.randbytes(opsize)
+        os.write(fd, buf)
+        os.write(fdMirror, buf)
+
+    print([op, begin, end, fileSize])
+
+def mirrorClose(filename, fd, fdMirror):
+    os.close(fd)
+    os.close(fdMirror)

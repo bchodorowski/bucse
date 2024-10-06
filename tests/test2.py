@@ -3,21 +3,23 @@
 import bucseTests
 
 
-bucseTests.downloadTmp(
-        'https://mirrors.edge.kernel.org/pub/linux/kernel/v6.x/linux-6.9.4.tar.xz',
-        'linux-6.9.4.tar.xz',
-        '8e4ef26770b4ce8db7d988fe9c9e721762f30a36')
-
 bucseTests.mountDirs()
-
-bucseTests.mirrorCommand(["cp", "tmp/linux-6.9.4.tar.xz", "__TESTDIR__/"])
 
 for _ in range(128):
     bucseTests.mirrorCommand(["mkdir", bucseTests.getRandomNewFileName()])
-for _ in range(5):
+for _ in range(10):
     fileName = bucseTests.makeRandomTmpFile()
     targetDir = bucseTests.getRandomExistingDirName()
     bucseTests.mirrorCommand(["cp", "tmp/%s"%fileName, "%s/"%targetDir])
+
+for _ in range(5):
+    fileName = bucseTests.getRandomExistingFileName()
+    print(fileName)
+    fd, fdMirror = bucseTests.mirrorOpen(fileName)
+    print([fd, fdMirror])
+    for _ in range(20):
+        bucseTests.mirrorRandomOp(fileName, fd, fdMirror)
+    bucseTests.mirrorClose(fileName, fd, fdMirror)
 
 bucseTests.verifyWithMirror()
 bucseTests.testCleanup()
