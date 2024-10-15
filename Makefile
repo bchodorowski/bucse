@@ -29,6 +29,7 @@ bucse-mount: bucse-mount.o \
 	operations/mkdir.o \
 	operations/rmdir.o \
 	operations/truncate.o \
+	operations/rename.o \
 	operations/init.o
 	$(CC) -o bucse-mount $(CFLAGS) bucse-mount.o \
 		destinations/dest.o \
@@ -55,6 +56,7 @@ bucse-mount: bucse-mount.o \
 		operations/mkdir.o \
 		operations/rmdir.o \
 		operations/truncate.o \
+		operations/rename.o \
 		operations/init.o \
 		$(LIBS)
 
@@ -78,6 +80,7 @@ bucse-mount.o: bucse-mount.c \
 	operations/mkdir.h \
 	operations/rmdir.h \
 	operations/truncate.h \
+	operations/rename.h \
 	operations/init.h
 	$(CC) -c bucse-mount.c $(CFLAGS)
 
@@ -250,6 +253,14 @@ operations/truncate.o: operations/truncate.c \
 	operations/flush.h
 	$(CC) -c operations/truncate.c -o operations/truncate.o $(CFLAGS)
 
+operations/rename.o: operations/rename.c \
+	operations/rename.h \
+	dynarray.h \
+	filesystem.h \
+	actions.h \
+	operations/operations.h
+	$(CC) -c operations/rename.c -o operations/rename.o $(CFLAGS)
+
 operations/init.o: operations/init.c \
 	operations/init.h \
 	actions.h \
@@ -306,5 +317,6 @@ clean:
 		operations/mkdir.o \
 		operations/rmdir.o \
 		operations/truncate.o \
+		operations/rename.o \
 		operations/init.o \
 		bucse-init bucse-init.o

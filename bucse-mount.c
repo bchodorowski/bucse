@@ -41,6 +41,7 @@
 #include "operations/mkdir.h"
 #include "operations/rmdir.h"
 #include "operations/truncate.h"
+#include "operations/rename.h"
 #include "operations/init.h"
 
 #define PACKAGE_VERSION "current"
@@ -108,6 +109,7 @@ struct fuse_operations bucse_oper = {
 	.mkdir = bucse_mkdir_guarded,
 	.rmdir = bucse_rmdir_guarded,
 	.truncate = bucse_truncate_guarded,
+	.rename = bucse_rename_guarded,
 	.flush = bucse_flush_guarded,
 	.init = bucse_init_guarded,
 };

@@ -43,6 +43,8 @@ vim Makefile \
 	operations/rmdir.c \
 	operations/truncate.h \
 	operations/truncate.c \
+	operations/rename.h \
+	operations/rename.c \
 	operations/init.h \
 	operations/init.c \
 	bucse-init.c \
