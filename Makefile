@@ -258,6 +258,7 @@ operations/rename.o: operations/rename.c \
 	dynarray.h \
 	filesystem.h \
 	actions.h \
+	time.h \
 	operations/operations.h
 	$(CC) -c operations/rename.c -o operations/rename.o $(CFLAGS)
 
