@@ -335,6 +335,8 @@ constructAction:;
 
 	// update file
 	if (file->dirtyFlags & DirtyFlagPendingCreate) {
+		// file->name was temporary created, now we need to set a proper
+		// pointer to a data from newAction->path
 		free((char*)file->name);
 		DynArray pathArray;
 		memset(&pathArray, 0, sizeof(DynArray));

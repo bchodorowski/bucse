@@ -14,7 +14,7 @@ typedef struct {
 
 typedef struct _FilesystemDir
 {
-	const char* name;
+	const char* name; // pointer to memory that is managed by actions
 	int64_t atime;
 	int64_t mtime;
 	DynArray files;
@@ -24,10 +24,10 @@ typedef struct _FilesystemDir
 
 typedef struct
 {
-	const char* name;
+	const char* name; // pointer to memory that is managed by actions
 	int64_t atime;
 	int64_t mtime;
-	char* content;
+	char* content; // pointer to memory that is managed by actions
 	int contentLen;
 	int size;
 	int blockSize;

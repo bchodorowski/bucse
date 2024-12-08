@@ -210,10 +210,14 @@ static int bucse_rename(const char *srcPath, const char *dstPath,
 		dstFile = srcFile;
 	} else {
 		// move file from src to dst
-		dstFile->content = srcFile->content;
-		dstFile->contentLen = srcFile->contentLen;
-		dstFile->size = srcFile->size;
-		dstFile->blockSize = srcFile->blockSize;
+		dstFile->content = newDstAction->content;
+		dstFile->contentLen = newDstAction->contentLen;
+		dstFile->size = newDstAction->size;
+		dstFile->blockSize = newDstAction->blockSize;
+		//dstFile->content = srcFile->content;
+		//dstFile->contentLen = srcFile->contentLen;
+		//dstFile->size = srcFile->size;
+		//dstFile->blockSize = srcFile->blockSize;
 
 		if (removeFromDynArrayUnordered(&srcContainingDir->files, (void*)srcFile) != 0) {
 			fprintf(stderr, "bucse_unlink: removeFromDynArrayUnordered() failed\n");

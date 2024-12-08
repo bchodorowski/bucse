@@ -66,8 +66,8 @@ static int bucse_open(const char *path, struct fuse_file_info *fi)
 						return -ENOMEM;
 					}
 
-					// TODO: realy strdup? shouldn't we take a string that is somewhere from action?
-					// I think this produces memory leak. Verify and fix.
+					// strdup here, will set DirtyFlagPendingCreate
+					// and clean up when flushing the file in flush.c
 					newFile->name = strdup(fileName);
 					if (newFile->name == NULL) {
 						fprintf(stderr, "bucse_open: strdup(): %s\n", strerror(errno));
