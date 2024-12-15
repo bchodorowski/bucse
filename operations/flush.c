@@ -138,6 +138,14 @@ int flushFile(FilesystemFile* file)
 		determineBlocksToWrite(blocksToWrite, pw->offset, pw->size, newBlockSize);
 	}
 
+	// a special case where the last block was not touched, but there were
+	// writes afterwards that extend the file. In that case, we need to
+	// force that block to be reasaved (not copied over), because we need
+	// trailing zeroes
+	if (file->contentLen > 0 && file->contentLen != newContentLen) {
+		blocksToWrite[file->contentLen - 1] = 1;
+	}
+
 	// debug: print number of blocks to be written
 	int blocksToWriteNum = 0;
 	for (int i=0; i<newContentLen; i++) {
@@ -173,12 +181,15 @@ int flushFile(FilesystemFile* file)
 	int ioerror = 0;
 	for (int i=0; i<newContentLen; i++) {
 		if (blocksToWrite[i] == 0) {
-			memcpy(newContent + (MAX_STORAGE_NAME_LEN * i),
-				file->content + (MAX_STORAGE_NAME_LEN * i),
-				MAX_STORAGE_NAME_LEN);
-			continue;
+			if (i < file->contentLen) {
+				memcpy(newContent + (MAX_STORAGE_NAME_LEN * i),
+					file->content + (MAX_STORAGE_NAME_LEN * i),
+					MAX_STORAGE_NAME_LEN);
+				continue;
+			}
 		}
 
+		memset(decryptedBlockBuf, 0, maxDecryptedBlockSize + DECRYPTED_BUFFER_MARGIN);
 		size_t encryptedBlockBufSize = maxEncryptedBlockSize;
 		size_t decryptedBlockBufSize = maxDecryptedBlockSize;
 		if (i < file->contentLen) {
