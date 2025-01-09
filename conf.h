@@ -7,4 +7,5 @@ struct bucse_config {
 
 extern struct bucse_config conf;
 
+void confInit();
 void confCleanup();

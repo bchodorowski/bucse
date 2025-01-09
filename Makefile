@@ -16,6 +16,7 @@ bucse-mount: bucse-mount.o \
 	actions.o \
 	time.o \
 	conf.o \
+	log.o \
 	operations/operations.o \
 	operations/getattr.o \
 	operations/flush.o \
@@ -43,6 +44,7 @@ bucse-mount: bucse-mount.o \
 		actions.o \
 		time.o \
 		conf.o \
+		log.o \
 		operations/operations.o \
 		operations/getattr.o \
 		operations/flush.o \
@@ -67,6 +69,7 @@ bucse-mount.o: bucse-mount.c \
 	filesystem.h \
 	actions.h \
 	conf.h \
+	log.h \
 	operations/operations.h \
 	operations/getattr.h \
 	operations/flush.h \
@@ -120,7 +123,8 @@ filesystem.o: filesystem.c \
 actions.o: actions.c \
 	actions.h \
 	dynarray.h \
-	filesystem.h
+	filesystem.h \
+	log.h
 	$(CC) -c actions.c -o actions.o $(CFLAGS)
 
 time.o: time.c
@@ -129,6 +133,11 @@ time.o: time.c
 conf.o: conf.c \
 	conf.h
 	$(CC) -c conf.c -o conf.o $(CFLAGS)
+
+log.o: log.c \
+	conf.h \
+	log.h
+	$(CC) -c log.c -o log.o $(CFLAGS)
 
 operations/operations.o: operations/operations.c \
 	operations/operations.h \

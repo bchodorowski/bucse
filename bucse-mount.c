@@ -422,7 +422,7 @@ int main(int argc, char** argv)
 
 	struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
 
-	memset(&conf, 0, sizeof(conf));
+	confInit();
 
 	fuse_opt_parse(&args, &conf, bucse_opts, bucse_opt_proc);
 

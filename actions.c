@@ -8,6 +8,7 @@
 
 #include "dynarray.h"
 #include "filesystem.h"
+#include "log.h"
 
 #include "actions.h"
 
@@ -52,7 +53,7 @@ static void freeAction(Action* action)
 
 static int doAction(Action* action)
 {
-	printf("DEBUG: do action\n");
+	logPrintf(LOG_DEBUG, "do action\n");
 
 	if (action->actionType == ActionTypeAddFile) {
 		DynArray pathArray;
