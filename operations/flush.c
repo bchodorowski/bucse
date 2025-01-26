@@ -10,6 +10,7 @@
 #include "../actions.h"
 #include "../time.h"
 
+#include "../log.h"
 #include "../conf.h"
 
 #include "../destinations/dest.h"
@@ -116,7 +117,7 @@ int flushFile(FilesystemFile* file)
 		if (newContentLen > 0) {
 			newContent = malloc(newContentLen * MAX_STORAGE_NAME_LEN);
 			if (newContent == NULL) {
-				fprintf(stderr, "flushFile: malloc(): %s\n", strerror(errno));
+				logPrintf(LOG_ERROR, "flushFile: malloc(): %s\n", strerror(errno));
 				return 1;
 			}
 			memcpy(newContent, file->content, newContentLen * MAX_STORAGE_NAME_LEN);
@@ -128,7 +129,7 @@ int flushFile(FilesystemFile* file)
 	// determine which blocks have been changed -- one byte per block
 	char* blocksToWrite = malloc(newContentLen);
 	if (blocksToWrite == NULL) {
-		fprintf(stderr, "flushFile: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "flushFile: malloc(): %s\n", strerror(errno));
 		return 1;
 	}
 	memset(blocksToWrite, 0, newContentLen);
@@ -151,13 +152,13 @@ int flushFile(FilesystemFile* file)
 	for (int i=0; i<newContentLen; i++) {
 		blocksToWriteNum += blocksToWrite[i];
 	}
-	fprintf(stderr, "DEBUG: flush file: %d blocks to write\n", blocksToWriteNum);
+	logPrintf(LOG_DEBUG, "flush file: %d blocks to write\n", blocksToWriteNum);
 
 	// construct and save new blocks (with destination->putStorageFile() calls)
 	size_t maxEncryptedBlockSize = getMaxEncryptedBlockSize(newBlockSize);
 	char* encryptedBlockBuf = malloc(maxEncryptedBlockSize);
 	if (encryptedBlockBuf == NULL) {
-		fprintf(stderr, "flushFile: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "flushFile: malloc(): %s\n", strerror(errno));
 		free(blocksToWrite);
 		return 2;
 	}
@@ -165,7 +166,7 @@ int flushFile(FilesystemFile* file)
 	size_t maxDecryptedBlockSize = newBlockSize;
 	char* decryptedBlockBuf = malloc(maxDecryptedBlockSize + DECRYPTED_BUFFER_MARGIN);
 	if (decryptedBlockBuf == NULL) {
-		fprintf(stderr, "flushFile: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "flushFile: malloc(): %s\n", strerror(errno));
 		free(blocksToWrite);
 		free(encryptedBlockBuf);
 		return 3;
@@ -175,7 +176,7 @@ int flushFile(FilesystemFile* file)
 		free(blocksToWrite);
 		free(encryptedBlockBuf);
 		free(decryptedBlockBuf);
-		fprintf(stderr, "flushFile: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "flushFile: malloc(): %s\n", strerror(errno));
 		return 4;
 	}
 	int ioerror = 0;
@@ -201,7 +202,7 @@ int flushFile(FilesystemFile* file)
 			const char* block = file->content + (MAX_STORAGE_NAME_LEN * i);
 			int res = destination->getStorageFile(block, encryptedBlockBuf, &encryptedBlockBufSize);
 			if (res != 0) {
-				fprintf(stderr, "flushFile: getStorageFile failed for %s: %d\n",
+				logPrintf(LOG_ERROR, "flushFile: getStorageFile failed for %s: %d\n",
 					block, res);
 				ioerror = 1;
 				break;
@@ -211,12 +212,12 @@ int flushFile(FilesystemFile* file)
 				decryptedBlockBuf, &decryptedBlockBufSize,
 				conf.passphrase);
 			if (res != 0) {
-				fprintf(stderr, "flushFile: decrypt failed: %d\n", res);
+				logPrintf(LOG_ERROR, "flushFile: decrypt failed: %d\n", res);
 				ioerror = 1;
 				break;
 			}
 			if (decryptedBlockBufSize != expectedReadSize) {
-				fprintf(stderr, "flushFile: expected decrypted block size %d, got %d\n",
+				logPrintf(LOG_ERROR, "flushFile: expected decrypted block size %d, got %d\n",
 					expectedReadSize, decryptedBlockBufSize);
 				ioerror = 1;
 				break;
@@ -261,7 +262,7 @@ int flushFile(FilesystemFile* file)
 			encryptedBlockBuf, &encryptedBlockBufSize,
 			conf.passphrase);
 		if (res != 0) {
-			fprintf(stderr, "flushFile: encrypt failed: %d\n", res);
+			logPrintf(LOG_ERROR, "flushFile: encrypt failed: %d\n", res);
 			ioerror = 1;
 			break;
 		}
@@ -269,13 +270,13 @@ int flushFile(FilesystemFile* file)
 		// save
 		char newStorageFileName[MAX_STORAGE_NAME_LEN];
 		if (getRandomStorageFileName(newStorageFileName) != 0) {
-			fprintf(stderr, "flushFile: getRandomStorageFileName failed\n");
+			logPrintf(LOG_ERROR, "flushFile: getRandomStorageFileName failed\n");
 			ioerror = 1;
 			break;
 		}
 		res = destination->putStorageFile(newStorageFileName, encryptedBlockBuf, encryptedBlockBufSize);
 		if (res != 0) {
-			fprintf(stderr, "flushFile: putStorageFile failed: %d\n", res);
+			logPrintf(LOG_ERROR, "flushFile: putStorageFile failed: %d\n", res);
 			ioerror = 1;
 			break;
 		}
@@ -301,7 +302,7 @@ constructAction:;
 	// construct new action, add it to actions
 	Action* newAction = malloc(sizeof(Action));
 	if (newAction == NULL) {
-		fprintf(stderr, "flushFile: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "flushFile: malloc(): %s\n", strerror(errno));
 		if (newContent) {
 			free(newContent);
 		}
@@ -318,7 +319,7 @@ constructAction:;
 
 	newAction->path = getFullFilePath(file);
 	if (newAction->path == NULL) {
-		fprintf(stderr, "flushFile: getFullFilePath() failed: %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "flushFile: getFullFilePath() failed: %s\n", strerror(errno));
 		if (newContent) {
 			free(newContent);
 		}
@@ -332,7 +333,7 @@ constructAction:;
 
 	// write to json, encrypt call destination->addActionFile()
 	if (encryptAndAddActionFile(newAction) != 0) {
-		fprintf(stderr, "flushFile: encryptAndAddActionFile failed\n");
+		logPrintf(LOG_ERROR, "flushFile: encryptAndAddActionFile failed\n");
 		if (newContent) {
 			free(newContent);
 		}
@@ -375,7 +376,7 @@ static int bucse_flush(const char *path, struct fuse_file_info *fi)
 {
 	(void) fi;
 
-	fprintf(stderr, "DEBUG: flush %s\n", path);
+	logPrintf(LOG_DEBUG, "flush %s\n", path);
 
 	if (path == NULL) {
 		return -EIO;
@@ -390,7 +391,7 @@ static int bucse_flush(const char *path, struct fuse_file_info *fi)
 		memset(&pathArray, 0, sizeof(DynArray));
 		const char *fileName = path_split(path+1, &pathArray);
 		if (fileName == NULL) {
-			fprintf(stderr, "bucse_flush: path_split() failed\n");
+			logPrintf(LOG_ERROR, "bucse_flush: path_split() failed\n");
 			return -ENOMEM;
 		}
 		//path_debugPrint(&pathArray);
@@ -399,7 +400,7 @@ static int bucse_flush(const char *path, struct fuse_file_info *fi)
 		path_free(&pathArray);
 
 		if (containingDir == NULL) {
-			fprintf(stderr, "bucse_flush: path not found when writing file %s\n", path);
+			logPrintf(LOG_ERROR, "bucse_flush: path not found when writing file %s\n", path);
 			return -ENOENT;
 		}
 

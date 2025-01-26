@@ -9,6 +9,7 @@
 #include "../filesystem.h"
 #include "../actions.h"
 #include "../time.h"
+#include "../log.h"
 
 #include "operations.h"
 
@@ -34,7 +35,7 @@ static int bucse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 		memset(&pathArray, 0, sizeof(DynArray));
 		const char *fileName = path_split(path+1, &pathArray);
 		if (fileName == NULL) {
-			fprintf(stderr, "bucse_readdir: path_split() failed\n");
+			logPrintf(LOG_ERROR, "bucse_readdir: path_split() failed\n");
 			return -ENOMEM;
 		}
 		//path_debugPrint(&pathArray);

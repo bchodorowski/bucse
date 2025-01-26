@@ -9,6 +9,7 @@
 #include "../filesystem.h"
 #include "../actions.h"
 #include "../time.h"
+#include "../log.h"
 
 #include "operations.h"
 
@@ -26,7 +27,7 @@
 static int bucse_rename(const char *srcPath, const char *dstPath,
 		unsigned int flags)
 {
-	fprintf(stderr, "DEBUG: rename %s %s\n", srcPath, dstPath);
+	logPrintf(LOG_DEBUG, "rename %s %s\n", srcPath, dstPath);
 
 	if (srcPath == NULL || dstPath == NULL) {
 		return -EIO;
@@ -42,7 +43,7 @@ static int bucse_rename(const char *srcPath, const char *dstPath,
 		memset(&pathArray, 0, sizeof(DynArray));
 		const char *fileName = path_split(srcPath+1, &pathArray);
 		if (fileName == NULL) {
-			fprintf(stderr, "bucse_rename: path_split() failed\n");
+			logPrintf(LOG_ERROR, "bucse_rename: path_split() failed\n");
 			return -ENOMEM;
 		}
 		//path_debugPrint(&pathArray);
@@ -51,7 +52,7 @@ static int bucse_rename(const char *srcPath, const char *dstPath,
 		path_free(&pathArray);
 
 		if (srcContainingDir == NULL) {
-			fprintf(stderr, "bucse_rename: path not found when moving file %s\n", srcPath);
+			logPrintf(LOG_ERROR, "bucse_rename: path not found when moving file %s\n", srcPath);
 			return -ENOENT;
 		}
 
@@ -81,7 +82,7 @@ static int bucse_rename(const char *srcPath, const char *dstPath,
 		const char *fileName = path_split(dstPath+1, &pathArray);
 		dstFileName = fileName;
 		if (fileName == NULL) {
-			fprintf(stderr, "bucse_rename: path_split() failed\n");
+			logPrintf(LOG_ERROR, "bucse_rename: path_split() failed\n");
 			return -ENOMEM;
 		}
 		//path_debugPrint(&pathArray);
@@ -90,7 +91,7 @@ static int bucse_rename(const char *srcPath, const char *dstPath,
 		path_free(&pathArray);
 
 		if (dstContainingDir == NULL) {
-			fprintf(stderr, "bucse_rename: path not found when moving file %s\n", dstPath);
+			logPrintf(LOG_ERROR, "bucse_rename: path not found when moving file %s\n", dstPath);
 			return -ENOENT;
 		}
 
@@ -98,12 +99,12 @@ static int bucse_rename(const char *srcPath, const char *dstPath,
 
 		if (flags & RENAME_NOREPLACE) {
 			if (dstFile != NULL) {
-				fprintf(stderr, "bucse_rename: noreplace but destination file %s found\n", dstPath);
+				logPrintf(LOG_ERROR, "bucse_rename: noreplace but destination file %s found\n", dstPath);
 				return -EEXIST;
 			}
 			FilesystemDir* dir = findDir(dstContainingDir, fileName);
 			if (dir) {
-				fprintf(stderr, "bucse_rename: noreplace but destination %s is a directory\n", dstPath);
+				logPrintf(LOG_ERROR, "bucse_rename: noreplace but destination %s is a directory\n", dstPath);
 				return -EISDIR;
 			}
 
@@ -111,10 +112,10 @@ static int bucse_rename(const char *srcPath, const char *dstPath,
 			if (dstFile == NULL) {
 				FilesystemDir* dir = findDir(dstContainingDir, fileName);
 				if (dir) {
-					fprintf(stderr, "bucse_rename: exchange but destination %s is a directory\n", dstPath);
+					logPrintf(LOG_ERROR, "bucse_rename: exchange but destination %s is a directory\n", dstPath);
 					return -EACCES;
 				} else {
-					fprintf(stderr, "bucse_rename: exchange but destination file %s not found\n", dstPath);
+					logPrintf(LOG_ERROR, "bucse_rename: exchange but destination file %s not found\n", dstPath);
 					return -ENOENT;
 				}
 			}
@@ -123,7 +124,7 @@ static int bucse_rename(const char *srcPath, const char *dstPath,
 			if (dstFile == NULL) {
 				FilesystemDir* dir = findDir(dstContainingDir, fileName);
 				if (dir) {
-					fprintf(stderr, "bucse_rename: destination %s is a directory\n", dstPath);
+					logPrintf(LOG_ERROR, "bucse_rename: destination %s is a directory\n", dstPath);
 					return -EISDIR;
 				}
 			}
@@ -137,7 +138,7 @@ static int bucse_rename(const char *srcPath, const char *dstPath,
 	// construct new action for destination, add it to actions
 	Action* newDstAction = malloc(sizeof(Action));
 	if (newDstAction == NULL) {
-		fprintf(stderr, "bucse_rename: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "bucse_rename: malloc(): %s\n", strerror(errno));
 		return -ENOMEM;
 	}
 	newDstAction->time = getCurrentTime();
@@ -145,13 +146,13 @@ static int bucse_rename(const char *srcPath, const char *dstPath,
 	newDstAction->path = strdup(dstPath+1);
 
 	if (newDstAction->path == NULL) {
-		fprintf(stderr, "bucse_rename: strdup(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "bucse_rename: strdup(): %s\n", strerror(errno));
 		free(newDstAction);
 		return -ENOMEM;
 	}
 	newDstAction->content = malloc(srcFile->contentLen * MAX_STORAGE_NAME_LEN);
 	if (newDstAction->content == NULL) {
-		fprintf(stderr, "bucse_rename: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "bucse_rename: malloc(): %s\n", strerror(errno));
 		free(newDstAction->path);
 		free(newDstAction);
 		return -ENOMEM;
@@ -164,7 +165,7 @@ static int bucse_rename(const char *srcPath, const char *dstPath,
 
 	// write to json, encrypt call destination->addActionFile()
 	if (encryptAndAddActionFile(newDstAction) != 0) {
-		fprintf(stderr, "bucse_rename: encryptAndAddActionFile failed\n");
+		logPrintf(LOG_ERROR, "bucse_rename: encryptAndAddActionFile failed\n");
 		free(newDstAction->content);
 		free(newDstAction->path);
 		free(newDstAction);
@@ -177,7 +178,7 @@ static int bucse_rename(const char *srcPath, const char *dstPath,
 	// construct new action for source, add it to actions
 	Action* newSrcAction = malloc(sizeof(Action));
 	if (newSrcAction == NULL) {
-		fprintf(stderr, "bucse_rename: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "bucse_rename: malloc(): %s\n", strerror(errno));
 		return -ENOMEM;
 	}
 	newSrcAction->time = newDstAction->time;
@@ -185,7 +186,7 @@ static int bucse_rename(const char *srcPath, const char *dstPath,
 
 	newSrcAction->path = getFullFilePath(srcFile);
 	if (newSrcAction->path == NULL) {
-		fprintf(stderr, "bucse_rename: getFullFilePath() failed: %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "bucse_rename: getFullFilePath() failed: %s\n", strerror(errno));
 		free(newSrcAction);
 		return -ENOMEM;
 	}
@@ -196,7 +197,7 @@ static int bucse_rename(const char *srcPath, const char *dstPath,
 
 	// write to json, encrypt call destination->addActionFile()
 	if (encryptAndAddActionFile(newSrcAction) != 0) {
-		fprintf(stderr, "bucse_rename: encryptAndAddActionFile failed\n");
+		logPrintf(LOG_ERROR, "bucse_rename: encryptAndAddActionFile failed\n");
 		free(newSrcAction->path);
 		free(newSrcAction);
 		return -EIO;
@@ -220,7 +221,7 @@ static int bucse_rename(const char *srcPath, const char *dstPath,
 		//dstFile->blockSize = srcFile->blockSize;
 
 		if (removeFromDynArrayUnordered(&srcContainingDir->files, (void*)srcFile) != 0) {
-			fprintf(stderr, "bucse_unlink: removeFromDynArrayUnordered() failed\n");
+			logPrintf(LOG_ERROR, "bucse_unlink: removeFromDynArrayUnordered() failed\n");
 			return -EIO;
 		}
 		free(srcFile);
@@ -234,7 +235,7 @@ static int bucse_rename(const char *srcPath, const char *dstPath,
 	memset(&pathArray, 0, sizeof(DynArray));
 	const char *fileName = path_split(newDstAction->path, &pathArray);
 	if (fileName == NULL) {
-		fprintf(stderr, "doAction: path_split() failed\n");
+		logPrintf(LOG_ERROR, "doAction: path_split() failed\n");
 		return -EIO;
 	}
 	path_free(&pathArray);

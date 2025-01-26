@@ -9,6 +9,7 @@
 #include "../filesystem.h"
 #include "../actions.h"
 #include "../time.h"
+#include "../log.h"
 
 #include "operations.h"
 
@@ -18,7 +19,7 @@ static int bucse_mkdir(const char *path, mode_t mode)
 {
 	(void) mode;
 
-	fprintf(stderr, "DEBUG: mkdir %s\n", path);
+	logPrintf(LOG_DEBUG, "mkdir %s\n", path);
 
 	if (path == NULL) {
 		return -EIO;
@@ -34,7 +35,7 @@ static int bucse_mkdir(const char *path, mode_t mode)
 		memset(&pathArray, 0, sizeof(DynArray));
 		dirName = path_split(path+1, &pathArray);
 		if (dirName == NULL) {
-			fprintf(stderr, "bucse_mkdir: path_split() failed\n");
+			logPrintf(LOG_ERROR, "bucse_mkdir: path_split() failed\n");
 			return -ENOMEM;
 		}
 		//path_debugPrint(&pathArray);
@@ -43,7 +44,7 @@ static int bucse_mkdir(const char *path, mode_t mode)
 		path_free(&pathArray);
 
 		if (containingDir == NULL) {
-			fprintf(stderr, "bucse_mkdir: path not found when adding directory %s\n", path);
+			logPrintf(LOG_ERROR, "bucse_mkdir: path not found when adding directory %s\n", path);
 			return -ENOENT;
 		}
 
@@ -62,7 +63,7 @@ static int bucse_mkdir(const char *path, mode_t mode)
 	// construct new action, add it to actions
 	Action* newAction = malloc(sizeof(Action));
 	if (newAction == NULL) {
-		fprintf(stderr, "bucse_mkdir: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "bucse_mkdir: malloc(): %s\n", strerror(errno));
 		return -ENOMEM;
 	}
 	newAction->time = getCurrentTime();
@@ -70,7 +71,7 @@ static int bucse_mkdir(const char *path, mode_t mode)
 
 	newAction->path = strdup(path+1);
 	if (newAction->path == NULL) {
-		fprintf(stderr, "bucse_mkdir: strdup() failed: %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "bucse_mkdir: strdup() failed: %s\n", strerror(errno));
 		free(newAction);
 		return -ENOMEM;
 	}
@@ -81,7 +82,7 @@ static int bucse_mkdir(const char *path, mode_t mode)
 
 	FilesystemDir* newDir = malloc(sizeof(FilesystemDir));
 	if (newDir == NULL) {
-		fprintf(stderr, "bucse_mkdir: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "bucse_mkdir: malloc(): %s\n", strerror(errno));
 		free(newAction->path);
 		free(newAction);
 		return -ENOMEM;
@@ -99,7 +100,7 @@ static int bucse_mkdir(const char *path, mode_t mode)
 
 	// write to json, encrypt call destination->addActionFile()
 	if (encryptAndAddActionFile(newAction) != 0) {
-		fprintf(stderr, "bucse_mkdir: encryptAndAddActionFile failed\n");
+		logPrintf(LOG_ERROR, "bucse_mkdir: encryptAndAddActionFile failed\n");
 		free(newAction->path);
 		free(newAction);
 		free(newDir);

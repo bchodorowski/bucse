@@ -16,6 +16,8 @@
 
 #include <json.h>
 
+#include "../log.h"
+
 #include "dest.h"
 
 static char* repositoryPath;
@@ -49,7 +51,7 @@ static int addAction(Actions *actions, char* newActionName)
 
 		char* newNames = malloc(newActionSize * MAX_ACTION_NAME_LEN);
 		if (newNames == NULL) {
-			fprintf(stderr, "addAction: malloc(): %s\n", strerror(errno));
+			logPrintf(LOG_ERROR, "addAction: malloc(): %s\n", strerror(errno));
 			return 1;
 		}
 		if (actions->names != NULL) {
@@ -97,20 +99,20 @@ int destLocalInit(char* repository)
 	// construct file path of repository.json file
 	repositoryJsonFilePath = malloc(MAX_FILEPATH_LEN);
 	if (repositoryJsonFilePath == NULL) {
-		fprintf(stderr, "destLocalInit: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "destLocalInit: malloc(): %s\n", strerror(errno));
 
 		return 1;
 	}
 	repositoryFilePath = malloc(MAX_FILEPATH_LEN);
 	if (repositoryFilePath == NULL) {
-		fprintf(stderr, "destLocalInit: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "destLocalInit: malloc(): %s\n", strerror(errno));
 		free(repositoryJsonFilePath);
 
 		return 2;
 	}
 	repositoryActionsPath = malloc(MAX_FILEPATH_LEN);
 	if (repositoryActionsPath == NULL) {
-		fprintf(stderr, "destLocalInit: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "destLocalInit: malloc(): %s\n", strerror(errno));
 
 		free(repositoryJsonFilePath);
 		free(repositoryFilePath);
@@ -118,7 +120,7 @@ int destLocalInit(char* repository)
 	}
 	repositoryStoragePath = malloc(MAX_FILEPATH_LEN);
 	if (repositoryStoragePath == NULL) {
-		fprintf(stderr, "destLocalInit: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "destLocalInit: malloc(): %s\n", strerror(errno));
 
 		free(repositoryJsonFilePath);
 		free(repositoryFilePath);
@@ -177,21 +179,21 @@ int destLocalCreateDirs()
 	if (mkdir(repositoryPath, S_IRUSR | S_IWUSR | S_IXUSR
 		| S_IRGRP | S_IXGRP
 		| S_IROTH | S_IXOTH) != 0) {
-		fprintf(stderr, "destLocalCreateDirs: mkdir(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "destLocalCreateDirs: mkdir(): %s\n", strerror(errno));
 		return 1;
 	}
 
 	if (mkdir(repositoryActionsPath, S_IRUSR | S_IWUSR | S_IXUSR
 		| S_IRGRP | S_IXGRP
 		| S_IROTH | S_IXOTH) != 0) {
-		fprintf(stderr, "destLocalCreateDirs: mkdir(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "destLocalCreateDirs: mkdir(): %s\n", strerror(errno));
 		return 2;
 	}
 
 	if (mkdir(repositoryStoragePath, S_IRUSR | S_IWUSR | S_IXUSR
 		| S_IRGRP | S_IXGRP
 		| S_IROTH | S_IXOTH) != 0) {
-		fprintf(stderr, "destLocalCreateDirs: mkdir(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "destLocalCreateDirs: mkdir(): %s\n", strerror(errno));
 		return 3;
 	}
 
@@ -199,12 +201,12 @@ int destLocalCreateDirs()
 	errno = 0;
 	err = stat(repositoryJsonFilePath, &s);
 	if (err != 0 && errno != ENOENT) {
-		fprintf(stderr, "destLocalCreateDirs: stat(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "destLocalCreateDirs: stat(): %s\n", strerror(errno));
 		return 4;
 	} else if (err != 0 && errno == ENOENT) {
 		// OK
 	} else {
-		fprintf(stderr, "destLocalCreateDirs: repository.json file already exists\n", strerror(errno));
+		logPrintf(LOG_ERROR, "destLocalCreateDirs: repository.json file already exists\n", strerror(errno));
 		return 5;
 	}
 
@@ -212,12 +214,12 @@ int destLocalCreateDirs()
 	errno = 0;
 	err = stat(repositoryFilePath, &s);
 	if (err != 0 && errno != ENOENT) {
-		fprintf(stderr, "destLocalCreateDirs: stat(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "destLocalCreateDirs: stat(): %s\n", strerror(errno));
 		return 6;
 	} else if (err != 0 && errno == ENOENT) {
 		// OK
 	} else {
-		fprintf(stderr, "destLocalCreateDirs: repository file already exists\n", strerror(errno));
+		logPrintf(LOG_ERROR, "destLocalCreateDirs: repository file already exists\n", strerror(errno));
 		return 7;
 	}
 
@@ -228,7 +230,7 @@ int destLocalPutStorageFile(const char* filename, char *buf, size_t size)
 {
 	char* storageFilePath = malloc(MAX_FILEPATH_LEN);
 	if (storageFilePath == NULL) {
-		fprintf(stderr, "destLocalPutStorageFile: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "destLocalPutStorageFile: malloc(): %s\n", strerror(errno));
 
 		return 1;
 	}
@@ -238,7 +240,7 @@ int destLocalPutStorageFile(const char* filename, char *buf, size_t size)
 	FILE* file = fopen(storageFilePath, "wb");
 	free(storageFilePath);
 	if (file == NULL) {
-		fprintf(stderr, "destLocalPutStorageFile: fopen(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "destLocalPutStorageFile: fopen(): %s\n", strerror(errno));
 		return 2;
 	}
 
@@ -247,7 +249,7 @@ int destLocalPutStorageFile(const char* filename, char *buf, size_t size)
 		bytesWritten += fwrite(buf + bytesWritten, 1, size - bytesWritten, file);
 	}
 	if (ferror(file)) {
-		fprintf(stderr, "destLocalPutStorageFile: ferror() returned a non-zero value\n");
+		logPrintf(LOG_ERROR, "destLocalPutStorageFile: ferror() returned a non-zero value\n");
 		fclose(file);
 		return 3;
 	}
@@ -260,7 +262,7 @@ int destLocalGetStorageFile(const char* filename, char *buf, size_t *size)
 {
 	char* storageFilePath = malloc(MAX_FILEPATH_LEN);
 	if (storageFilePath == NULL) {
-		fprintf(stderr, "destLocalGetStorageFile: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "destLocalGetStorageFile: malloc(): %s\n", strerror(errno));
 
 		return 1;
 	}
@@ -271,7 +273,7 @@ int destLocalGetStorageFile(const char* filename, char *buf, size_t *size)
 	free(storageFilePath);
 
 	if (file == NULL) {
-		fprintf(stderr, "destLocalGetStorageFile: fopen(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "destLocalGetStorageFile: fopen(): %s\n", strerror(errno));
 		return 2;
 	}
 
@@ -280,14 +282,14 @@ int destLocalGetStorageFile(const char* filename, char *buf, size_t *size)
 		bytesRead += fread(buf + bytesRead, 1, *size - bytesRead, file);
 	}
 	if (ferror(file)) {
-		fprintf(stderr, "destLocalGetStorageFile: ferror() returned a non-zero value\n");
+		logPrintf(LOG_ERROR, "destLocalGetStorageFile: ferror() returned a non-zero value\n");
 		fclose(file);
 		return 3;
 	}
 	fclose(file);
 
 	if (bytesRead >= *size) {
-		fprintf(stderr, "destLocalGetStorageFile: repository.json file is too large\n");
+		logPrintf(LOG_ERROR, "destLocalGetStorageFile: repository.json file is too large\n");
 
 		return 4;
 	}
@@ -301,7 +303,7 @@ int destLocalAddActionFile(char* filename, char *buf, size_t size)
 {
 	char* actionFilePath = malloc(MAX_FILEPATH_LEN);
 	if (actionFilePath == NULL) {
-		fprintf(stderr, "destLocalAddActionFile: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "destLocalAddActionFile: malloc(): %s\n", strerror(errno));
 
 		return 1;
 	}
@@ -311,7 +313,7 @@ int destLocalAddActionFile(char* filename, char *buf, size_t size)
 	FILE* file = fopen(actionFilePath, "wb");
 	free(actionFilePath);
 	if (file == NULL) {
-		fprintf(stderr, "destLocalAddActionFile: fopen(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "destLocalAddActionFile: fopen(): %s\n", strerror(errno));
 		return 2;
 	}
 
@@ -320,7 +322,7 @@ int destLocalAddActionFile(char* filename, char *buf, size_t size)
 		bytesWritten += fwrite(buf + bytesWritten, 1, size - bytesWritten, file);
 	}
 	if (ferror(file)) {
-		fprintf(stderr, "destLocalAddActionFile: ferror() returned a non-zero value\n");
+		logPrintf(LOG_ERROR, "destLocalAddActionFile: ferror() returned a non-zero value\n");
 		fclose(file);
 		return 3;
 	}
@@ -334,7 +336,7 @@ int destLocalPutRepositoryJsonFile(char *buf, size_t size)
 {
 	FILE* file = fopen(repositoryJsonFilePath, "wb");
 	if (file == NULL) {
-		fprintf(stderr, "destLocalPutRepositoryJsonFile: fopen(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "destLocalPutRepositoryJsonFile: fopen(): %s\n", strerror(errno));
 		return 1;
 	}
 
@@ -343,7 +345,7 @@ int destLocalPutRepositoryJsonFile(char *buf, size_t size)
 		bytesWritten += fwrite(buf + bytesWritten, 1, size - bytesWritten, file);
 	}
 	if (ferror(file)) {
-		fprintf(stderr, "destLocalPutRepositoryJsonFile: ferror() returned a non-zero value\n");
+		logPrintf(LOG_ERROR, "destLocalPutRepositoryJsonFile: ferror() returned a non-zero value\n");
 		fclose(file);
 		return 2;
 	}
@@ -356,7 +358,7 @@ int destLocalGetRepositoryJsonFile(char *buf, size_t *size)
 {
 	FILE* file = fopen(repositoryJsonFilePath, "r");
 	if (file == NULL) {
-		fprintf(stderr, "destLocalGetRepositoryJsonFile: fopen(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "destLocalGetRepositoryJsonFile: fopen(): %s\n", strerror(errno));
 
 		return 1;
 	}
@@ -366,14 +368,14 @@ int destLocalGetRepositoryJsonFile(char *buf, size_t *size)
 		bytesRead += fread(buf + bytesRead, 1, *size - bytesRead, file);
 	}
 	if (ferror(file)) {
-		fprintf(stderr, "destLocalGetRepositoryJsonFile: ferror() returned a non-zero value\n");
+		logPrintf(LOG_ERROR, "destLocalGetRepositoryJsonFile: ferror() returned a non-zero value\n");
 		fclose(file);
 		return 2;
 	}
 	fclose(file);
 
 	if (bytesRead >= *size) {
-		fprintf(stderr, "destLocalGetRepositoryJsonFile: repository.json file is too large\n");
+		logPrintf(LOG_ERROR, "destLocalGetRepositoryJsonFile: repository.json file is too large\n");
 
 		return 3;
 	}
@@ -387,7 +389,7 @@ int destLocalPutRepositoryFile(char *buf, size_t size)
 {
 	FILE* file = fopen(repositoryFilePath, "wb");
 	if (file == NULL) {
-		fprintf(stderr, "destLocalPutRepositoryFile: fopen(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "destLocalPutRepositoryFile: fopen(): %s\n", strerror(errno));
 		return 1;
 	}
 
@@ -396,7 +398,7 @@ int destLocalPutRepositoryFile(char *buf, size_t size)
 		bytesWritten += fwrite(buf + bytesWritten, 1, size - bytesWritten, file);
 	}
 	if (ferror(file)) {
-		fprintf(stderr, "destLocalPutRepositoryFile: ferror() returned a non-zero value\n");
+		logPrintf(LOG_ERROR, "destLocalPutRepositoryFile: ferror() returned a non-zero value\n");
 		fclose(file);
 		return 2;
 	}
@@ -409,7 +411,7 @@ int destLocalGetRepositoryFile(char *buf, size_t *size)
 {
 	FILE* file = fopen(repositoryFilePath, "r");
 	if (file == NULL) {
-		fprintf(stderr, "destLocalGetRepositoryFile: fopen(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "destLocalGetRepositoryFile: fopen(): %s\n", strerror(errno));
 
 		return 1;
 	}
@@ -419,14 +421,14 @@ int destLocalGetRepositoryFile(char *buf, size_t *size)
 		bytesRead += fread(buf + bytesRead, 1, *size - bytesRead, file);
 	}
 	if (ferror(file)) {
-		fprintf(stderr, "destLocalGetRepositoryFile: ferror() returned a non-zero value\n");
+		logPrintf(LOG_ERROR, "destLocalGetRepositoryFile: ferror() returned a non-zero value\n");
 		fclose(file);
 		return 2;
 	}
 	fclose(file);
 
 	if (bytesRead >= *size) {
-		fprintf(stderr, "destLocalGetRepositoryFile: repository file is too large\n");
+		logPrintf(LOG_ERROR, "destLocalGetRepositoryFile: repository file is too large\n");
 
 		return 3;
 	}
@@ -459,7 +461,7 @@ int destLocalTick()
 
 	DIR *actionsDir = opendir(repositoryActionsPath);
 	if (actionsDir == NULL) {
-		fprintf(stderr, "warning: destLocalTick(): opendir(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "warning: destLocalTick(): opendir(): %s\n", strerror(errno));
 		return 0;
 	}
 
@@ -472,7 +474,7 @@ int destLocalTick()
 		if (actionDir == NULL && errno == 0) {
 			break;
 		} else if (errno) {
-			fprintf(stderr, "warning: destLocalTick(): readdir(): %s\n", strerror(errno));
+			logPrintf(LOG_ERROR, "warning: destLocalTick(): readdir(): %s\n", strerror(errno));
 
 			closedir(actionsDir);
 			return 0;
@@ -490,30 +492,30 @@ int destLocalTick()
 	}
 	closedir(actionsDir);
 
-	printf("DEBUG: new actions count: %d\n", newActions.len);
+	logPrintf(LOG_DEBUG, "new actions count: %d\n", newActions.len);
 
 	char* actionFilePath = malloc(MAX_FILEPATH_LEN);
 	if (actionFilePath == NULL) {
-		fprintf(stderr, "destLocalTick: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "destLocalTick: malloc(): %s\n", strerror(errno));
 
 		return 1;
 	}
 	char* actionFileBuf = malloc(MAX_ACTION_LEN);
 	if (actionFileBuf == NULL) {
-		fprintf(stderr, "destLocalTick: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "destLocalTick: malloc(): %s\n", strerror(errno));
 
 		free(actionFilePath);
 		return 1;
 	}
 
 	for (int i=0; i<newActions.len; i++) {
-		printf("DEBUG: handle new action: %s\n", getAction(&newActions, i));
+		logPrintf(LOG_VERBOSE_DEBUG, "handle new action: %s\n", getAction(&newActions, i));
 
 		snprintf(actionFilePath, MAX_FILEPATH_LEN, "%s/%s", repositoryActionsPath, getAction(&newActions, i));
 
 		FILE* file = fopen(actionFilePath, "r");
 		if (file == NULL) {
-			fprintf(stderr, "destLocalTick: fopen(): %s\n", strerror(errno));
+			logPrintf(LOG_ERROR, "destLocalTick: fopen(): %s\n", strerror(errno));
 			continue;
 		}
 
@@ -522,14 +524,14 @@ int destLocalTick()
 			bytesRead += fread(actionFileBuf + bytesRead, 1, MAX_ACTION_LEN - bytesRead, file);
 		}
 		if (ferror(file)) {
-			fprintf(stderr, "destLocalTick: ferror() returned a non-zero value\n");
+			logPrintf(LOG_ERROR, "destLocalTick: ferror() returned a non-zero value\n");
 			fclose(file);
 			continue;
 		}
 		fclose(file);
 
 		if (bytesRead >= MAX_ACTION_LEN) {
-			fprintf(stderr, "destLocalTick: action file is too large\n");
+			logPrintf(LOG_ERROR, "destLocalTick: action file is too large\n");
 			continue;
 		}
 
@@ -537,7 +539,7 @@ int destLocalTick()
 		if (cachedActionAddedCallback) {
 			cachedActionAddedCallback(getAction(&newActions, i), actionFileBuf, bytesRead, newActions.len - i - 1);
 		} else {
-			fprintf(stderr, "destLocalTick: no action added callback\n");
+			logPrintf(LOG_ERROR, "destLocalTick: no action added callback\n");
 		}
 	}
 	free(actionFilePath);

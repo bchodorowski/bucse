@@ -9,6 +9,7 @@
 #include "../filesystem.h"
 #include "../actions.h"
 #include "../time.h"
+#include "../log.h"
 
 #include "operations.h"
 
@@ -16,7 +17,7 @@
 
 static int bucse_open(const char *path, struct fuse_file_info *fi)
 {
-	fprintf(stderr, "DEBUG: open %s, access mode %d\n", path, fi->flags);
+	logPrintf(LOG_DEBUG, "open %s, access mode %d\n", path, fi->flags);
 
 	if (path == NULL) {
 		return -EIO;
@@ -29,7 +30,7 @@ static int bucse_open(const char *path, struct fuse_file_info *fi)
 		memset(&pathArray, 0, sizeof(DynArray));
 		const char *fileName = path_split(path+1, &pathArray);
 		if (fileName == NULL) {
-			fprintf(stderr, "bucse_open: path_split() failed\n");
+			logPrintf(LOG_ERROR, "bucse_open: path_split() failed\n");
 			return -ENOMEM;
 		}
 		//path_debugPrint(&pathArray);
@@ -38,7 +39,7 @@ static int bucse_open(const char *path, struct fuse_file_info *fi)
 		path_free(&pathArray);
 
 		if (containingDir == NULL) {
-			fprintf(stderr, "bucse_open: path not found when opening file %s\n", path);
+			logPrintf(LOG_ERROR, "bucse_open: path not found when opening file %s\n", path);
 			return -ENOENT;
 		}
 
@@ -62,7 +63,7 @@ static int bucse_open(const char *path, struct fuse_file_info *fi)
 				if (fi->flags & O_CREAT) {
 					FilesystemFile* newFile = malloc(sizeof(FilesystemFile));
 					if (newFile == NULL) {
-						fprintf(stderr, "bucse_open: malloc(): %s\n", strerror(errno));
+						logPrintf(LOG_ERROR, "bucse_open: malloc(): %s\n", strerror(errno));
 						return -ENOMEM;
 					}
 
@@ -70,7 +71,7 @@ static int bucse_open(const char *path, struct fuse_file_info *fi)
 					// and clean up when flushing the file in flush.c
 					newFile->name = strdup(fileName);
 					if (newFile->name == NULL) {
-						fprintf(stderr, "bucse_open: strdup(): %s\n", strerror(errno));
+						logPrintf(LOG_ERROR, "bucse_open: strdup(): %s\n", strerror(errno));
 						free(newFile);
 						return -ENOMEM;
 					}

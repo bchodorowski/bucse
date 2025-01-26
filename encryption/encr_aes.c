@@ -4,6 +4,8 @@
 
 #include <openssl/evp.h>
 
+#include "../log.h"
+
 #include "encr.h"
 
 // try to implement something that works like
@@ -14,7 +16,7 @@ int encrAesEncrypt(char *inBuf, size_t inSize, char *outBuf, size_t *outSize, ch
 	EVP_CIPHER_CTX *ctx;
 
 	if (!(ctx = EVP_CIPHER_CTX_new())) {
-		fprintf(stderr, "encrAesEncrypt: EVP_CIPHER_CTX_new failed\n");
+		logPrintf(LOG_ERROR, "encrAesEncrypt: EVP_CIPHER_CTX_new failed\n");
 		return 1;
 	}
 	unsigned char salt[8];
@@ -23,13 +25,13 @@ int encrAesEncrypt(char *inBuf, size_t inSize, char *outBuf, size_t *outSize, ch
 	
 	FILE* f = fopen("/dev/urandom", "rb");
 	if (f == NULL) {
-		fprintf(stderr, "encrAesEncrypt: fopen(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "encrAesEncrypt: fopen(): %s\n", strerror(errno));
 		return 2;
 	}
 
 	size_t got = fread(salt, 8, 1, f);
 	if (got == 0) {
-		fprintf(stderr, "encrAesEncrypt: fread failed\n");
+		logPrintf(LOG_ERROR, "encrAesEncrypt: fread failed\n");
 		fclose(f);
 		return 3;
 	}
@@ -46,7 +48,7 @@ int encrAesEncrypt(char *inBuf, size_t inSize, char *outBuf, size_t *outSize, ch
 	*outSize -= 16;
 
 	if (EVP_EncryptInit(ctx, EVP_aes_256_cbc(), key, iv) != 1) {
-		fprintf(stderr, "encrAesEncrypt: EVP_EncryptInit failed\n");
+		logPrintf(LOG_ERROR, "encrAesEncrypt: EVP_EncryptInit failed\n");
 		EVP_CIPHER_CTX_free(ctx);
 		return 4;
 	}
@@ -54,7 +56,7 @@ int encrAesEncrypt(char *inBuf, size_t inSize, char *outBuf, size_t *outSize, ch
 	EVP_CIPHER_CTX_set_key_length(ctx, EVP_MAX_KEY_LENGTH);
 
 	if (EVP_EncryptUpdate(ctx, outBuf, (int*)outSize, inBuf, inSize) != 1) {
-		fprintf(stderr, "encrAesEncrypt: EVP_EncryptUpdate failed\n");
+		logPrintf(LOG_ERROR, "encrAesEncrypt: EVP_EncryptUpdate failed\n");
 		EVP_CIPHER_CTX_free(ctx);
 		return 5;
 	}
@@ -62,7 +64,7 @@ int encrAesEncrypt(char *inBuf, size_t inSize, char *outBuf, size_t *outSize, ch
 	int tmpLen = 0;
 
 	if (!EVP_EncryptFinal(ctx, outBuf + *outSize, &tmpLen)) {
-		fprintf(stderr, "encrAesEncrypt: EVP_EncryptFinal failed\n");
+		logPrintf(LOG_ERROR, "encrAesEncrypt: EVP_EncryptFinal failed\n");
 		EVP_CIPHER_CTX_free(ctx);
 		return 6;
 	}
@@ -83,7 +85,7 @@ int encrAesDecrypt(char *inBuf, size_t inSize, char *outBuf, size_t *outSize, ch
 	EVP_CIPHER_CTX *ctx;
 
 	if (!(ctx = EVP_CIPHER_CTX_new())) {
-		fprintf(stderr, "encrAesDecrypt: EVP_CIPHER_CTX_new failed\n");
+		logPrintf(LOG_ERROR, "encrAesDecrypt: EVP_CIPHER_CTX_new failed\n");
 		return 1;
 	}
 	unsigned char salt[8];
@@ -106,7 +108,7 @@ int encrAesDecrypt(char *inBuf, size_t inSize, char *outBuf, size_t *outSize, ch
 	memcpy(iv, keyiv+sizeof(key), sizeof(iv));
 
 	if (EVP_DecryptInit(ctx, EVP_aes_256_cbc(), key, iv) != 1) {
-		fprintf(stderr, "encrAesDecrypt: EVP_DecryptInit failed\n");
+		logPrintf(LOG_ERROR, "encrAesDecrypt: EVP_DecryptInit failed\n");
 		EVP_CIPHER_CTX_free(ctx);
 		return 3;
 	}
@@ -114,7 +116,7 @@ int encrAesDecrypt(char *inBuf, size_t inSize, char *outBuf, size_t *outSize, ch
 	EVP_CIPHER_CTX_set_key_length(ctx, EVP_MAX_KEY_LENGTH);
 
 	if (EVP_DecryptUpdate(ctx, outBuf, (int*)outSize, inBuf, inSize) != 1) {
-		fprintf(stderr, "encrAesDecrypt: EVP_DecryptUpdate failed\n");
+		logPrintf(LOG_ERROR, "encrAesDecrypt: EVP_DecryptUpdate failed\n");
 		EVP_CIPHER_CTX_free(ctx);
 		return 4;
 	}
@@ -122,7 +124,7 @@ int encrAesDecrypt(char *inBuf, size_t inSize, char *outBuf, size_t *outSize, ch
 	int tmpLen = 0;
 
 	if (!EVP_DecryptFinal(ctx, outBuf + *outSize, &tmpLen)) {
-		fprintf(stderr, "encrAesDecrypt: EVP_DecryptFinal failed\n");
+		logPrintf(LOG_ERROR, "encrAesDecrypt: EVP_DecryptFinal failed\n");
 		EVP_CIPHER_CTX_free(ctx);
 		return 5;
 	}

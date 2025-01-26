@@ -10,6 +10,8 @@
 #include <limits.h>
 #include <stdlib.h>
 
+#include "../log.h"
+
 #include "dest.h"
 
 extern Destination destinationLocal;
@@ -19,7 +21,7 @@ int getRandomStorageFileName(char* filename)
 {
 	FILE* f = fopen("/dev/urandom", "rb");
 	if (f == NULL) {
-		fprintf(stderr, "getRandomStorageFileName: fopen(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "getRandomStorageFileName: fopen(): %s\n", strerror(errno));
 		filename[0] = 0;
 		return 1;
 	}
@@ -27,7 +29,7 @@ int getRandomStorageFileName(char* filename)
 	unsigned char buf[20];
 	size_t got = fread(buf, 20, 1, f);
 	if (got == 0) {
-		fprintf(stderr, "getRandomStorageFileName: fread failed\n");
+		logPrintf(LOG_ERROR, "getRandomStorageFileName: fread failed\n");
 		fclose(f);
 		return 2;
 	}

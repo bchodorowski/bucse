@@ -9,6 +9,7 @@
 #include "../filesystem.h"
 #include "../actions.h"
 #include "../time.h"
+#include "../log.h"
 
 #include "operations.h"
 
@@ -16,7 +17,7 @@
 
 static int bucse_rmdir(const char *path)
 {
-	fprintf(stderr, "DEBUG: rmdir %s\n", path);
+	logPrintf(LOG_DEBUG, "rmdir %s\n", path);
 
 	if (path == NULL) {
 		return -EIO;
@@ -33,7 +34,7 @@ static int bucse_rmdir(const char *path)
 		memset(&pathArray, 0, sizeof(DynArray));
 		dirName = path_split(path+1, &pathArray);
 		if (dirName == NULL) {
-			fprintf(stderr, "bucse_rmdir: path_split() failed\n");
+			logPrintf(LOG_ERROR, "bucse_rmdir: path_split() failed\n");
 			return -ENOMEM;
 		}
 		//path_debugPrint(&pathArray);
@@ -42,7 +43,7 @@ static int bucse_rmdir(const char *path)
 		path_free(&pathArray);
 
 		if (containingDir == NULL) {
-			fprintf(stderr, "bucse_rmdir: path not found when adding directory %s\n", path);
+			logPrintf(LOG_ERROR, "bucse_rmdir: path not found when adding directory %s\n", path);
 			return -ENOENT;
 		}
 
@@ -61,14 +62,14 @@ static int bucse_rmdir(const char *path)
 	}
 
 	if (dir->files.len > 0 || dir->dirs.len > 0) {
-		fprintf(stderr, "bucse_rmdir: can't delete directory %s because it is not empty\n", path+1);
+		logPrintf(LOG_ERROR, "bucse_rmdir: can't delete directory %s because it is not empty\n", path+1);
 		return -ENOTEMPTY;
 	}
 
 	// construct new action, add it to actions
 	Action* newAction = malloc(sizeof(Action));
 	if (newAction == NULL) {
-		fprintf(stderr, "bucse_rmdir: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "bucse_rmdir: malloc(): %s\n", strerror(errno));
 		return -ENOMEM;
 	}
 	newAction->time = getCurrentTime();
@@ -76,7 +77,7 @@ static int bucse_rmdir(const char *path)
 
 	newAction->path = strdup(path+1);
 	if (newAction->path == NULL) {
-		fprintf(stderr, "bucse_rmdir: strdup() failed: %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "bucse_rmdir: strdup() failed: %s\n", strerror(errno));
 		free(newAction);
 		return -ENOMEM;
 	}
@@ -87,7 +88,7 @@ static int bucse_rmdir(const char *path)
 
 	// write to json, encrypt call destination->addActionFile()
 	if (encryptAndAddActionFile(newAction) != 0) {
-		fprintf(stderr, "bucse_rmdir: encryptAndAddActionFile failed\n");
+		logPrintf(LOG_ERROR, "bucse_rmdir: encryptAndAddActionFile failed\n");
 		free(newAction->path);
 		free(newAction);
 		return -EIO;
@@ -98,7 +99,7 @@ static int bucse_rmdir(const char *path)
 
 	// update filesystem
 	if (removeFromDynArrayUnordered(&containingDir->dirs, (void*)dir) != 0) {
-		fprintf(stderr, "bucse_unlink: removeFromDynArrayUnordered() failed\n");
+		logPrintf(LOG_ERROR, "bucse_unlink: removeFromDynArrayUnordered() failed\n");
 		return -EIO;
 	}
 	freeDynArray(&dir->dirs);

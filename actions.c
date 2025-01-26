@@ -17,9 +17,10 @@
 
 static void printActions(DynArray* array)
 {
+	logPrintf(LOG_VERBOSE_DEBUG, "printActions():\n");
 	for (int i=0; i<array->len; i++) {
 		Action* action = ((Action*)array->objects[i]);
-		printf("- %lld\n", action->time);
+		logPrintf(LOG_VERBOSE_DEBUG, "- %lld\n", action->time);
 	}
 }
 
@@ -53,14 +54,14 @@ static void freeAction(Action* action)
 
 static int doAction(Action* action)
 {
-	logPrintf(LOG_DEBUG, "do action\n");
+	logPrintf(LOG_VERBOSE_DEBUG, "do action\n");
 
 	if (action->actionType == ActionTypeAddFile) {
 		DynArray pathArray;
 		memset(&pathArray, 0, sizeof(DynArray));
 		const char *fileName = path_split(action->path, &pathArray);
 		if (fileName == NULL) {
-			fprintf(stderr, "doAction: path_split() failed\n");
+			logPrintf(LOG_ERROR, "doAction: path_split() failed\n");
 			return 1;
 		}
 
@@ -68,19 +69,19 @@ static int doAction(Action* action)
 		path_free(&pathArray);
 
 		if (containingDir == NULL) {
-			fprintf(stderr, "doAction: path not found when adding file %s\n", action->path);
+			logPrintf(LOG_ERROR, "doAction: path not found when adding file %s\n", action->path);
 			return 2;
 		}
 
 		FilesystemFile* file = findFile(containingDir, fileName);
 		if (file != NULL) {
-			fprintf(stderr, "doAction: file already exists: %s\n", action->path);
+			logPrintf(LOG_ERROR, "doAction: file already exists: %s\n", action->path);
 			return 3;
 		}
 
 		FilesystemFile* newFile = malloc(sizeof(FilesystemFile));
 		if (newFile == NULL) {
-			fprintf(stderr, "doAction: malloc(): %s\n", strerror(errno));
+			logPrintf(LOG_ERROR, "doAction: malloc(): %s\n", strerror(errno));
 			return 4;
 		}
 
@@ -102,7 +103,7 @@ static int doAction(Action* action)
 		memset(&pathArray, 0, sizeof(DynArray));
 		const char *fileName = path_split(action->path, &pathArray);
 		if (fileName == NULL) {
-			fprintf(stderr, "doAction: path_split() failed\n");
+			logPrintf(LOG_ERROR, "doAction: path_split() failed\n");
 			return 4;
 		}
 
@@ -110,13 +111,13 @@ static int doAction(Action* action)
 		path_free(&pathArray);
 
 		if (containingDir == NULL) {
-			fprintf(stderr, "doAction: path not found when editing file %s\n", action->path);
+			logPrintf(LOG_ERROR, "doAction: path not found when editing file %s\n", action->path);
 			return 5;
 		}
 
 		FilesystemFile* file = findFile(containingDir, fileName);
 		if (file == NULL) {
-			fprintf(stderr, "doAction: file not found: %s\n", action->path);
+			logPrintf(LOG_ERROR, "doAction: file not found: %s\n", action->path);
 			return 6;
 		}
 
@@ -135,7 +136,7 @@ static int doAction(Action* action)
 		memset(&pathArray, 0, sizeof(DynArray));
 		const char *fileName = path_split(action->path, &pathArray);
 		if (fileName == NULL) {
-			fprintf(stderr, "doAction: path_split() failed\n");
+			logPrintf(LOG_ERROR, "doAction: path_split() failed\n");
 			return 7;
 		}
 
@@ -143,18 +144,18 @@ static int doAction(Action* action)
 		path_free(&pathArray);
 
 		if (containingDir == NULL) {
-			fprintf(stderr, "doAction: path not found when removing file %s\n", action->path);
+			logPrintf(LOG_ERROR, "doAction: path not found when removing file %s\n", action->path);
 			return 8;
 		}
 
 		FilesystemFile* file = findFile(containingDir, fileName);
 		if (file == NULL) {
-			fprintf(stderr, "doAction: file not found: %s\n", action->path);
+			logPrintf(LOG_ERROR, "doAction: file not found: %s\n", action->path);
 			return 9;
 		}
 
 		if (removeFromDynArrayUnordered(&containingDir->files, (void*)file) != 0) {
-			fprintf(stderr, "doAction: removeFromDynArrayUnordered() failed\n");
+			logPrintf(LOG_ERROR, "doAction: removeFromDynArrayUnordered() failed\n");
 			return 10;
 		}
 		free(file);
@@ -165,7 +166,7 @@ static int doAction(Action* action)
 		memset(&pathArray, 0, sizeof(DynArray));
 		const char *dirName = path_split(action->path, &pathArray);
 		if (dirName == NULL) {
-			fprintf(stderr, "doAction: path_split() failed\n");
+			logPrintf(LOG_ERROR, "doAction: path_split() failed\n");
 			return 11;
 		}
 
@@ -173,13 +174,13 @@ static int doAction(Action* action)
 		path_free(&pathArray);
 
 		if (containingDir == NULL) {
-			fprintf(stderr, "doAction: path not found when adding directory %s\n", action->path);
+			logPrintf(LOG_ERROR, "doAction: path not found when adding directory %s\n", action->path);
 			return 12;
 		}
 
 		FilesystemDir* newDir = malloc(sizeof(FilesystemDir));
 		if (newDir == NULL) {
-			fprintf(stderr, "doAction: malloc(): %s\n", strerror(errno));
+			logPrintf(LOG_ERROR, "doAction: malloc(): %s\n", strerror(errno));
 			return 13;
 		}
 		memset(newDir, 0, sizeof(FilesystemDir));
@@ -196,7 +197,7 @@ static int doAction(Action* action)
 		memset(&pathArray, 0, sizeof(DynArray));
 		const char *dirName = path_split(action->path, &pathArray);
 		if (dirName == NULL) {
-			fprintf(stderr, "doAction: path_split() failed\n");
+			logPrintf(LOG_ERROR, "doAction: path_split() failed\n");
 			return 14;
 		}
 
@@ -204,18 +205,18 @@ static int doAction(Action* action)
 		path_free(&pathArray);
 
 		if (containingDir == NULL) {
-			fprintf(stderr, "doAction: path not found when adding directory %s\n", action->path);
+			logPrintf(LOG_ERROR, "doAction: path not found when adding directory %s\n", action->path);
 			return 15;
 		}
 
 		FilesystemDir* dir = findDir(containingDir, dirName);
 		if (dir == NULL) {
-			fprintf(stderr, "doAction: dir not found: %s\n", action->path);
+			logPrintf(LOG_ERROR, "doAction: dir not found: %s\n", action->path);
 			return 16;
 		}
 
 		if (removeFromDynArrayUnordered(&containingDir->dirs, (void*)dir) != 0) {
-			fprintf(stderr, "doAction: removeFromDynArrayUnordered() failed\n");
+			logPrintf(LOG_ERROR, "doAction: removeFromDynArrayUnordered() failed\n");
 			return 17;
 		}
 		freeDynArray(&dir->dirs);
@@ -224,7 +225,7 @@ static int doAction(Action* action)
 		return 0;
 
 	} else {
-		fprintf(stderr, "doAction: unknown action type: %d\n", action->actionType);
+		logPrintf(LOG_ERROR, "doAction: unknown action type: %d\n", action->actionType);
 		return -1;
 	}
 
@@ -234,7 +235,7 @@ static int doAction(Action* action)
 static int undoAction(Action* action)
 {
 	// TODO
-	printf("DEBUG: undo action\n");
+	logPrintf(LOG_VERBOSE_DEBUG, "undo action\n");
 }
 
 static DynArray actions;
@@ -247,14 +248,14 @@ static void parseAction(char* buf, size_t size)
 	json_object* obj = json_tokener_parse_ex(tokener, buf, size);
 	if (obj == NULL)
 	{
-		fprintf(stderr, "actionAdded: json_tokener_parse_ex(): %s\n", json_tokener_error_desc(json_tokener_get_error(tokener)));
+		logPrintf(LOG_ERROR, "actionAdded: json_tokener_parse_ex(): %s\n", json_tokener_error_desc(json_tokener_get_error(tokener)));
 		json_tokener_free(tokener);
 		return;
 	}
 	json_tokener_free(tokener);
 
 	if (json_object_get_type(obj) != json_type_array) {
-		fprintf(stderr, "actionAdded: document is not an array\n");
+		logPrintf(LOG_ERROR, "actionAdded: document is not an array\n");
 		json_object_put(obj);
 		return;
 	}
@@ -264,18 +265,18 @@ static void parseAction(char* buf, size_t size)
 		json_object* actionObj = json_object_array_get_idx(obj, i);
 
 		if (json_object_get_type(actionObj) != json_type_object) {
-			fprintf(stderr, "actionAdded: array element is not an object\n");
+			logPrintf(LOG_ERROR, "actionAdded: array element is not an object\n");
 			continue;
 		}
 
 		// parse time
 		json_object* timeField;
 		if (json_object_object_get_ex(actionObj, "time", &timeField) == 0) {
-			fprintf(stderr, "actionAdded: action object doesn't have 'time' field\n");
+			logPrintf(LOG_ERROR, "actionAdded: action object doesn't have 'time' field\n");
 			continue;
 		}
 		if (json_object_get_type(timeField) != json_type_int) {
-			fprintf(stderr, "actionAdded: 'time' field is not an integer\n");
+			logPrintf(LOG_ERROR, "actionAdded: 'time' field is not an integer\n");
 			continue;
 		}
 		int64_t time = json_object_get_int64(timeField);
@@ -285,7 +286,7 @@ static void parseAction(char* buf, size_t size)
 		int64_t size = 0;
 		if (json_object_object_get_ex(actionObj, "size", &sizeField) != 0) {
 			if (json_object_get_type(sizeField) != json_type_int) {
-				fprintf(stderr, "actionAdded: 'size' field is not an integer\n");
+				logPrintf(LOG_ERROR, "actionAdded: 'size' field is not an integer\n");
 				continue;
 			}
 			size = json_object_get_int64(sizeField);
@@ -296,7 +297,7 @@ static void parseAction(char* buf, size_t size)
 		int64_t blockSize = 0;
 		if (json_object_object_get_ex(actionObj, "blockSize", &blockSizeField) != 0) {
 			if (json_object_get_type(blockSizeField) != json_type_int) {
-				fprintf(stderr, "actionAdded: 'blockSize' field is not an integer\n");
+				logPrintf(LOG_ERROR, "actionAdded: 'blockSize' field is not an integer\n");
 				continue;
 			}
 			blockSize = json_object_get_int64(blockSizeField);
@@ -305,11 +306,11 @@ static void parseAction(char* buf, size_t size)
 		// parse action
 		json_object* actionTypeField;
 		if (json_object_object_get_ex(actionObj, "action", &actionTypeField) == 0) {
-			fprintf(stderr, "actionAdded: action object doesn't have 'action' field\n");
+			logPrintf(LOG_ERROR, "actionAdded: action object doesn't have 'action' field\n");
 			continue;
 		}
 		if (json_object_get_type(actionTypeField) != json_type_string) {
-			fprintf(stderr, "actionAdded: 'action' field is not a string\n");
+			logPrintf(LOG_ERROR, "actionAdded: 'action' field is not a string\n");
 			continue;
 		}
 		const char* actionTypeStr = json_object_get_string(actionTypeField);
@@ -325,18 +326,18 @@ static void parseAction(char* buf, size_t size)
 		} else if (strcmp(actionTypeStr, "editFile") == 0) {
 			actionType = ActionTypeEditFile;
 		} else {
-			fprintf(stderr, "actionAdded: unknown action\n");
+			logPrintf(LOG_ERROR, "actionAdded: unknown action\n");
 			continue;
 		}
 
 		// parse path
 		json_object* pathField;
 		if (json_object_object_get_ex(actionObj, "path", &pathField) == 0) {
-			fprintf(stderr, "actionAdded: action object doesn't have 'path' field\n");
+			logPrintf(LOG_ERROR, "actionAdded: action object doesn't have 'path' field\n");
 			continue;
 		}
 		if (json_object_get_type(pathField) != json_type_string) {
-			fprintf(stderr, "actionAdded: 'path' field is not a string\n");
+			logPrintf(LOG_ERROR, "actionAdded: 'path' field is not a string\n");
 			continue;
 		}
 		const char* path = json_object_get_string(pathField);
@@ -344,17 +345,17 @@ static void parseAction(char* buf, size_t size)
 		// parse content
 		json_object* contentField;
 		if (json_object_object_get_ex(actionObj, "content", &contentField) == 0) {
-			fprintf(stderr, "actionAdded: action object doesn't have 'content' field\n");
+			logPrintf(LOG_ERROR, "actionAdded: action object doesn't have 'content' field\n");
 			continue;
 		}
 		if (json_object_get_type(contentField) != json_type_array) {
-			fprintf(stderr, "actionAdded: 'content' field is not an array\n");
+			logPrintf(LOG_ERROR, "actionAdded: 'content' field is not an array\n");
 			continue;
 		}
 		size_t contentLen = json_object_array_length(contentField);
 		char* content = malloc(contentLen * MAX_STORAGE_NAME_LEN);
 		if (content == NULL) {
-			fprintf(stderr, "actionAdded: malloc(): %s\n", strerror(errno));
+			logPrintf(LOG_ERROR, "actionAdded: malloc(): %s\n", strerror(errno));
 			continue;
 		}
 		size_t j;
@@ -362,7 +363,7 @@ static void parseAction(char* buf, size_t size)
 			json_object* contentItemField = json_object_array_get_idx(contentField, j);
 
 			if (json_object_get_type(contentItemField) != json_type_string) {
-				fprintf(stderr, "actionAdded: 'content' contents is not a string\n");
+				logPrintf(LOG_ERROR, "actionAdded: 'content' contents is not a string\n");
 				break;
 			}
 			const char* contentItemStr = json_object_get_string(contentItemField);
@@ -376,7 +377,7 @@ static void parseAction(char* buf, size_t size)
 		// create new action object
 		Action* newAction = malloc(sizeof(Action));
 		if (newAction == NULL) {
-			fprintf(stderr, "actionAdded: malloc(): %s\n", strerror(errno));
+			logPrintf(LOG_ERROR, "actionAdded: malloc(): %s\n", strerror(errno));
 			free(content);
 			continue;
 		}
@@ -384,7 +385,7 @@ static void parseAction(char* buf, size_t size)
 		newAction->actionType = actionType;
 		newAction->path = malloc(strlen(path) + 1);
 		if (newAction->path == NULL) {
-			fprintf(stderr, "actionAdded: malloc(): %s\n", strerror(errno));
+			logPrintf(LOG_ERROR, "actionAdded: malloc(): %s\n", strerror(errno));
 			free(content);
 			free(newAction);
 			continue;
@@ -403,7 +404,7 @@ static void parseAction(char* buf, size_t size)
 
 void actionAdded(char* actionName, char* buf, size_t size, int moreInThisBatch)
 {
-	//printf("%s\n  %s\n  %d\n  %d\n", actionName, buf, size, moreInThisBatch);
+	//logPrintf(LOG_DEBUG, "actionAdded(): %s\n  %s\n  %d\n  %d\n", actionName, buf, size, moreInThisBatch);
 
 	parseAction(buf, size);
 
@@ -428,7 +429,7 @@ void actionAdded(char* actionName, char* buf, size_t size, int moreInThisBatch)
 		&& ((Action*)actions.objects[actions.len - 1])->time >= // time of last action in actions
 			((Action*)actionsPending.objects[0])->time // time of first action in actionsPending
 	      ) {
-		printf("DEBUG: undoing action due to out of order action!\n");
+		logPrintf(LOG_DEBUG, "undoing action due to out of order action!\n");
 		// move last action to actionsPending
 		addToDynArray(&actionsPending, actions.objects[actions.len - 1]);
 		actions.len--;
@@ -521,7 +522,7 @@ char* serializeAction(Action* action)
 
 	char* result = malloc(strlen(jsonData)+1);
 	if (result == NULL) {
-		fprintf(stderr, "serializeAction: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "serializeAction: malloc(): %s\n", strerror(errno));
 		json_object_put(jsonNewActions);
 		return NULL;
 	}

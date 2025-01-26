@@ -8,6 +8,7 @@
 #include "../dynarray.h"
 #include "../filesystem.h"
 #include "../actions.h"
+#include "../log.h"
 
 #include "operations.h"
 #include "flush.h"
@@ -16,7 +17,7 @@
 
 static int bucse_release(const char *path, struct fuse_file_info *fi)
 {
-	fprintf(stderr, "DEBUG: release %s, access mode %d\n", path, fi->flags);
+	logPrintf(LOG_DEBUG, "release %s, access mode %d\n", path, fi->flags);
 
 	if (path == NULL) {
 		return -EIO;
@@ -33,7 +34,7 @@ static int bucse_release(const char *path, struct fuse_file_info *fi)
 		memset(&pathArray, 0, sizeof(DynArray));
 		const char *fileName = path_split(path+1, &pathArray);
 		if (fileName == NULL) {
-			fprintf(stderr, "bucse_release: path_split() failed\n");
+			logPrintf(LOG_ERROR, "bucse_release: path_split() failed\n");
 			return -ENOMEM;
 		}
 		//path_debugPrint(&pathArray);
@@ -42,7 +43,7 @@ static int bucse_release(const char *path, struct fuse_file_info *fi)
 		path_free(&pathArray);
 
 		if (containingDir == NULL) {
-			fprintf(stderr, "bucse_release: path not found when releasing file %s\n", path);
+			logPrintf(LOG_ERROR, "bucse_release: path not found when releasing file %s\n", path);
 			return -ENOENT;
 		}
 

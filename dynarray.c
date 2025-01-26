@@ -3,6 +3,8 @@
 #include <string.h>
 #include <errno.h>
 
+#include "log.h"
+
 #include "dynarray.h"
 
 int addToDynArray(DynArray *dynArray, void* newObject)
@@ -20,7 +22,7 @@ int addToDynArray(DynArray *dynArray, void* newObject)
 
 		void* newObjects = malloc(newSize * sizeof(void*));
 		if (newObjects == NULL) {
-			fprintf(stderr, "addToDynArray: malloc(): %s\n", strerror(errno));
+			logPrintf(LOG_ERROR, "addToDynArray: malloc(): %s\n", strerror(errno));
 			return 1;
 		}
 		if (dynArray->objects != NULL) {

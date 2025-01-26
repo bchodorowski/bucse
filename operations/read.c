@@ -9,7 +9,7 @@
 #include "../filesystem.h"
 #include "../actions.h"
 #include "../time.h"
-
+#include "../log.h"
 #include "../conf.h"
 
 #include "../destinations/dest.h"
@@ -48,7 +48,7 @@ static int determineBlocksToRead(DynArray *blocksToRead, off_t offset, size_t si
 		}
 		BlockOffsetLen *block = malloc(sizeof(BlockOffsetLen));
 		if (!block) {
-			fprintf(stderr, "determineBlocksToRead: malloc(): %s\n", strerror(errno));
+			logPrintf(LOG_ERROR, "determineBlocksToRead: malloc(): %s\n", strerror(errno));
 			return 1;
 		}
 		block->block = file->content + MAX_STORAGE_NAME_LEN * blockIndex;
@@ -68,7 +68,7 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 {
 	(void) fi;
 
-	fprintf(stderr, "DEBUG: read %s, size: %u, offset: %u\n", path, size, offset);
+	logPrintf(LOG_DEBUG, "read %s, size: %u, offset: %u\n", path, size, offset);
 
 	if (path == NULL) {
 		return -EIO;
@@ -83,7 +83,7 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 		memset(&pathArray, 0, sizeof(DynArray));
 		const char *fileName = path_split(path+1, &pathArray);
 		if (fileName == NULL) {
-			fprintf(stderr, "bucse_read: path_split() failed\n");
+			logPrintf(LOG_ERROR, "bucse_read: path_split() failed\n");
 			return -ENOMEM;
 		}
 		//path_debugPrint(&pathArray);
@@ -92,7 +92,7 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 		path_free(&pathArray);
 
 		if (containingDir == NULL) {
-			fprintf(stderr, "bucse_read: path not found when reading file %s\n", path);
+			logPrintf(LOG_ERROR, "bucse_read: path not found when reading file %s\n", path);
 			return -ENOENT;
 		}
 
@@ -118,7 +118,7 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 	DynArray blocksToRead;
 	memset(&blocksToRead, 0, sizeof(DynArray));
 	if (determineBlocksToRead(&blocksToRead, offset, size, file) != 0) {
-		fprintf(stderr, "bucse_read: determineBlocksToRead failed\n");
+		logPrintf(LOG_ERROR, "bucse_read: determineBlocksToRead failed\n");
 		for (int i=0; i<blocksToRead.len; i++) {
 			free(blocksToRead.objects[i]);
 		}
@@ -129,14 +129,14 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 	size_t maxEncryptedBlockSize = getMaxEncryptedBlockSize(file->blockSize);
 	char* encryptedBlockBuf = malloc(maxEncryptedBlockSize);
 	if (encryptedBlockBuf == NULL) {
-		fprintf(stderr, "bucse_read: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "bucse_read: malloc(): %s\n", strerror(errno));
 		return -ENOMEM;
 	}
 
 	size_t maxDecryptedBlockSize = file->blockSize;
 	char* decryptedBlockBuf = malloc(maxDecryptedBlockSize + DECRYPTED_BUFFER_MARGIN);
 	if (decryptedBlockBuf == NULL) {
-		fprintf(stderr, "bucse_read: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "bucse_read: malloc(): %s\n", strerror(errno));
 		free(encryptedBlockBuf);
 		return -ENOMEM;
 	}
@@ -148,7 +148,7 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 		size_t encryptedBlockBufSize = maxEncryptedBlockSize;
 		int res = destination->getStorageFile(block->block, encryptedBlockBuf, &encryptedBlockBufSize);
 		if (res != 0) {
-			fprintf(stderr, "bucse_read: getStorageFile failed for %s: %d\n",
+			logPrintf(LOG_ERROR, "bucse_read: getStorageFile failed for %s: %d\n",
 				block->block, res);
 			ioerror = 1;
 			break;
@@ -159,12 +159,12 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 			decryptedBlockBuf, &decryptedBlockBufSize,
 			conf.passphrase);
 		if (res != 0) {
-			fprintf(stderr, "bucse_read: decrypt failed: %d\n", res);
+			logPrintf(LOG_ERROR, "bucse_read: decrypt failed: %d\n", res);
 			ioerror = 1;
 			break;
 		}
 		if (decryptedBlockBufSize < block->offset + block->len) {
-			fprintf(stderr, "bucse_read: expected decrypted block size at least %d, got %d\n",
+			logPrintf(LOG_ERROR, "bucse_read: expected decrypted block size at least %d, got %d\n",
 				block->offset + block->len, decryptedBlockBufSize);
 			ioerror = 1;
 			break;

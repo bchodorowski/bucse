@@ -1,5 +1,3 @@
-- verbose / non verbose logging
-- refactor: extract parts of bucse.c into fuse_operations.c
 - when size of content array gets too big, we should increase block size and rewrite the whole file
 - -Wall
 - consider big files -> use 64 bit variables?

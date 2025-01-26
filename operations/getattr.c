@@ -9,6 +9,7 @@
 #include "../dynarray.h"
 #include "../filesystem.h"
 #include "../actions.h"
+#include "../log.h"
 
 #include "operations.h"
 #include "flush.h"
@@ -49,7 +50,7 @@ static int bucse_getattr(const char *path, struct stat *stbuf, struct fuse_file_
 		memset(&pathArray, 0, sizeof(DynArray));
 		const char *fileName = path_split(path+1, &pathArray);
 		if (fileName == NULL) {
-			fprintf(stderr, "bucse_getattr: path_split() failed\n");
+			logPrintf(LOG_ERROR, "bucse_getattr: path_split() failed\n");
 			return -ENOMEM;
 		}
 		//path_debugPrint(&pathArray);

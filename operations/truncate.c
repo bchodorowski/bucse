@@ -8,6 +8,7 @@
 #include "../dynarray.h"
 #include "../filesystem.h"
 #include "../actions.h"
+#include "../log.h"
 
 #include "operations.h"
 #include "flush.h"
@@ -18,7 +19,7 @@ static int bucse_truncate(const char *path, long int newSize, struct fuse_file_i
 {
 	(void) fi;
 
-	fprintf(stderr, "DEBUG: truncate %s, size: %ld\n", path, newSize);
+	logPrintf(LOG_DEBUG, "truncate %s, size: %ld\n", path, newSize);
 
 	if (path == NULL) {
 		return -EIO;
@@ -33,7 +34,7 @@ static int bucse_truncate(const char *path, long int newSize, struct fuse_file_i
 		memset(&pathArray, 0, sizeof(DynArray));
 		const char *fileName = path_split(path+1, &pathArray);
 		if (fileName == NULL) {
-			fprintf(stderr, "bucse_truncate: path_split() failed\n");
+			logPrintf(LOG_ERROR, "bucse_truncate: path_split() failed\n");
 			return -ENOMEM;
 		}
 		//path_debugPrint(&pathArray);
@@ -42,7 +43,7 @@ static int bucse_truncate(const char *path, long int newSize, struct fuse_file_i
 		path_free(&pathArray);
 
 		if (containingDir == NULL) {
-			fprintf(stderr, "bucse_truncate: path not found when writing file %s\n", path);
+			logPrintf(LOG_ERROR, "bucse_truncate: path not found when writing file %s\n", path);
 			return -ENOENT;
 		}
 
@@ -77,13 +78,13 @@ static int bucse_truncate(const char *path, long int newSize, struct fuse_file_i
 	} else if (newSize > size) {
 		PendingWrite* newPendingWrite = malloc(sizeof(PendingWrite));
 		if (newPendingWrite == NULL) {
-			fprintf(stderr, "bucse_truncate: malloc(): %s\n", strerror(errno));
+			logPrintf(LOG_ERROR, "bucse_truncate: malloc(): %s\n", strerror(errno));
 			return -ENOMEM;
 		}
 		newPendingWrite->size = newSize - size;
 		newPendingWrite->buf = malloc(newSize - size);
 		if (newPendingWrite->buf == NULL) {
-			fprintf(stderr, "bucse_truncate: malloc(): %s\n", strerror(errno));
+			logPrintf(LOG_ERROR, "bucse_truncate: malloc(): %s\n", strerror(errno));
 			free(newPendingWrite);
 			return -ENOMEM;
 		}

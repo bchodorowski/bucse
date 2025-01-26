@@ -13,6 +13,8 @@
 #include <libssh/libssh.h>
 #include <libssh/sftp.h>
 
+#include "../log.h"
+
 #include "dest.h"
 
 static char* repositoryHost;
@@ -48,7 +50,7 @@ static int addAction(Actions *actions, char* newActionName)
 
 		char* newNames = malloc(newActionSize * MAX_ACTION_NAME_LEN);
 		if (newNames == NULL) {
-			fprintf(stderr, "addAction: malloc(): %s\n", strerror(errno));
+			logPrintf(LOG_ERROR, "addAction: malloc(): %s\n", strerror(errno));
 			return 1;
 		}
 		if (actions->names != NULL) {
@@ -127,32 +129,32 @@ static int verify_knownhost(ssh_session session)
 
 			break;
 		case SSH_KNOWN_HOSTS_CHANGED:
-			fprintf(stderr, "Host key for server changed.\n");
-			//fprintf(stderr, "Host key for server changed: it is now:\n");
+			logPrintf(LOG_ERROR, "Host key for server changed.\n");
+			//logPrintf(LOG_ERROR, "Host key for server changed: it is now:\n");
 			//ssh_print_hexa("Public key hash", hash, hlen);
-			fprintf(stderr, "For security reasons, connection will be stopped\n");
+			logPrintf(LOG_ERROR, "For security reasons, connection will be stopped\n");
 			ssh_clean_pubkey_hash(&hash);
 
 			return -1;
 		case SSH_KNOWN_HOSTS_OTHER:
-			fprintf(stderr, "The host key for this server was not found but an other"
-					"type of key exists.\n");
-			fprintf(stderr, "An attacker might change the default server key to"
-					"confuse your client into thinking the key does not exist\n");
+			logPrintf(LOG_ERROR, "The host key for this server was not found but an other"
+				"type of key exists.\n"
+				"An attacker might change the default server key to"
+				"confuse your client into thinking the key does not exist\n");
 			ssh_clean_pubkey_hash(&hash);
 
 			return -1;
 		case SSH_KNOWN_HOSTS_NOT_FOUND:
-			fprintf(stderr, "Could not find known host file.\n");
-			fprintf(stderr, "If you accept the host key here, the file will be"
-					"automatically created.\n");
+			logPrintf(LOG_ERROR, "Could not find known host file.\n"
+				"If you accept the host key here, the file will be"
+				"automatically created.\n");
 
 			/* FALL THROUGH to SSH_SERVER_NOT_KNOWN behavior */
 
 		case SSH_KNOWN_HOSTS_UNKNOWN:
 			hexa = ssh_get_hexa(hash, hlen);
-			fprintf(stderr,"The server is unknown. Do you trust the host key?\n");
-			fprintf(stderr, "Public key hash: %s\n", hexa);
+			logPrintf(LOG_ERROR, "The server is unknown. Do you trust the host key?\n");
+			logPrintf(LOG_ERROR, "Public key hash: %s\n", hexa);
 			ssh_string_free_char(hexa);
 			ssh_clean_pubkey_hash(&hash);
 			p = fgets(buf, sizeof(buf), stdin);
@@ -167,13 +169,13 @@ static int verify_knownhost(ssh_session session)
 
 			rc = ssh_session_update_known_hosts(session);
 			if (rc < 0) {
-				fprintf(stderr, "Error %s\n", strerror(errno));
+				logPrintf(LOG_ERROR, "%s\n", strerror(errno));
 				return -1;
 			}
 
 			break;
 		case SSH_KNOWN_HOSTS_ERROR:
-			fprintf(stderr, "Error %s", ssh_get_error(session));
+			logPrintf(LOG_ERROR, "%s", ssh_get_error(session));
 			ssh_clean_pubkey_hash(&hash);
 			return -1;
 	}
@@ -185,7 +187,7 @@ static int verify_knownhost(ssh_session session)
 static ssh_session bucseSshSession;
 static sftp_session bucseSftpSession;
 static void invalidDestination() {
-	fprintf(stderr, "Invalid destination. Expected format ssh://[host]{:[port]}/[path]\n");
+	logPrintf(LOG_ERROR, "Invalid destination. Expected format ssh://[host]{:[port]}/[path]\n");
 }
 static void cleanupString(char **s) {
 	if (*s != NULL) {
@@ -272,28 +274,28 @@ int destSshInit(char* repository)
 	// construct file path of repository.json file
 	repositoryJsonFilePath = malloc(MAX_FILEPATH_LEN);
 	if (repositoryJsonFilePath == NULL) {
-		fprintf(stderr, "destSshInit: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "destSshInit: malloc(): %s\n", strerror(errno));
 
 		cleanupStrings();
 		return 1;
 	}
 	repositoryFilePath = malloc(MAX_FILEPATH_LEN);
 	if (repositoryFilePath == NULL) {
-		fprintf(stderr, "destSshInit: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "destSshInit: malloc(): %s\n", strerror(errno));
 
 		cleanupStrings();
 		return 2;
 	}
 	repositoryActionsPath = malloc(MAX_FILEPATH_LEN);
 	if (repositoryActionsPath == NULL) {
-		fprintf(stderr, "destSshInit: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "destSshInit: malloc(): %s\n", strerror(errno));
 
 		cleanupStrings();
 		return 3;
 	}
 	repositoryStoragePath = malloc(MAX_FILEPATH_LEN);
 	if (repositoryStoragePath == NULL) {
-		fprintf(stderr, "destSshInit: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "destSshInit: malloc(): %s\n", strerror(errno));
 
 		cleanupStrings();
 		return 4;
@@ -316,7 +318,7 @@ int destSshInit(char* repository)
 	int rc = ssh_connect(bucseSshSession);
 	if (rc != SSH_OK)
 	{
-		fprintf(stderr, "Error connecting to localhost: %s\n",
+		logPrintf(LOG_ERROR, "Error connecting to localhost: %s\n",
 			ssh_get_error(bucseSshSession));
 		ssh_free(bucseSshSession);
 		bucseSshSession = NULL;
@@ -340,7 +342,7 @@ int destSshInit(char* repository)
 
 	if (rc == SSH_AUTH_ERROR)
 	{
-		fprintf(stderr, "Authentication failed: %s\n",
+		logPrintf(LOG_ERROR, "Authentication failed: %s\n",
 			ssh_get_error(bucseSshSession));
 		ssh_disconnect(bucseSshSession);
 		ssh_free(bucseSshSession);
@@ -353,7 +355,7 @@ int destSshInit(char* repository)
 	bucseSftpSession = sftp_new(bucseSshSession);
 	if (bucseSftpSession == NULL)
 	{
-		fprintf(stderr, "Error allocating SFTP session: %s\n",
+		logPrintf(LOG_ERROR, "Error allocating SFTP session: %s\n",
 			ssh_get_error(bucseSshSession));
 		ssh_disconnect(bucseSshSession);
 		ssh_free(bucseSshSession);
@@ -365,7 +367,7 @@ int destSshInit(char* repository)
 	rc = sftp_init(bucseSftpSession);
 	if (rc != SSH_OK)
 	{
-		fprintf(stderr, "Error initializing SFTP session: code %d.\n",
+		logPrintf(LOG_ERROR, "Error initializing SFTP session: code %d.\n",
 			sftp_get_error(bucseSftpSession));
 		sftp_free(bucseSftpSession);
 		bucseSftpSession = NULL;
@@ -399,7 +401,7 @@ void destSshShutdown()
 int destSshCreateDirs()
 {
 	// TODO
-	fprintf(stderr, "destSshCreateDirs: Not implemented yet()\n");
+	logPrintf(LOG_ERROR, "destSshCreateDirs: Not implemented yet()\n");
 	return 1;
 }
 
@@ -407,7 +409,7 @@ int destSshPutStorageFile(const char* filename, char *buf, size_t size)
 {
 	char* storageFilePath = malloc(MAX_FILEPATH_LEN);
 	if (storageFilePath == NULL) {
-		fprintf(stderr, "destSshPutStorageFile: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "destSshPutStorageFile: malloc(): %s\n", strerror(errno));
 
 		return 1;
 	}
@@ -417,14 +419,14 @@ int destSshPutStorageFile(const char* filename, char *buf, size_t size)
 	sftp_file file = sftp_open(bucseSftpSession, storageFilePath, O_WRONLY | O_CREAT | O_EXCL, 0644);
 	free(storageFilePath);
 	if (file == NULL) {
-		fprintf(stderr, "destSshPutStorageFile: sftp_open(): %s\n",
+		logPrintf(LOG_ERROR, "destSshPutStorageFile: sftp_open(): %s\n",
 			sftp_get_error(bucseSftpSession));
 		return 2;
 	}
 
 	int bytesWritten = sftp_write(file, buf, size);
 	if (bytesWritten < 0) {
-		fprintf(stderr, "destSshPutStorageFile: sftp_write(): %s\n",
+		logPrintf(LOG_ERROR, "destSshPutStorageFile: sftp_write(): %s\n",
 			sftp_get_error(bucseSftpSession));
 		sftp_close(file);
 		return 3;
@@ -438,7 +440,7 @@ int destSshGetStorageFile(const char* filename, char *buf, size_t *size)
 {
 	char* storageFilePath = malloc(MAX_FILEPATH_LEN);
 	if (storageFilePath == NULL) {
-		fprintf(stderr, "destSshGetStorageFile: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "destSshGetStorageFile: malloc(): %s\n", strerror(errno));
 
 		return 1;
 	}
@@ -449,7 +451,7 @@ int destSshGetStorageFile(const char* filename, char *buf, size_t *size)
 	free(storageFilePath);
 
 	if (file == NULL) {
-		fprintf(stderr, "destSshInit: sftp_open(): %d\n",
+		logPrintf(LOG_ERROR, "destSshInit: sftp_open(): %d\n",
 			sftp_get_error(bucseSftpSession));
 
 		return 2;
@@ -459,7 +461,7 @@ int destSshGetStorageFile(const char* filename, char *buf, size_t *size)
 	sftp_close(file);
 
 	if (bytesRead >= *size) {
-		fprintf(stderr, "destSshInit: repository.json file is too large\n");
+		logPrintf(LOG_ERROR, "destSshInit: repository.json file is too large\n");
 
 		return 2;
 	}
@@ -473,7 +475,7 @@ int destSshAddActionFile(char* filename, char *buf, size_t size)
 {
 	char* actionFilePath = malloc(MAX_FILEPATH_LEN);
 	if (actionFilePath == NULL) {
-		fprintf(stderr, "destSshAddActionFile: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "destSshAddActionFile: malloc(): %s\n", strerror(errno));
 
 		return 1;
 	}
@@ -483,14 +485,14 @@ int destSshAddActionFile(char* filename, char *buf, size_t size)
 	sftp_file file = sftp_open(bucseSftpSession, actionFilePath, O_WRONLY | O_CREAT | O_EXCL, 0644);
 	free(actionFilePath);
 	if (file == NULL) {
-		fprintf(stderr, "destSshAddActionFile: sftp_open(): %s\n",
+		logPrintf(LOG_ERROR, "destSshAddActionFile: sftp_open(): %s\n",
 			sftp_get_error(bucseSftpSession));
 		return 2;
 	}
 
 	int bytesWritten = sftp_write(file, buf, size);
 	if (bytesWritten < 0) {
-		fprintf(stderr, "destSshAddActionFile: sftp_write(): %s\n",
+		logPrintf(LOG_ERROR, "destSshAddActionFile: sftp_write(): %s\n",
 			sftp_get_error(bucseSftpSession));
 		sftp_close(file);
 		return 3;
@@ -504,7 +506,7 @@ int destSshAddActionFile(char* filename, char *buf, size_t size)
 int destSshPutRepositoryJsonFile(char *buf, size_t size)
 {
 	// TODO
-	fprintf(stderr, "destSshPutRepositoryJsonFile: Not implemented yet()\n");
+	logPrintf(LOG_ERROR, "destSshPutRepositoryJsonFile: Not implemented yet()\n");
 	return 1;
 }
 
@@ -512,7 +514,7 @@ int destSshGetRepositoryJsonFile(char *buf, size_t *size)
 {
 	sftp_file file = sftp_open(bucseSftpSession, repositoryJsonFilePath, O_RDONLY, 0);
 	if (file == NULL) {
-		fprintf(stderr, "destSshInit: sftp_open(): %d\n",
+		logPrintf(LOG_ERROR, "destSshInit: sftp_open(): %d\n",
 			sftp_get_error(bucseSftpSession));
 
 		return 1;
@@ -522,7 +524,7 @@ int destSshGetRepositoryJsonFile(char *buf, size_t *size)
 	sftp_close(file);
 
 	if (bytesRead >= *size) {
-		fprintf(stderr, "destSshGetRepositoryJsonFile: repository.json file is too large\n");
+		logPrintf(LOG_ERROR, "destSshGetRepositoryJsonFile: repository.json file is too large\n");
 
 		return 2;
 	}
@@ -535,7 +537,7 @@ int destSshGetRepositoryJsonFile(char *buf, size_t *size)
 int destSshPutRepositoryFile(char *buf, size_t size)
 {
 	// TODO
-	fprintf(stderr, "destSshPutRepositoryFile: Not implemented yet()\n");
+	logPrintf(LOG_ERROR, "destSshPutRepositoryFile: Not implemented yet()\n");
 	return 1;
 }
 
@@ -543,7 +545,7 @@ int destSshGetRepositoryFile(char *buf, size_t *size)
 {
 	sftp_file file = sftp_open(bucseSftpSession, repositoryFilePath, O_RDONLY, 0);
 	if (file == NULL) {
-		fprintf(stderr, "destSshInit: sftp_open(): %d\n",
+		logPrintf(LOG_ERROR, "destSshInit: sftp_open(): %d\n",
 			sftp_get_error(bucseSftpSession));
 
 		return 1;
@@ -553,7 +555,7 @@ int destSshGetRepositoryFile(char *buf, size_t *size)
 	sftp_close(file);
 
 	if (bytesRead >= *size) {
-		fprintf(stderr, "destSshGetRepositoryJsonFile: repository.json file is too large\n");
+		logPrintf(LOG_ERROR, "destSshGetRepositoryJsonFile: repository.json file is too large\n");
 
 		return 2;
 	}
@@ -586,7 +588,7 @@ int destSshTick()
 
 	sftp_dir actionsDir = sftp_opendir(bucseSftpSession, repositoryActionsPath);
 	if (actionsDir == NULL) {
-		fprintf(stderr, "warning: destSshTick(): sftp_opendir(): %s\n",
+		logPrintf(LOG_ERROR, "warning: destSshTick(): sftp_opendir(): %s\n",
 			ssh_get_error(bucseSshSession));
 		return 0;
 	}
@@ -616,30 +618,30 @@ int destSshTick()
 	}
 	sftp_closedir(actionsDir);
 
-	printf("DEBUG: new actions count: %d\n", newActions.len);
+	logPrintf(LOG_DEBUG, "new actions count: %d\n", newActions.len);
 
 	char* actionFilePath = malloc(MAX_FILEPATH_LEN);
 	if (actionFilePath == NULL) {
-		fprintf(stderr, "destSshTick: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "destSshTick: malloc(): %s\n", strerror(errno));
 
 		return 1;
 	}
 	char* actionFileBuf = malloc(MAX_ACTION_LEN);
 	if (actionFileBuf == NULL) {
-		fprintf(stderr, "destSshTick: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "destSshTick: malloc(): %s\n", strerror(errno));
 
 		free(actionFilePath);
 		return 1;
 	}
 
 	for (int i=0; i<newActions.len; i++) {
-		printf("DEBUG: handle new action: %s\n", getAction(&newActions, i));
+		logPrintf(LOG_VERBOSE_DEBUG, "handle new action: %s\n", getAction(&newActions, i));
 
 		snprintf(actionFilePath, MAX_FILEPATH_LEN, "%s/%s", repositoryActionsPath, getAction(&newActions, i));
 
 		sftp_file file = sftp_open(bucseSftpSession, actionFilePath, O_RDONLY, 0);
 		if (file == NULL) {
-			fprintf(stderr, "destSshTick: sftp_open(): %s\n",
+			logPrintf(LOG_ERROR, "destSshTick: sftp_open(): %s\n",
 				ssh_get_error(bucseSshSession));
 
 			continue;
@@ -649,7 +651,7 @@ int destSshTick()
 		sftp_close(file);
 
 		if (bytesRead >= MAX_ACTION_LEN) {
-			fprintf(stderr, "destSshTick: action file is too large\n");
+			logPrintf(LOG_ERROR, "destSshTick: action file is too large\n");
 			continue;
 		}
 
@@ -657,7 +659,7 @@ int destSshTick()
 		if (cachedActionAddedCallback) {
 			cachedActionAddedCallback(getAction(&newActions, i), actionFileBuf, bytesRead, newActions.len - i - 1);
 		} else {
-			fprintf(stderr, "destSshTick: no action added callback\n");
+			logPrintf(LOG_ERROR, "destSshTick: no action added callback\n");
 		}
 	}
 	free(actionFilePath);

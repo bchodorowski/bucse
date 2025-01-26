@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <unistd.h>
 
+#include "log.h"
 #include "dynarray.h"
 
 #include "filesystem.h"
@@ -66,7 +67,7 @@ const char* path_split(const char* path, DynArray *result)
 {
 	char* pathCopy = strdup(path);
 	if (pathCopy == NULL) {
-		fprintf(stderr, "splitPath: strdup(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "splitPath: strdup(): %s\n", strerror(errno));
 		return NULL;
 	}
 
@@ -98,9 +99,9 @@ char* path_getFilename(DynArray *pathArray)
 
 void path_debugPrint(DynArray *pathArray)
 {
-	fprintf(stderr, "DEBUG: print debug path:\n");
+	logPrintf(LOG_DEBUG, "print debug path:\n");
 	for (int i=0; i<pathArray->len; i++) {
-		fprintf(stderr, "\t%d: %s\n", i, pathArray->objects[i]);
+		logPrintf(LOG_DEBUG, "\t%d: %s\n", i, pathArray->objects[i]);
 	}
 }
 
@@ -129,7 +130,7 @@ char* getFullFilePath(FilesystemFile* file)
 
 	char* result = malloc(len);
 	if (result == NULL) {
-		fprintf(stderr, "getFullFilePath: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "getFullFilePath: malloc(): %s\n", strerror(errno));
 		return NULL;
 	}
 

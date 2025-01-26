@@ -24,6 +24,7 @@
 #include "actions.h"
 
 #include "conf.h"
+#include "log.h"
 
 #include "destinations/dest.h"
 #include "encryption/encr.h"
@@ -80,7 +81,7 @@ static void actionAddedDecrypt(char* actionName, char* buf, size_t size, int mor
 	size_t decryptedBufLen = MAX_ACTION_LEN + DECRYPTED_BUFFER_MARGIN;
 	char* decryptedBuf = malloc(decryptedBufLen);
 	if (decryptedBuf == NULL) {
-		fprintf(stderr, "decryptAndAddActionFile: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "decryptAndAddActionFile: malloc(): %s\n", strerror(errno));
 		return;
 	}
 
@@ -89,7 +90,7 @@ static void actionAddedDecrypt(char* actionName, char* buf, size_t size, int mor
 		conf.passphrase);
 	
 	if (result != 0) {
-		fprintf(stderr, "actionAddedDecrypt: decrypt failed: %d\n", result);
+		logPrintf(LOG_ERROR, "actionAddedDecrypt: decrypt failed: %d\n", result);
 		free(decryptedBuf);
 		return;
 	}
@@ -142,7 +143,7 @@ static int bucse_opt_proc(void *data, const char *arg, int key, struct fuse_args
 	case KEY_HELP:
 		fuse_opt_add_arg(outargs, "-h");
 		fuse_main(outargs->argc, outargs->argv, &bucse_oper, NULL);
-		fprintf(stderr,
+		fprintf(stdout,
 				"\n"
 				"bucse options:\n"
 				"    -o repository=STRING   TODO\n"
@@ -155,7 +156,7 @@ static int bucse_opt_proc(void *data, const char *arg, int key, struct fuse_args
 		exit(1);
 
 	case KEY_VERSION:
-		fprintf(stderr, "bucse version %s\n", PACKAGE_VERSION);
+		fprintf(stdout, "bucse version %s\n", PACKAGE_VERSION);
 		fuse_opt_add_arg(outargs, "--version");
 		fuse_main(outargs->argc, outargs->argv, &bucse_oper, NULL);
 		exit(0);
@@ -276,7 +277,7 @@ int parseRepositoryJsonFile() {
 	char* repositoryJsonFileContents = malloc(MAX_REPOSITORY_JSON_LEN);
 	if (repositoryJsonFileContents == NULL)
 	{
-		fprintf(stderr, "malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "malloc(): %s\n", strerror(errno));
 		return 1;
 	}
 	size_t repositoryJsonFileLen = MAX_REPOSITORY_JSON_LEN;
@@ -284,7 +285,7 @@ int parseRepositoryJsonFile() {
 	int err = destination->getRepositoryJsonFile(repositoryJsonFileContents, &repositoryJsonFileLen);
 	if (err != 0)
 	{
-		fprintf(stderr, "destination->getRepositoryJsonFile(): %d\n", err);
+		logPrintf(LOG_ERROR, "destination->getRepositoryJsonFile(): %d\n", err);
 
 		free(repositoryJsonFileContents);
 		return 2;
@@ -298,21 +299,21 @@ int parseRepositoryJsonFile() {
 
 	if (repositoryJson == NULL)
 	{
-		fprintf(stderr, "json_tokener_parse_ex(): %s\n", json_tokener_error_desc(json_tokener_get_error(tokener)));
+		logPrintf(LOG_ERROR, "json_tokener_parse_ex(): %s\n", json_tokener_error_desc(json_tokener_get_error(tokener)));
 		return 3;
 	}
 
 	json_object* encryptionField;
 	if (json_object_object_get_ex(repositoryJson, "encryption", &encryptionField) == 0)
 	{
-		fprintf(stderr, "repository object doesn't have 'encryption' field\n");
+		logPrintf(LOG_ERROR, "repository object doesn't have 'encryption' field\n");
 		json_object_put(repositoryJson);
 		return 4;
 	}
 
 	if (json_object_get_type(encryptionField) != json_type_string)
 	{
-		fprintf(stderr, "'encryption' field is not a string\n");
+		logPrintf(LOG_ERROR, "'encryption' field is not a string\n");
 		json_object_put(repositoryJson);
 		return 5;
 	}
@@ -324,7 +325,7 @@ int parseRepositoryJsonFile() {
 	} else if (strcmp(encryptionFieldStr, "aes") == 0) {
 		encryption = &encryptionAes;
 	} else {
-		fprintf(stderr, "Unsupported encryption: %s\n", encryptionFieldStr);
+		logPrintf(LOG_ERROR, "Unsupported encryption: %s\n", encryptionFieldStr);
 		json_object_put(repositoryJson);
 		return 6;
 	}
@@ -338,7 +339,7 @@ int parseRepositoryFile() {
 	char* repositoryFileContents = malloc(MAX_REPOSITORY_LEN);
 	if (repositoryFileContents == NULL)
 	{
-		fprintf(stderr, "malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "malloc(): %s\n", strerror(errno));
 		return 1;
 	}
 	size_t repositoryFileLen = MAX_REPOSITORY_LEN;
@@ -346,7 +347,7 @@ int parseRepositoryFile() {
 	int err = destination->getRepositoryFile(repositoryFileContents, &repositoryFileLen);
 	if (err != 0)
 	{
-		fprintf(stderr, "destination->getRepositoryFile(): %d\n", err);
+		logPrintf(LOG_ERROR, "destination->getRepositoryFile(): %d\n", err);
 
 		free(repositoryFileContents);
 		return 2;
@@ -355,7 +356,7 @@ int parseRepositoryFile() {
 	size_t decryptedBufLen = MAX_REPOSITORY_LEN + DECRYPTED_BUFFER_MARGIN;
 	char* decryptedBuf = malloc(decryptedBufLen);
 	if (decryptedBuf == NULL) {
-		fprintf(stderr, "parseRepositoryFile: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "parseRepositoryFile: malloc(): %s\n", strerror(errno));
 
 		free(repositoryFileContents);
 		return 3;
@@ -366,7 +367,7 @@ int parseRepositoryFile() {
 		conf.passphrase);
 	
 	if (result != 0) {
-		fprintf(stderr, "parseRepositoryFile: decrypt failed: %d\n", result);
+		logPrintf(LOG_ERROR, "parseRepositoryFile: decrypt failed: %d\n", result);
 
 		free(repositoryFileContents);
 		free(decryptedBuf);
@@ -382,21 +383,21 @@ int parseRepositoryFile() {
 
 	if (repository == NULL)
 	{
-		fprintf(stderr, "json_tokener_parse_ex(): %s\n", json_tokener_error_desc(json_tokener_get_error(tokener)));
+		logPrintf(LOG_ERROR, "json_tokener_parse_ex(): %s\n", json_tokener_error_desc(json_tokener_get_error(tokener)));
 		return 5;
 	}
 
 	json_object* timeField;
 	if (json_object_object_get_ex(repository, "time", &timeField) == 0)
 	{
-		fprintf(stderr, "repository object doesn't have 'time' field\n");
+		logPrintf(LOG_ERROR, "repository object doesn't have 'time' field\n");
 		json_object_put(repository);
 		return 6;
 	}
 
 	if (json_object_get_type(timeField) != json_type_int)
 	{
-		fprintf(stderr, "'time' field is not a string\n");
+		logPrintf(LOG_ERROR, "'time' field is not a string\n");
 		json_object_put(repository);
 		return 7;
 	}
@@ -415,7 +416,7 @@ int main(int argc, char** argv)
 
 	root = malloc(sizeof(FilesystemDir));
 	if (root == NULL) {
-		fprintf(stderr, "malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "malloc(): %s\n", strerror(errno));
 		return 1;
 	}
 	memset(root, 0, sizeof(FilesystemDir));
@@ -427,7 +428,7 @@ int main(int argc, char** argv)
 	fuse_opt_parse(&args, &conf, bucse_opts, bucse_opt_proc);
 
 	if (conf.repository == NULL) {
-		fprintf(stderr, "no repository specified\n");
+		logPrintf(LOG_ERROR, "no repository specified\n");
 		return 2;
 	}
 
@@ -437,7 +438,7 @@ int main(int argc, char** argv)
 
 	if (err != 0)
 	{
-		fprintf(stderr, "destination->init(): %d\n", err);
+		logPrintf(LOG_ERROR, "destination->init(): %d\n", err);
 		recursivelyFreeFilesystem(root);
 		actionsCleanup();
 		fuse_opt_free_args(&args);
@@ -447,7 +448,7 @@ int main(int argc, char** argv)
 	destination->setCallbackActionAdded(&actionAddedDecrypt);
 
 	if (parseRepositoryJsonFile() != 0) {
-		fprintf(stderr, "parseRepositoryJsonFile() failed\n");
+		logPrintf(LOG_ERROR, "parseRepositoryJsonFile() failed\n");
 
 		destination->shutdown();
 		recursivelyFreeFilesystem(root);
@@ -485,7 +486,7 @@ int main(int argc, char** argv)
 			if (strlen(passwd) > 0) {
 				conf.passphrase = malloc(strlen(passwd) + 1);
 				if (conf.passphrase == NULL) {
-					fprintf(stderr, "malloc() failed\n");
+					logPrintf(LOG_ERROR, "malloc() failed\n");
 				} else {
 					memcpy(conf.passphrase, passwd, strlen(passwd)+1);
 					gotPass = 1;
@@ -494,7 +495,7 @@ int main(int argc, char** argv)
 		}
 
 		if (gotPass == 0) {
-			fprintf(stderr, "Encryption needs a passphrase\n");
+			logPrintf(LOG_ERROR, "Encryption needs a passphrase\n");
 
 			destination->shutdown();
 			recursivelyFreeFilesystem(root);
@@ -507,9 +508,9 @@ int main(int argc, char** argv)
 
 	err = parseRepositoryFile();
 	if (err != 0) {
-		fprintf(stderr, "parseRepositoryFile() failed\n");
+		logPrintf(LOG_ERROR, "parseRepositoryFile() failed\n");
 		if (err == 4) {
-			fprintf(stderr, "Is the passphrase correct?\n");
+			logPrintf(LOG_ERROR, "Is the passphrase correct?\n");
 		}
 
 		destination->shutdown();
@@ -522,7 +523,7 @@ int main(int argc, char** argv)
 
 	int fuse_stat;
 	fuse_stat = bucse_fuse_main(args.argc, args.argv, &bucse_oper, sizeof(bucse_oper), NULL);
-	fprintf(stderr, "fuse_main returned %d\n", fuse_stat);
+	logPrintf(LOG_DEBUG, "fuse_main returned %d\n", fuse_stat);
 	pthread_mutex_lock(&shutdownMutex);
 	shutdownTicking = 1;
 	pthread_mutex_unlock(&shutdownMutex);
@@ -530,7 +531,7 @@ int main(int argc, char** argv)
 	int ret = pthread_join(tickThread, NULL);
 	if (ret != 0)
 	{
-		fprintf(stderr, "pthread_join: %d\n", ret);
+		logPrintf(LOG_ERROR, "pthread_join: %d\n", ret);
 	}
 	destination->shutdown();
 

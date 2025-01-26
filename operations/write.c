@@ -8,6 +8,7 @@
 #include "../dynarray.h"
 #include "../filesystem.h"
 #include "../actions.h"
+#include "../log.h"
 
 #include "operations.h"
 
@@ -18,7 +19,7 @@ static int bucse_write(const char *path, const char *buf, size_t size, off_t off
 {
 	(void) fi;
 
-	fprintf(stderr, "DEBUG: write %s, size: %u, offset: %u\n", path, size, offset);
+	logPrintf(LOG_DEBUG, "write %s, size: %u, offset: %u\n", path, size, offset);
 
 	if (path == NULL) {
 		return -EIO;
@@ -33,7 +34,7 @@ static int bucse_write(const char *path, const char *buf, size_t size, off_t off
 		memset(&pathArray, 0, sizeof(DynArray));
 		const char *fileName = path_split(path+1, &pathArray);
 		if (fileName == NULL) {
-			fprintf(stderr, "bucse_write: path_split() failed\n");
+			logPrintf(LOG_ERROR, "bucse_write: path_split() failed\n");
 			return -ENOMEM;
 		}
 		//path_debugPrint(&pathArray);
@@ -42,7 +43,7 @@ static int bucse_write(const char *path, const char *buf, size_t size, off_t off
 		path_free(&pathArray);
 
 		if (containingDir == NULL) {
-			fprintf(stderr, "bucse_write: path not found when writing file %s\n", path);
+			logPrintf(LOG_ERROR, "bucse_write: path not found when writing file %s\n", path);
 			return -ENOENT;
 		}
 
@@ -62,13 +63,13 @@ static int bucse_write(const char *path, const char *buf, size_t size, off_t off
 
 	PendingWrite* newPendingWrite = malloc(sizeof(PendingWrite));
 	if (newPendingWrite == NULL) {
-		fprintf(stderr, "bucse_write: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "bucse_write: malloc(): %s\n", strerror(errno));
 		return -ENOMEM;
 	}
 	newPendingWrite->size = size;
 	newPendingWrite->buf = malloc(size);
 	if (newPendingWrite->buf == NULL) {
-		fprintf(stderr, "bucse_write: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "bucse_write: malloc(): %s\n", strerror(errno));
 		free(newPendingWrite);
 		return -ENOMEM;
 	}

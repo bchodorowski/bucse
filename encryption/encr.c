@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "../log.h"
+
 #include "encr.h"
 
 extern Encryption encryptionNone;
@@ -23,7 +25,7 @@ Encryption* getEncryptionByName(char* name)
 	} else if (strcmp(name, "aes") == 0) {
 		return &encryptionAes;
 	} else {
-		fprintf(stderr, "getEncryptionByName:() Unsupported encryption: %s\n", name);
+		logPrintf(LOG_ERROR, "getEncryptionByName:() Unsupported encryption: %s\n", name);
 		return NULL;
 	}
 }

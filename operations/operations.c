@@ -9,6 +9,7 @@
 #include "../actions.h"
 #include "../destinations/dest.h"
 #include "../encryption/encr.h"
+#include "../log.h"
 #include "../conf.h"
 
 #include "operations.h"
@@ -22,13 +23,13 @@ int encryptAndAddActionFile(Action* newAction)
 {
 	char* jsonData = serializeAction(newAction);
 	if (jsonData == NULL) {
-		fprintf(stderr, "encryptAndAddActionFile: serializeAction() failed\n");
+		logPrintf(LOG_ERROR, "encryptAndAddActionFile: serializeAction() failed\n");
 		return -1;
 	}
 
 	char newActionFileName[MAX_STORAGE_NAME_LEN];
 	if (getRandomStorageFileName(newActionFileName) != 0) {
-		fprintf(stderr, "encryptAndAddActionFile: getRandomStorageFileName failed\n");
+		logPrintf(LOG_ERROR, "encryptAndAddActionFile: getRandomStorageFileName failed\n");
 		free(jsonData);
 		return -2;
 	}
@@ -36,7 +37,7 @@ int encryptAndAddActionFile(Action* newAction)
 	size_t encryptedBufLen = 2 * MAX_ACTION_LEN;
 	char* encryptedBuf = malloc(encryptedBufLen);
 	if (encryptedBuf == NULL) {
-		fprintf(stderr, "encryptAndAddActionFile: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "encryptAndAddActionFile: malloc(): %s\n", strerror(errno));
 		free(jsonData);
 		return -3;
 	}
@@ -45,7 +46,7 @@ int encryptAndAddActionFile(Action* newAction)
 		conf.passphrase);
 
 	if (result != 0) {
-		fprintf(stderr, "encryptAndAddActionFile: encrypt failed: %d\n", result);
+		logPrintf(LOG_ERROR, "encryptAndAddActionFile: encrypt failed: %d\n", result);
 		free(jsonData);
 		free(encryptedBuf);
 		return -4;

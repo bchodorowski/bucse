@@ -12,6 +12,8 @@
 
 #include <json.h>
 
+#include "conf.h"
+#include "log.h"
 #include "time.h"
 
 #include "destinations/dest.h"
@@ -28,13 +30,13 @@ static int initRepo(char* repository, char* passphrase, char* encryptionStr,
 	int err = destination->init(realPath);
 	if (err != 0)
 	{
-		fprintf(stderr, "destination->init(): %d\n", err);
+		logPrintf(LOG_ERROR, "destination->init(): %d\n", err);
 		return 1;
 	}
 	err = destination->createDirs();
 	if (err != 0)
 	{
-		fprintf(stderr, "destination->createDirs(): %d\n", err);
+		logPrintf(LOG_ERROR, "destination->createDirs(): %d\n", err);
 		return 2;
 	}
 	free(realPath);
@@ -77,7 +79,7 @@ static int initRepo(char* repository, char* passphrase, char* encryptionStr,
 		strlen(repositoryData));
 	char* encryptedBuf = malloc(maxEncryptedBufSize);
 	if (encryptedBuf == NULL) {
-		fprintf(stderr, "initRepo: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "initRepo: malloc(): %s\n", strerror(errno));
 		json_object_put(jsonRepository);
 		return 5;
 	}
@@ -88,7 +90,7 @@ static int initRepo(char* repository, char* passphrase, char* encryptionStr,
 		encryptedBuf, &encryptedBufSize,
 		passphrase);
 	if (res != 0) {
-		fprintf(stderr, "initRepo: encrypt failed: %d\n", res);
+		logPrintf(LOG_ERROR, "initRepo: encrypt failed: %d\n", res);
 		json_object_put(jsonRepository);
 		free(encryptedBuf);
 		return 6;
@@ -97,7 +99,7 @@ static int initRepo(char* repository, char* passphrase, char* encryptionStr,
 	// save
 	res = destination->putRepositoryFile(encryptedBuf, encryptedBufSize);
 	if (res != 0) {
-		fprintf(stderr, "initRepo: destination->putRepositoryFile(): %d\n", res);
+		logPrintf(LOG_ERROR, "initRepo: destination->putRepositoryFile(): %d\n", res);
 		json_object_put(jsonRepository);
 		free(encryptedBuf);
 		return 6;
@@ -116,6 +118,8 @@ int main(int argc, char *argv[])
 	char *comment = NULL;
 
 	opterr = 0;
+	
+	confInit();
 
 	int c;
 	while ((c = getopt (argc, argv, "Vhp:e:n:c:")) != -1) {
@@ -140,11 +144,11 @@ int main(int argc, char *argv[])
 				break;
 			case '?':
 				if (optopt == 'p')
-					fprintf (stderr, "Option -%c requires an argument.\n", optopt);
-				else if (isprint (optopt))
-					fprintf (stderr, "Unknown option `-%c'.\n", optopt);
+					logPrintf(LOG_ERROR, "Option -%c requires an argument.\n", optopt);
+				else if (isprint(optopt))
+					logPrintf(LOG_ERROR, "Unknown option `-%c'.\n", optopt);
 				else
-					fprintf (stderr, "Unknown option character `\\x%x'.\n", optopt);
+					logPrintf(LOG_ERROR, "Unknown option character `\\x%x'.\n", optopt);
 				return 1;
 			default:
 				abort ();
@@ -157,7 +161,7 @@ int main(int argc, char *argv[])
 	}
 	if (encryption->needsPassphrase() && passphrase == NULL) {
 		// TODO: password prompt
-		fprintf (stderr, "Password is necessary for %s encryption\n",
+		logPrintf(LOG_ERROR, "Password is necessary for %s encryption\n",
 			encryptionStr);
 		return 3;
 	}

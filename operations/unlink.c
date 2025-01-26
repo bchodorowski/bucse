@@ -9,6 +9,7 @@
 #include "../filesystem.h"
 #include "../actions.h"
 #include "../time.h"
+#include "../log.h"
 
 #include "operations.h"
 
@@ -16,7 +17,7 @@
 
 static int bucse_unlink(const char *path)
 {
-	fprintf(stderr, "DEBUG: unlink %s\n", path);
+	logPrintf(LOG_DEBUG, "unlink %s\n", path);
 
 	if (path == NULL) {
 		return -EIO;
@@ -32,7 +33,7 @@ static int bucse_unlink(const char *path)
 		memset(&pathArray, 0, sizeof(DynArray));
 		const char *fileName = path_split(path+1, &pathArray);
 		if (fileName == NULL) {
-			fprintf(stderr, "bucse_unlink: path_split() failed\n");
+			logPrintf(LOG_ERROR, "bucse_unlink: path_split() failed\n");
 			return -ENOMEM;
 		}
 		//path_debugPrint(&pathArray);
@@ -41,7 +42,7 @@ static int bucse_unlink(const char *path)
 		path_free(&pathArray);
 
 		if (containingDir == NULL) {
-			fprintf(stderr, "bucse_unlink: path not found when deleting file %s\n", path);
+			logPrintf(LOG_ERROR, "bucse_unlink: path not found when deleting file %s\n", path);
 			return -ENOENT;
 		}
 
@@ -62,7 +63,7 @@ static int bucse_unlink(const char *path)
 	// construct new action, add it to actions
 	Action* newAction = malloc(sizeof(Action));
 	if (newAction == NULL) {
-		fprintf(stderr, "bucse_unlink: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "bucse_unlink: malloc(): %s\n", strerror(errno));
 		return -ENOMEM;
 	}
 	newAction->time = getCurrentTime();
@@ -70,7 +71,7 @@ static int bucse_unlink(const char *path)
 
 	newAction->path = getFullFilePath(file);
 	if (newAction->path == NULL) {
-		fprintf(stderr, "bucse_unlink: getFullFilePath() failed: %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "bucse_unlink: getFullFilePath() failed: %s\n", strerror(errno));
 		free(newAction);
 		return -ENOMEM;
 	}
@@ -81,7 +82,7 @@ static int bucse_unlink(const char *path)
 
 	// write to json, encrypt call destination->addActionFile()
 	if (encryptAndAddActionFile(newAction) != 0) {
-		fprintf(stderr, "bucse_unlink: encryptAndAddActionFile failed\n");
+		logPrintf(LOG_ERROR, "bucse_unlink: encryptAndAddActionFile failed\n");
 		free(newAction->path);
 		free(newAction);
 		return -EIO;
@@ -92,7 +93,7 @@ static int bucse_unlink(const char *path)
 
 	// update filesystem
 	if (removeFromDynArrayUnordered(&containingDir->files, (void*)file) != 0) {
-		fprintf(stderr, "bucse_unlink: removeFromDynArrayUnordered() failed\n");
+		logPrintf(LOG_ERROR, "bucse_unlink: removeFromDynArrayUnordered() failed\n");
 		return -EIO;
 	}
 	free(file);

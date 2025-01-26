@@ -9,6 +9,7 @@
 #include "../filesystem.h"
 #include "../actions.h"
 #include "../time.h"
+#include "../log.h"
 
 #include "operations.h"
 #include "open.h"
@@ -17,7 +18,7 @@
 
 static int bucse_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 {
-	fprintf(stderr, "DEBUG: create %s, mode %d, access mode %d\n", path, mode, fi->flags);
+	logPrintf(LOG_DEBUG, "create %s, mode %d, access mode %d\n", path, mode, fi->flags);
 
 	if (path == NULL) {
 		return -EIO;
@@ -33,7 +34,7 @@ static int bucse_create(const char *path, mode_t mode, struct fuse_file_info *fi
 		memset(&pathArray, 0, sizeof(DynArray));
 		fileName = path_split(path+1, &pathArray);
 		if (fileName == NULL) {
-			fprintf(stderr, "bucse_create: path_split() failed\n");
+			logPrintf(LOG_ERROR, "bucse_create: path_split() failed\n");
 			return -ENOMEM;
 		}
 		//path_debugPrint(&pathArray);
@@ -41,7 +42,7 @@ static int bucse_create(const char *path, mode_t mode, struct fuse_file_info *fi
 		containingDir = findContainingDir(&pathArray);
 		path_free(&pathArray);
 		if (containingDir == NULL) {
-			fprintf(stderr, "bucse_create: path not found when creating file %s\n", path);
+			logPrintf(LOG_ERROR, "bucse_create: path not found when creating file %s\n", path);
 			return -ENOENT;
 		}
 
@@ -65,7 +66,7 @@ static int bucse_create(const char *path, mode_t mode, struct fuse_file_info *fi
 
 	FilesystemFile* newFile = malloc(sizeof(FilesystemFile));
 	if (newFile == NULL) {
-		fprintf(stderr, "bucse_create: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "bucse_create: malloc(): %s\n", strerror(errno));
 		return -ENOMEM;
 	}
 
@@ -73,7 +74,7 @@ static int bucse_create(const char *path, mode_t mode, struct fuse_file_info *fi
 	// and clean up when flushing the file in flush.c
 	newFile->name = strdup(fileName);
 	if (newFile->name == NULL) {
-		fprintf(stderr, "splitPath: strdup(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "splitPath: strdup(): %s\n", strerror(errno));
 		free(newFile);
 		return -ENOMEM;
 	}
