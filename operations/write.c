@@ -11,6 +11,7 @@
 #include "../log.h"
 
 #include "operations.h"
+#include "flush.h"
 
 #include "write.h"
 
@@ -78,7 +79,11 @@ static int bucse_write(const char *path, const char *buf, size_t size, off_t off
 	addToDynArray(&file->pendingWrites, newPendingWrite);
 	file->dirtyFlags |= DirtyFlagPendingWrite;
 
-	// TODO: flush file if pendingWrites are too large
+	// flush file if there is too many pendingWrites
+	if (file->pendingWrites.len > 10240) {
+		logPrintf(LOG_DEBUG, "bucse_write: too many pending writes, flushing\n");
+		flushFile(file);
+	}
 
 	return size;
 }

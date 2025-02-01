@@ -1,4 +1,3 @@
-- when size of content array gets too big, we should increase block size and rewrite the whole file
 - -Wall
 - consider big files -> use 64 bit variables?
 - handle addToDynArray failures

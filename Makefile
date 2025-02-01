@@ -238,7 +238,8 @@ operations/write.o: operations/write.c \
 	filesystem.h \
 	actions.h \
 	log.h \
-	operations/operations.h
+	operations/operations.h \
+	operations/flush.h
 	$(CC) -c operations/write.c -o operations/write.o $(CFLAGS)
 
 operations/unlink.o: operations/unlink.c \

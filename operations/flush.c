@@ -23,6 +23,8 @@
 #define MIN_BLOCK_SIZE 512
 #define MAX_BLOCK_SIZE (128 * 1024 * 1024)
 
+#define RESIZE_AT_BLOCKS_COUNT 32
+
 extern Destination *destination;
 extern Encryption *encryption;
 
@@ -110,9 +112,7 @@ int flushFile(FilesystemFile* file)
 		newContentLen = newSize / newBlockSize + (int)(newSize % newBlockSize != 0);
 	}
 
-	// TODO: if newContentLen is big, consider changing the blockSize and
-	//       rewriting the whole file
-
+	// if nothing changed
 	if (file->pendingWrites.len == 0) {
 		if (newContentLen > 0) {
 			newContent = malloc(newContentLen * MAX_STORAGE_NAME_LEN);
@@ -126,13 +126,26 @@ int flushFile(FilesystemFile* file)
 		goto constructAction;
 	}
 
+	// if newContentLen is too big, change the blockSize and rewrite the whole file
+	int rewriteAll = 0;
+	if (newContentLen > RESIZE_AT_BLOCKS_COUNT && newBlockSize < MAX_BLOCK_SIZE) {
+		logPrintf(LOG_DEBUG, "flushFile: resize blocks\n");
+		newBlockSize = getBlockSize(newSize);
+		newContentLen = newSize / newBlockSize + (int)(newSize % newBlockSize != 0);
+		rewriteAll = 1;
+	}
+
 	// determine which blocks have been changed -- one byte per block
 	char* blocksToWrite = malloc(newContentLen);
 	if (blocksToWrite == NULL) {
 		logPrintf(LOG_ERROR, "flushFile: malloc(): %s\n", strerror(errno));
 		return 1;
 	}
-	memset(blocksToWrite, 0, newContentLen);
+	if (rewriteAll) {
+		memset(blocksToWrite, 1, newContentLen);
+	} else {
+		memset(blocksToWrite, 0, newContentLen);
+	}
 
 	for (int i=0; i<file->pendingWrites.len; i++) {
 		PendingWrite* pw = file->pendingWrites.objects[i];
