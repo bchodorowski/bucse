@@ -72,7 +72,6 @@ static int bucse_rename(const char *srcPath, const char *dstPath,
 
 	FilesystemFile *dstFile = NULL;
 	FilesystemDir *dstContainingDir = NULL;
-	const char *dstFileName;
 
 	if (strcmp(dstPath, "/") == 0) {
 		return -EACCES;
@@ -80,7 +79,6 @@ static int bucse_rename(const char *srcPath, const char *dstPath,
 		DynArray pathArray;
 		memset(&pathArray, 0, sizeof(DynArray));
 		const char *fileName = path_split(dstPath+1, &pathArray);
-		dstFileName = fileName;
 		if (fileName == NULL) {
 			logPrintf(LOG_ERROR, "bucse_rename: path_split() failed\n");
 			return -ENOMEM;

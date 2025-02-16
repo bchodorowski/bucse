@@ -151,8 +151,7 @@ static int bucse_opt_proc(void *data, const char *arg, int key, struct fuse_args
 				"    -o verbose=INTEGER     TODO\n"
 				"    -v INTEGER             same as '-overbose=INTEGER'\n"
 				"    -o passphrase=STRING   TODO\n"
-				"    -p STRING              same as '-opassphrase=STRING'\n"
-				, outargs->argv[0]);
+				"    -p STRING              same as '-opassphrase=STRING'\n");
 		exit(1);
 
 	case KEY_VERSION:
@@ -218,7 +217,7 @@ int bucse_fuse_main(int argc, char *argv[], const struct fuse_operations *op,
 
 	if (!opts.show_help &&
 			!opts.mountpoint) {
-		fuse_log(FUSE_LOG_ERR, "error: no mountpoint specified\n");
+		fuse_log(FUSE_LOG_ERR, "no mountpoint specified\n");
 		res = 2;
 		goto out1;
 	}
@@ -243,6 +242,11 @@ int bucse_fuse_main(int argc, char *argv[], const struct fuse_operations *op,
 	if (destination->isTickable())
 	{
 		int ret = pthread_create(&tickThread, NULL, tickThreadFunc, NULL);
+		if (ret != 0) {
+			fuse_log(FUSE_LOG_ERR, "bucse_fuse_main: pthread_create: %d\n", ret);
+			res = 6;
+			goto out3;
+		}
 	}
 
 	struct fuse_session *se = fuse_get_session(fuse);

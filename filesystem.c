@@ -39,8 +39,6 @@ FilesystemDir* findContainingDir(DynArray *pathArray)
 {
 	FilesystemDir* current = root;
 	for (int i=0; i<pathArray->len-1; i++) {
-		char found = 0;
-
 		current = findDir(current, pathArray->objects[i]);
 		if (current == NULL) {
 			return NULL;
@@ -53,8 +51,6 @@ FilesystemDir* findDirByPath(DynArray *pathArray)
 {
 	FilesystemDir* current = root;
 	for (int i=0; i<pathArray->len; i++) {
-		char found = 0;
-
 		current = findDir(current, pathArray->objects[i]);
 		if (current == NULL) {
 			return NULL;

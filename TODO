@@ -1,4 +1,3 @@
-- -Wall
 - consider big files -> use 64 bit variables?
 - handle addToDynArray failures
 (at this point we should have working MVP -- with local destination and no encryption

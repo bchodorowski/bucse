@@ -479,7 +479,7 @@ int destLocalTick()
 			closedir(actionsDir);
 			return 0;
 		}
-		if (actionDir->d_name && actionDir->d_name[0] == '.') {
+		if (actionDir && actionDir->d_name[0] == '.') {
 			continue;
 		}
 

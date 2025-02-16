@@ -11,6 +11,8 @@ static void* bucse_init(struct fuse_conn_info *conn, struct fuse_config *cfg)
 {
 	//cfg->use_ino = 1;
 	cfg->hard_remove = 1;
+
+	return NULL;
 }
 
 void* bucse_init_guarded(struct fuse_conn_info *conn, struct fuse_config *cfg)

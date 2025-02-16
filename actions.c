@@ -236,6 +236,8 @@ static int undoAction(Action* action)
 {
 	// TODO
 	logPrintf(LOG_VERBOSE_DEBUG, "undo action\n");
+
+	return 0;
 }
 
 static DynArray actions;

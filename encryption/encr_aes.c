@@ -55,7 +55,7 @@ int encrAesEncrypt(char *inBuf, size_t inSize, char *outBuf, size_t *outSize, ch
 
 	EVP_CIPHER_CTX_set_key_length(ctx, EVP_MAX_KEY_LENGTH);
 
-	if (EVP_EncryptUpdate(ctx, outBuf, (int*)outSize, inBuf, inSize) != 1) {
+	if (EVP_EncryptUpdate(ctx, (unsigned char*)outBuf, (int*)outSize, (unsigned char*)inBuf, inSize) != 1) {
 		logPrintf(LOG_ERROR, "encrAesEncrypt: EVP_EncryptUpdate failed\n");
 		EVP_CIPHER_CTX_free(ctx);
 		return 5;
@@ -63,7 +63,7 @@ int encrAesEncrypt(char *inBuf, size_t inSize, char *outBuf, size_t *outSize, ch
 
 	int tmpLen = 0;
 
-	if (!EVP_EncryptFinal(ctx, outBuf + *outSize, &tmpLen)) {
+	if (!EVP_EncryptFinal(ctx, (unsigned char*)(outBuf + *outSize), &tmpLen)) {
 		logPrintf(LOG_ERROR, "encrAesEncrypt: EVP_EncryptFinal failed\n");
 		EVP_CIPHER_CTX_free(ctx);
 		return 6;
@@ -115,7 +115,7 @@ int encrAesDecrypt(char *inBuf, size_t inSize, char *outBuf, size_t *outSize, ch
 
 	EVP_CIPHER_CTX_set_key_length(ctx, EVP_MAX_KEY_LENGTH);
 
-	if (EVP_DecryptUpdate(ctx, outBuf, (int*)outSize, inBuf, inSize) != 1) {
+	if (EVP_DecryptUpdate(ctx, (unsigned char*)outBuf, (int*)outSize, (unsigned char*)inBuf, inSize) != 1) {
 		logPrintf(LOG_ERROR, "encrAesDecrypt: EVP_DecryptUpdate failed\n");
 		EVP_CIPHER_CTX_free(ctx);
 		return 4;
@@ -123,7 +123,7 @@ int encrAesDecrypt(char *inBuf, size_t inSize, char *outBuf, size_t *outSize, ch
 
 	int tmpLen = 0;
 
-	if (!EVP_DecryptFinal(ctx, outBuf + *outSize, &tmpLen)) {
+	if (!EVP_DecryptFinal(ctx, (unsigned  char*)(outBuf + *outSize), &tmpLen)) {
 		logPrintf(LOG_ERROR, "encrAesDecrypt: EVP_DecryptFinal failed\n");
 		EVP_CIPHER_CTX_free(ctx);
 		return 5;
