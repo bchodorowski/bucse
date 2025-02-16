@@ -17,6 +17,7 @@ bucse-mount: bucse-mount.o \
 	time.o \
 	conf.o \
 	log.o \
+	cache.o \
 	operations/operations.o \
 	operations/getattr.o \
 	operations/flush.o \
@@ -45,6 +46,7 @@ bucse-mount: bucse-mount.o \
 		time.o \
 		conf.o \
 		log.o \
+		cache.o \
 		operations/operations.o \
 		operations/getattr.o \
 		operations/flush.o \
@@ -70,6 +72,7 @@ bucse-mount.o: bucse-mount.c \
 	actions.h \
 	conf.h \
 	log.h \
+	cache.h \
 	operations/operations.h \
 	operations/getattr.h \
 	operations/flush.h \
@@ -145,6 +148,10 @@ log.o: log.c \
 	log.h
 	$(CC) -c log.c -o log.o $(CFLAGS)
 
+cache.o: cache.c \
+	cache.h
+	$(CC) -c cache.c -o cache.o $(CFLAGS)
+
 operations/operations.o: operations/operations.c \
 	operations/operations.h \
 	actions.h \
@@ -172,6 +179,7 @@ operations/flush.o: operations/flush.c \
 	time.h \
 	log.h \
 	conf.h \
+	cache.h \
 	destinations/dest.h \
 	encryption/encr.h \
 	operations/operations.h
@@ -226,6 +234,7 @@ operations/read.o: operations/read.c \
 	time.h \
 	log.h \
 	conf.h \
+	cache.h \
 	destinations/dest.h \
 	encryption/encr.h \
 	operations/operations.h \
@@ -341,6 +350,8 @@ clean:
 		actions.o \
 		time.o \
 		conf.o \
+		log.o \
+		cache.o \
 		operations/operations.o \
 		operations/getattr.o \
 		operations/flush.o \

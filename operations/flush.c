@@ -12,6 +12,7 @@
 
 #include "../log.h"
 #include "../conf.h"
+#include "../cache.h"
 
 #include "../destinations/dest.h"
 #include "../encryption/encr.h"
@@ -213,28 +214,36 @@ int flushFile(FilesystemFile* file)
 			}
 
 			const char* block = file->content + (MAX_STORAGE_NAME_LEN * i);
-			int res = destination->getStorageFile(block, encryptedBlockBuf, &encryptedBlockBufSize);
-			if (res != 0) {
-				logPrintf(LOG_ERROR, "flushFile: getStorageFile failed for %s: %d\n",
-					block, res);
-				ioerror = 1;
-				break;
+			
+			// TODO; similar code in operations/read.c. Refactor?
+			if (cacheGet(block, decryptedBlockBuf, &decryptedBlockBufSize) != 0) {
+				int res = destination->getStorageFile(block, encryptedBlockBuf, &encryptedBlockBufSize);
+				if (res != 0) {
+					logPrintf(LOG_ERROR, "flushFile: getStorageFile failed for %s: %d\n",
+						block, res);
+					ioerror = 1;
+					break;
+				}
+
+				res = encryption->decrypt(encryptedBlockBuf, encryptedBlockBufSize,
+					decryptedBlockBuf, &decryptedBlockBufSize,
+					conf.passphrase);
+				if (res != 0) {
+					logPrintf(LOG_ERROR, "flushFile: decrypt failed: %d\n", res);
+					ioerror = 1;
+					break;
+				}
+
+				if (decryptedBlockBufSize != expectedReadSize) {
+					logPrintf(LOG_ERROR, "flushFile: expected decrypted block size %d, got %d\n",
+						expectedReadSize, decryptedBlockBufSize);
+					ioerror = 1;
+					break;
+				}
+				
+				cachePut(block, decryptedBlockBuf, decryptedBlockBufSize);
 			}
 
-			res = encryption->decrypt(encryptedBlockBuf, encryptedBlockBufSize,
-				decryptedBlockBuf, &decryptedBlockBufSize,
-				conf.passphrase);
-			if (res != 0) {
-				logPrintf(LOG_ERROR, "flushFile: decrypt failed: %d\n", res);
-				ioerror = 1;
-				break;
-			}
-			if (decryptedBlockBufSize != expectedReadSize) {
-				logPrintf(LOG_ERROR, "flushFile: expected decrypted block size %d, got %d\n",
-					expectedReadSize, decryptedBlockBufSize);
-				ioerror = 1;
-				break;
-			}
 		}
 		// right now we have data in decryptedBlockBuf
 		

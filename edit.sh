@@ -21,6 +21,8 @@ vim Makefile \
 	conf.c \
 	log.h \
 	log.c \
+	cache.h \
+	cache.c \
 	operations/operations.h \
 	operations/operations.c \
 	operations/getattr.h \

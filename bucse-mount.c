@@ -25,6 +25,7 @@
 
 #include "conf.h"
 #include "log.h"
+#include "cache.h"
 
 #include "destinations/dest.h"
 #include "encryption/encr.h"
@@ -435,6 +436,11 @@ int main(int argc, char** argv)
 		logPrintf(LOG_ERROR, "no repository specified\n");
 		return 2;
 	}
+	if (cacheInit() != 0) {
+		logPrintf(LOG_ERROR, "cache initialization failed\n");
+		confCleanup();
+		return 3;
+	}
 
 	getDestinationByPathPrefix(&destination,
 		&conf.repositoryRealPath, conf.repository);
@@ -446,8 +452,9 @@ int main(int argc, char** argv)
 		recursivelyFreeFilesystem(root);
 		actionsCleanup();
 		fuse_opt_free_args(&args);
+		cacheCleanup();
 		confCleanup();
-		return 3;
+		return 4;
 	}
 	destination->setCallbackActionAdded(&actionAddedDecrypt);
 
@@ -458,8 +465,9 @@ int main(int argc, char** argv)
 		recursivelyFreeFilesystem(root);
 		actionsCleanup();
 		fuse_opt_free_args(&args);
+		cacheCleanup();
 		confCleanup();
-		return 4;
+		return 5;
 	}
 
 	if (encryption->needsPassphrase() && conf.passphrase == NULL) {
@@ -505,8 +513,9 @@ int main(int argc, char** argv)
 			recursivelyFreeFilesystem(root);
 			actionsCleanup();
 			fuse_opt_free_args(&args);
+			cacheCleanup();
 			confCleanup();
-			return 5;
+			return 6;
 		}
 	}
 
@@ -521,8 +530,9 @@ int main(int argc, char** argv)
 		recursivelyFreeFilesystem(root);
 		actionsCleanup();
 		fuse_opt_free_args(&args);
+		cacheCleanup();
 		confCleanup();
-		return 6;
+		return 7;
 	}
 
 	int fuse_stat;
@@ -545,6 +555,7 @@ int main(int argc, char** argv)
 	actionsCleanup();
 
 	fuse_opt_free_args(&args);
+	cacheCleanup();
 	confCleanup();
 	return fuse_stat;
 }
