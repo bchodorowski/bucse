@@ -149,6 +149,8 @@ log.o: log.c \
 	$(CC) -c log.c -o log.o $(CFLAGS)
 
 cache.o: cache.c \
+	log.h \
+	dynarray.h \
 	cache.h
 	$(CC) -c cache.c -o cache.o $(CFLAGS)
 
