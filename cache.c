@@ -9,21 +9,24 @@
 
 #include "cache.h"
 
+struct Block;
+
 typedef struct _BlockslistItem {
 	struct _BlockslistItem *prev;
 	struct _BlockslistItem *next;
-	void *data;
+	struct Block *data;
 } BlockslistItem;
 
 typedef struct {
-	BlockslistItem first;
-	BlockslistItem last;
+	BlockslistItem *first;
+	BlockslistItem *last;
 } Blockslist;
 
 typedef struct {
 	const char* key;
 	size_t size;
 	char* data;
+	BlockslistItem *blockslistItem;
 } Block;
 
 #define HASH_TABLE_BUCKETS_COUNT_AS_HEX_CHARS 3
@@ -84,10 +87,21 @@ int cacheGet(const char* block, char* buf, size_t *size)
 			continue;
 		}
 
+		// item is found in the hashtable
+
 		memcpy(buf, item->data, item->size);
 		*size = item->size;
 
-		// TODO: move item in the blockslist to the front
+		// move item in the blockslist to the front
+		if (item->blockslistItem->prev)
+			item->blockslistItem->prev->next = item->blockslistItem->next;
+		if (item->blockslistItem->next)
+			item->blockslistItem->next->prev = item->blockslistItem->prev;
+		if (blockslist.first)
+			blockslist.first->prev = item->blockslistItem;
+		item->blockslistItem->next = blockslist.first;
+		item->blockslistItem->prev = NULL;
+		blockslist.first = item->blockslistItem;
 
 		return 0;
 	}
