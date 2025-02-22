@@ -9,17 +9,14 @@
 
 #include "cache.h"
 
-struct Block;
-
 typedef struct _BlockslistItem {
 	struct _BlockslistItem *prev;
 	struct _BlockslistItem *next;
-	struct Block *data;
+	const char* key;
 } BlockslistItem;
 
 typedef struct {
 	BlockslistItem *first;
-	BlockslistItem *last;
 } Blockslist;
 
 typedef struct {
@@ -81,7 +78,6 @@ int cacheGet(const char* block, char* buf, size_t *size)
 
 	for (int i=0; i<hashTableBuckets[index].len; i++) {
 		Block* item = (Block*)hashTableBuckets[index].objects[i];
-		printf("%p\n", item);
 
 		if (strcmp(item->key, block) != 0) {
 			continue;
@@ -93,15 +89,17 @@ int cacheGet(const char* block, char* buf, size_t *size)
 		*size = item->size;
 
 		// move item in the blockslist to the front
-		if (item->blockslistItem->prev)
-			item->blockslistItem->prev->next = item->blockslistItem->next;
-		if (item->blockslistItem->next)
-			item->blockslistItem->next->prev = item->blockslistItem->prev;
-		if (blockslist.first)
-			blockslist.first->prev = item->blockslistItem;
-		item->blockslistItem->next = blockslist.first;
-		item->blockslistItem->prev = NULL;
-		blockslist.first = item->blockslistItem;
+		if (item->blockslistItem != blockslist.first) {
+			if (item->blockslistItem->prev)
+				item->blockslistItem->prev->next = item->blockslistItem->next;
+			if (item->blockslistItem->next)
+				item->blockslistItem->next->prev = item->blockslistItem->prev;
+			if (blockslist.first)
+				blockslist.first->prev = item->blockslistItem;
+			item->blockslistItem->next = blockslist.first;
+			item->blockslistItem->prev = NULL;
+			blockslist.first = item->blockslistItem;
+		}
 
 		return 0;
 	}
@@ -117,6 +115,12 @@ int cachePut(const char* block, char* buf, size_t size)
 		return 1;
 	}
 
+	BlockslistItem* newBlockslistItem = (BlockslistItem*)malloc(sizeof(BlockslistItem));
+	if (!newBlockslistItem) {
+		logPrintf(LOG_ERROR, "cachePut: malloc(): %s\n", strerror(errno));
+		free(newItem);
+		return 2;
+	}
 
 	newItem->key = block;
 	newItem->size = size;
@@ -124,20 +128,77 @@ int cachePut(const char* block, char* buf, size_t size)
 	if (!newItem->data) {
 		logPrintf(LOG_ERROR, "cachePut: malloc(): %s\n", strerror(errno));
 		free(newItem);
-		return 2;
+		free(newBlockslistItem);
+		return 3;
 	}
 	memcpy(newItem->data, buf, size);
 	addToDynArray(&hashTableBuckets[index], newItem);
 
-	// TODO: add item to the front blockslist
+	// add item to the front blockslist
+	newBlockslistItem->prev = NULL;
+	newBlockslistItem->next = blockslist.first;
+	newBlockslistItem->key = block;
+	blockslist.first = newBlockslistItem;
+	if (blockslist.first->next) {
+		blockslist.first->next->prev = blockslist.first;
+	}
+
+	newItem->blockslistItem = newBlockslistItem;
 	
-	// TODO: check blockslist count and bytes size and delete oldest entries if needed
+	blockslistCount ++;
+	blockslistBytes += size;
+
+	// check blockslist count and bytes size and delete oldest entries if needed
+	while (blockslistCount > HASH_TABLE_SIZE_COUNT || blockslistBytes > HASH_TABLE_SIZE_BYTES) {
+		int indexToDelete = hexStringToHashIndex(blockslist.first->key);
+		Block* foundItemToDelete = NULL;
+		for (int i=0; i<hashTableBuckets[indexToDelete].len; i++) {
+			Block* itemToDelete = (Block*)hashTableBuckets[indexToDelete].objects[i];
+			if (strcmp(itemToDelete->key, block) == 0) {
+				foundItemToDelete = itemToDelete;
+				break;
+			}
+		}
+		if (!foundItemToDelete) {
+			logPrintf(LOG_WARNING, "cachePut: block expected but not found in cache\n");
+			return 0;
+		}
+		blockslistCount --;
+		blockslistBytes -= foundItemToDelete->size;
+		free(foundItemToDelete->data);
+		removeFromDynArrayUnorderedNoCheck(&hashTableBuckets[indexToDelete], foundItemToDelete);
+		free(foundItemToDelete);
+		blockslist.first = blockslist.first->next;
+		free(blockslist.first->prev);
+		blockslist.first->prev = NULL;
+	}
 
 	return 0;
 }
 
 void cacheCleanup()
 {
-	// TODO: implement
+	// free and clear the hash table
+	for (int index = 0; index < HASH_TABLE_BUCKETS_COUNT; index++) {
+		for (int i=0; i<hashTableBuckets[index].len; i++) {
+			Block* item = (Block*)hashTableBuckets[index].objects[i];
+			free(item->data);
+			free(item);
+		}
+		freeDynArray(&hashTableBuckets[index]);
+	}
+
+	// free and clear the list
+	while (blockslist.first) {
+		BlockslistItem* toFree = blockslist.first;
+		blockslist.first = blockslist.first->next;
+		free(toFree);
+	}
+
+	// zero everything just because why not
+	memset(&hashTableBuckets, 0, sizeof(DynArray)*HASH_TABLE_BUCKETS_COUNT);
+	memset(&blockslist, 0, sizeof(Blockslist));
+	blockslistCount = 0;
+	blockslistBytes = 0;
 }
 

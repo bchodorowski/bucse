@@ -449,10 +449,10 @@ int main(int argc, char** argv)
 	if (err != 0)
 	{
 		logPrintf(LOG_ERROR, "destination->init(): %d\n", err);
+		cacheCleanup();
 		recursivelyFreeFilesystem(root);
 		actionsCleanup();
 		fuse_opt_free_args(&args);
-		cacheCleanup();
 		confCleanup();
 		return 4;
 	}
@@ -462,10 +462,10 @@ int main(int argc, char** argv)
 		logPrintf(LOG_ERROR, "parseRepositoryJsonFile() failed\n");
 
 		destination->shutdown();
+		cacheCleanup();
 		recursivelyFreeFilesystem(root);
 		actionsCleanup();
 		fuse_opt_free_args(&args);
-		cacheCleanup();
 		confCleanup();
 		return 5;
 	}
@@ -510,10 +510,10 @@ int main(int argc, char** argv)
 			logPrintf(LOG_ERROR, "Encryption needs a passphrase\n");
 
 			destination->shutdown();
+			cacheCleanup();
 			recursivelyFreeFilesystem(root);
 			actionsCleanup();
 			fuse_opt_free_args(&args);
-			cacheCleanup();
 			confCleanup();
 			return 6;
 		}
@@ -527,10 +527,10 @@ int main(int argc, char** argv)
 		}
 
 		destination->shutdown();
+		cacheCleanup();
 		recursivelyFreeFilesystem(root);
 		actionsCleanup();
 		fuse_opt_free_args(&args);
-		cacheCleanup();
 		confCleanup();
 		return 7;
 	}
@@ -549,13 +549,13 @@ int main(int argc, char** argv)
 	}
 	destination->shutdown();
 
+	cacheCleanup();
 	// free filesystem
 	recursivelyFreeFilesystem(root);
 
 	actionsCleanup();
 
 	fuse_opt_free_args(&args);
-	cacheCleanup();
 	confCleanup();
 	return fuse_stat;
 }

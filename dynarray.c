@@ -59,3 +59,9 @@ int removeFromDynArrayUnordered(DynArray *dynArray, void* element)
 	}
 	return 1;
 }
+
+void removeFromDynArrayUnorderedNoCheck(DynArray *dynArray, void* element)
+{
+	element = dynArray->objects[dynArray->len-1];
+	dynArray->len--;
+}
