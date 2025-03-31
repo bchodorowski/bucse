@@ -157,9 +157,15 @@ int flushFile(FilesystemFile* file)
 	// writes afterwards that extend the file. In that case, we need to
 	// force that block to be reasaved (not copied over), because we need
 	// trailing zeroes
-	if (file->contentLen > 0 && file->contentLen != newContentLen) {
+	if (file->contentLen > 0 && file->contentLen < newContentLen) {
 		blocksToWrite[file->contentLen - 1] = 1;
 	}
+
+	// another special case? when truncating. TODO: See if this is realy needed
+	if (newContentLen > 0 && file->contentLen > newContentLen) {
+		blocksToWrite[newContentLen - 1] = 1;
+	}
+	
 
 	// debug: print number of blocks to be written
 	int blocksToWriteNum = 0;
