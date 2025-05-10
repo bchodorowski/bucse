@@ -451,7 +451,7 @@ int destSshGetStorageFile(const char* filename, char *buf, size_t *size)
 	free(storageFilePath);
 
 	if (file == NULL) {
-		logPrintf(LOG_ERROR, "destSshInit: sftp_open(): %d\n",
+		logPrintf(LOG_ERROR, "destSshGetStorageFile: sftp_open(): %d\n",
 			sftp_get_error(bucseSftpSession));
 
 		return 2;
@@ -461,7 +461,7 @@ int destSshGetStorageFile(const char* filename, char *buf, size_t *size)
 	sftp_close(file);
 
 	if (bytesRead >= *size) {
-		logPrintf(LOG_ERROR, "destSshInit: repository.json file is too large\n");
+		logPrintf(LOG_ERROR, "destSshGetStorageFile: the file is too large for given buffer\n");
 
 		return 2;
 	}
