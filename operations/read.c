@@ -10,8 +10,6 @@
 #include "../actions.h"
 #include "../time.h"
 #include "../log.h"
-#include "../conf.h"
-#include "../cache.h"
 
 #include "../destinations/dest.h"
 #include "../encryption/encr.h"
@@ -149,35 +147,13 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 		size_t encryptedBlockBufSize = maxEncryptedBlockSize;
 		size_t decryptedBlockBufSize = maxDecryptedBlockSize;
 
-		// TODO; similar code in operations/flush.c. Refactor?
-		if (cacheGet(block->block, decryptedBlockBuf, &decryptedBlockBufSize) != 0) {
-			int res = destination->getStorageFile(block->block, encryptedBlockBuf, &encryptedBlockBufSize);
-			if (res != 0) {
-				logPrintf(LOG_ERROR, "bucse_read: getStorageFile failed for %s: %d\n",
-					block->block, res);
-				ioerror = 1;
-				break;
-			}
-
-			res = encryption->decrypt(encryptedBlockBuf, encryptedBlockBufSize,
-				decryptedBlockBuf, &decryptedBlockBufSize,
-				conf.passphrase);
-			if (res != 0) {
-				logPrintf(LOG_ERROR, "bucse_read: decrypt failed: %d\n", res);
-				ioerror = 1;
-				break;
-			}
-
-			if (decryptedBlockBufSize < block->offset + block->len) {
-				logPrintf(LOG_ERROR, "bucse_read: expected decrypted block size at least %d, got %d\n",
-					block->offset + block->len, decryptedBlockBufSize);
-				ioerror = 1;
-				break;
-			}
-
-			cachePut(block->block, decryptedBlockBuf, decryptedBlockBufSize);
+		if (decryptBlock(block->block,
+			decryptedBlockBuf, &decryptedBlockBufSize,
+			encryptedBlockBuf, &encryptedBlockBufSize,
+			0, block->offset + block->len) != 0) {
+			ioerror = 1;
+			break;
 		}
-
 
 		memcpy(buf + copiedBytes, decryptedBlockBuf + block->offset, block->len);
 		copiedBytes += block->len;

@@ -160,6 +160,7 @@ operations/operations.o: operations/operations.c \
 	destinations/dest.h \
 	log.h \
 	conf.h \
+	cache.h \
 	encryption/encr.h
 	$(CC) -c operations/operations.c -o operations/operations.o $(CFLAGS)
 
@@ -181,7 +182,6 @@ operations/flush.o: operations/flush.c \
 	time.h \
 	log.h \
 	conf.h \
-	cache.h \
 	destinations/dest.h \
 	encryption/encr.h \
 	operations/operations.h
@@ -236,7 +236,6 @@ operations/read.o: operations/read.c \
 	time.h \
 	log.h \
 	conf.h \
-	cache.h \
 	destinations/dest.h \
 	encryption/encr.h \
 	operations/operations.h \

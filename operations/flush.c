@@ -12,7 +12,6 @@
 
 #include "../log.h"
 #include "../conf.h"
-#include "../cache.h"
 
 #include "../destinations/dest.h"
 #include "../encryption/encr.h"
@@ -128,12 +127,12 @@ int flushFile(FilesystemFile* file)
 	}
 
 	// if newContentLen is too big, change the blockSize and rewrite the whole file
-	int rewriteAll = 0;
+	int resizeContent = 0;
 	if (newContentLen > RESIZE_AT_BLOCKS_COUNT && newBlockSize < MAX_BLOCK_SIZE) {
 		logPrintf(LOG_DEBUG, "flushFile: resize blocks\n");
 		newBlockSize = getBlockSize(newSize);
 		newContentLen = newSize / newBlockSize + (int)(newSize % newBlockSize != 0);
-		rewriteAll = 1;
+		resizeContent = 1;
 	}
 
 	// determine which blocks have been changed -- one byte per block
@@ -142,7 +141,8 @@ int flushFile(FilesystemFile* file)
 		logPrintf(LOG_ERROR, "flushFile: malloc(): %s\n", strerror(errno));
 		return 1;
 	}
-	if (rewriteAll) {
+
+	if (resizeContent) {
 		memset(blocksToWrite, 1, newContentLen);
 	} else {
 		memset(blocksToWrite, 0, newContentLen);
@@ -166,7 +166,6 @@ int flushFile(FilesystemFile* file)
 		blocksToWrite[newContentLen - 1] = 1;
 	}
 	
-
 	// debug: print number of blocks to be written
 	int blocksToWriteNum = 0;
 	for (int i=0; i<newContentLen; i++) {
@@ -213,7 +212,55 @@ int flushFile(FilesystemFile* file)
 		memset(decryptedBlockBuf, 0, maxDecryptedBlockSize + DECRYPTED_BUFFER_MARGIN);
 		size_t encryptedBlockBufSize = maxEncryptedBlockSize;
 		size_t decryptedBlockBufSize = maxDecryptedBlockSize;
-		if (i < file->contentLen) {
+
+		// special case when we need to resize blocks
+		if (resizeContent) {
+			logPrintf(LOG_VERBOSE_DEBUG, "content needs to be resized\n");
+			size_t toRead = newSize - (i * newBlockSize);
+			if (toRead > newBlockSize) {
+				toRead = newBlockSize;
+			}
+			// we are using the fact that the new block size is a multiple of the old block size
+			int sourceBlockIndex = (newBlockSize/file->blockSize)*i;
+			char* bufPtr = decryptedBlockBuf;
+			size_t bufSize = decryptedBlockBufSize;
+			while (toRead > 0) {
+				if (sourceBlockIndex >= file->contentLen) {
+					logPrintf(LOG_VERBOSE_DEBUG, "toRead fill with zeros: %d\n", toRead);
+					memset(bufPtr, 0, toRead);
+					toRead = 0;
+					break;
+				}
+				logPrintf(LOG_VERBOSE_DEBUG, "toRead: %d\n", toRead);
+				size_t expectedReadSize = file->size - (sourceBlockIndex * file->blockSize);
+				if (expectedReadSize > file->blockSize) {
+					expectedReadSize = file->blockSize;
+				}
+				const char* block = file->content + (MAX_STORAGE_NAME_LEN * sourceBlockIndex);
+				logPrintf(LOG_VERBOSE_DEBUG, "expectedReadSize: %d\n", expectedReadSize);
+				logPrintf(LOG_VERBOSE_DEBUG, "bufSize: %d\n", bufSize);
+				logPrintf(LOG_VERBOSE_DEBUG, "sourceBlockIndex: %d\n", sourceBlockIndex);
+				logPrintf(LOG_VERBOSE_DEBUG, "block: %s\n", block);
+
+				size_t bufSizeCopy=bufSize;
+				size_t encryptedBlockBufSizeCopy = encryptedBlockBufSize;
+				if (decryptBlock(block,
+					bufPtr, &bufSizeCopy,
+					encryptedBlockBuf, &encryptedBlockBufSizeCopy,
+					1, expectedReadSize) != 0) {
+					ioerror = 1;
+					break;
+				}
+				bufPtr += expectedReadSize;
+				bufSize -= expectedReadSize;
+				toRead -= expectedReadSize;
+				sourceBlockIndex++;
+			}
+			if (ioerror) {
+				break;
+			}
+		}
+		else if (i < file->contentLen) {
 			size_t expectedReadSize = file->size - (i * file->blockSize);
 			if (expectedReadSize > file->blockSize) {
 				expectedReadSize = file->blockSize;
@@ -221,33 +268,12 @@ int flushFile(FilesystemFile* file)
 
 			const char* block = file->content + (MAX_STORAGE_NAME_LEN * i);
 			
-			// TODO; similar code in operations/read.c. Refactor?
-			if (cacheGet(block, decryptedBlockBuf, &decryptedBlockBufSize) != 0) {
-				int res = destination->getStorageFile(block, encryptedBlockBuf, &encryptedBlockBufSize);
-				if (res != 0) {
-					logPrintf(LOG_ERROR, "flushFile: getStorageFile failed for %s: %d\n",
-						block, res);
-					ioerror = 1;
-					break;
-				}
-
-				res = encryption->decrypt(encryptedBlockBuf, encryptedBlockBufSize,
-					decryptedBlockBuf, &decryptedBlockBufSize,
-					conf.passphrase);
-				if (res != 0) {
-					logPrintf(LOG_ERROR, "flushFile: decrypt failed: %d\n", res);
-					ioerror = 1;
-					break;
-				}
-
-				if (decryptedBlockBufSize != expectedReadSize) {
-					logPrintf(LOG_ERROR, "flushFile: expected decrypted block size %d, got %d\n",
-						expectedReadSize, decryptedBlockBufSize);
-					ioerror = 1;
-					break;
-				}
-				
-				cachePut(block, decryptedBlockBuf, decryptedBlockBufSize);
+			if (decryptBlock(block,
+				decryptedBlockBuf, &decryptedBlockBufSize,
+				encryptedBlockBuf, &encryptedBlockBufSize,
+				1, expectedReadSize) != 0) {
+				ioerror = 1;
+				break;
 			}
 
 		}

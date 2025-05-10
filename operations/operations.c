@@ -11,6 +11,7 @@
 #include "../encryption/encr.h"
 #include "../log.h"
 #include "../conf.h"
+#include "../cache.h"
 
 #include "operations.h"
 
@@ -56,4 +57,45 @@ int encryptAndAddActionFile(Action* newAction)
 	free(jsonData);
 	free(encryptedBuf);
 	return result;
+}
+
+int decryptBlock(const char* block,
+	char* decryptedBlockBuf, size_t* decryptedBlockBufSize,
+	char* encryptedBlockBuf, size_t* encryptedBlockBufSize,
+	int exactly,
+	size_t expectedReadSize)
+{
+	if (cacheGet(block, decryptedBlockBuf, decryptedBlockBufSize) != 0) {
+		int res = destination->getStorageFile(block, encryptedBlockBuf, encryptedBlockBufSize);
+		if (res != 0) {
+			logPrintf(LOG_ERROR, "decryptBlock: getStorageFile failed for %s: %d\n",
+					block, res);
+			return 1;
+		}
+
+		res = encryption->decrypt(encryptedBlockBuf, *encryptedBlockBufSize,
+				decryptedBlockBuf, decryptedBlockBufSize,
+				conf.passphrase);
+		if (res != 0) {
+			logPrintf(LOG_ERROR, "decryptBlock: decrypt failed: %d\n", res);
+			return 2;
+		}
+
+		if (exactly) {
+			if (*decryptedBlockBufSize != expectedReadSize) {
+				logPrintf(LOG_ERROR, "decryptBlock: expected decrypted block size %d, got %d\n",
+						expectedReadSize, *decryptedBlockBufSize);
+				return 3;
+			}
+		} else {
+			if (*decryptedBlockBufSize < expectedReadSize) {
+				logPrintf(LOG_ERROR, "decryptBlock: expected decrypted block size at least %d, got %d\n",
+						expectedReadSize, *decryptedBlockBufSize);
+				return 3;
+			}
+		}
+
+		cachePut(block, decryptedBlockBuf, *decryptedBlockBufSize);
+	}
+	return 0;
 }
