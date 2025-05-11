@@ -184,6 +184,42 @@ static int verify_knownhost(ssh_session session)
 	return 0;
 }
 
+static size_t sftp_write_multiple_calls(sftp_file file, const void* buf, size_t size)
+{
+	size_t sentBytes = 0;
+	while (sentBytes < size) {
+		size_t bytesToSend = size - sentBytes;
+		if (bytesToSend > 32768)
+			bytesToSend = 32768;
+
+		size_t res = sftp_write(file, buf+sentBytes, bytesToSend);
+		if (res < 0)
+			return -1;
+
+		sentBytes += res;
+	}
+	return sentBytes;
+}
+
+static ssize_t sftp_read_multiple_calls(sftp_file file, void* buf, size_t size)
+{
+	size_t receivedBytes = 0;
+	while (receivedBytes < size) {
+		size_t bytesToReceive = size - receivedBytes;
+		if (bytesToReceive > 32768)
+			bytesToReceive = 32768;
+
+		ssize_t res = sftp_read(file, buf+receivedBytes, bytesToReceive);
+		if (res < 0)
+			return -1;
+
+		receivedBytes += (size_t)res;
+		if (res == 0)
+			return receivedBytes;
+	}
+	return receivedBytes;
+}
+
 static ssh_session bucseSshSession;
 static sftp_session bucseSftpSession;
 static void invalidDestination() {
@@ -419,14 +455,14 @@ int destSshPutStorageFile(const char* filename, char *buf, size_t size)
 	sftp_file file = sftp_open(bucseSftpSession, storageFilePath, O_WRONLY | O_CREAT | O_EXCL, 0644);
 	free(storageFilePath);
 	if (file == NULL) {
-		logPrintf(LOG_ERROR, "destSshPutStorageFile: sftp_open(): %s\n",
+		logPrintf(LOG_ERROR, "destSshPutStorageFile: sftp_open(): %d\n",
 			sftp_get_error(bucseSftpSession));
 		return 2;
 	}
 
-	int bytesWritten = sftp_write(file, buf, size);
+	int bytesWritten = sftp_write_multiple_calls(file, buf, size);
 	if (bytesWritten < 0) {
-		logPrintf(LOG_ERROR, "destSshPutStorageFile: sftp_write(): %s\n",
+		logPrintf(LOG_ERROR, "destSshPutStorageFile: sftp_write_multiple_calls(): %d\n",
 			sftp_get_error(bucseSftpSession));
 		sftp_close(file);
 		return 3;
@@ -457,7 +493,7 @@ int destSshGetStorageFile(const char* filename, char *buf, size_t *size)
 		return 2;
 	}
 
-	int bytesRead = sftp_read(file, buf, *size);
+	int bytesRead = sftp_read_multiple_calls(file, buf, *size);
 	sftp_close(file);
 
 	if (bytesRead >= *size) {
@@ -485,14 +521,14 @@ int destSshAddActionFile(char* filename, char *buf, size_t size)
 	sftp_file file = sftp_open(bucseSftpSession, actionFilePath, O_WRONLY | O_CREAT | O_EXCL, 0644);
 	free(actionFilePath);
 	if (file == NULL) {
-		logPrintf(LOG_ERROR, "destSshAddActionFile: sftp_open(): %s\n",
+		logPrintf(LOG_ERROR, "destSshAddActionFile: sftp_open(): %d\n",
 			sftp_get_error(bucseSftpSession));
 		return 2;
 	}
 
-	int bytesWritten = sftp_write(file, buf, size);
+	int bytesWritten = sftp_write_multiple_calls(file, buf, size);
 	if (bytesWritten < 0) {
-		logPrintf(LOG_ERROR, "destSshAddActionFile: sftp_write(): %s\n",
+		logPrintf(LOG_ERROR, "destSshAddActionFile: sftp_write_multiple_calls(): %d\n",
 			sftp_get_error(bucseSftpSession));
 		sftp_close(file);
 		return 3;
@@ -520,7 +556,7 @@ int destSshGetRepositoryJsonFile(char *buf, size_t *size)
 		return 1;
 	}
 
-	int bytesRead = sftp_read(file, buf, *size);
+	int bytesRead = sftp_read_multiple_calls(file, buf, *size);
 	sftp_close(file);
 
 	if (bytesRead >= *size) {
@@ -551,7 +587,7 @@ int destSshGetRepositoryFile(char *buf, size_t *size)
 		return 1;
 	}
 
-	int bytesRead = sftp_read(file, buf, *size);
+	int bytesRead = sftp_read_multiple_calls(file, buf, *size);
 	sftp_close(file);
 
 	if (bytesRead >= *size) {
@@ -647,7 +683,7 @@ int destSshTick()
 			continue;
 		}
 
-		int bytesRead = sftp_read(file, actionFileBuf, MAX_ACTION_LEN);
+		int bytesRead = sftp_read_multiple_calls(file, actionFileBuf, MAX_ACTION_LEN);
 		sftp_close(file);
 
 		if (bytesRead >= MAX_ACTION_LEN) {
