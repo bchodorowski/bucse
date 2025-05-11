@@ -17,6 +17,7 @@ typedef struct _BlockslistItem {
 
 typedef struct {
 	BlockslistItem *first;
+	BlockslistItem *last;
 } Blockslist;
 
 typedef struct {
@@ -90,6 +91,8 @@ int cacheGet(const char* block, char* buf, size_t *size)
 
 		// move item in the blockslist to the front
 		if (item->blockslistItem != blockslist.first) {
+			if (item->blockslistItem == blockslist.last)
+				blockslist.last = item->blockslistItem->prev;
 			if (item->blockslistItem->prev)
 				item->blockslistItem->prev->next = item->blockslistItem->next;
 			if (item->blockslistItem->next)
@@ -99,10 +102,13 @@ int cacheGet(const char* block, char* buf, size_t *size)
 			item->blockslistItem->next = blockslist.first;
 			item->blockslistItem->prev = NULL;
 			blockslist.first = item->blockslistItem;
+
 		}
 
+		logPrintf(LOG_VERBOSE_DEBUG, "cacheGet: cache hit: %s\n", block);
 		return 0;
 	}
+	logPrintf(LOG_VERBOSE_DEBUG, "cacheGet: cache miss: %s\n", block);
 	return -1;
 }
 
@@ -142,19 +148,23 @@ int cachePut(const char* block, char* buf, size_t size)
 	if (blockslist.first->next) {
 		blockslist.first->next->prev = blockslist.first;
 	}
+	if (blockslist.last == NULL)
+		blockslist.last = blockslist.first;
 
 	newItem->blockslistItem = newBlockslistItem;
 	
 	blockslistCount ++;
 	blockslistBytes += size;
 
+	logPrintf(LOG_VERBOSE_DEBUG, "cachePut: cache item saved: %s\n", block);
+
 	// check blockslist count and bytes size and delete oldest entries if needed
 	while (blockslistCount > HASH_TABLE_SIZE_COUNT || blockslistBytes > HASH_TABLE_SIZE_BYTES) {
-		int indexToDelete = hexStringToHashIndex(blockslist.first->key);
+		int indexToDelete = hexStringToHashIndex(blockslist.last->key);
 		Block* foundItemToDelete = NULL;
 		for (int i=0; i<hashTableBuckets[indexToDelete].len; i++) {
 			Block* itemToDelete = (Block*)hashTableBuckets[indexToDelete].objects[i];
-			if (strcmp(itemToDelete->key, block) == 0) {
+			if (strcmp(itemToDelete->key, blockslist.last->key) == 0) {
 				foundItemToDelete = itemToDelete;
 				break;
 			}
@@ -168,9 +178,16 @@ int cachePut(const char* block, char* buf, size_t size)
 		free(foundItemToDelete->data);
 		removeFromDynArrayUnorderedNoCheck(&hashTableBuckets[indexToDelete], foundItemToDelete);
 		free(foundItemToDelete);
-		blockslist.first = blockslist.first->next;
-		free(blockslist.first->prev);
-		blockslist.first->prev = NULL;
+
+		BlockslistItem* toDelete = blockslist.last;
+		blockslist.last = blockslist.last->prev;
+		if (toDelete)
+		{
+			logPrintf(LOG_VERBOSE_DEBUG, "cachePut: cache item removed: %s\n", toDelete->key);
+			free(toDelete);
+		}
+		if (blockslist.last)
+			blockslist.last->next = NULL;
 	}
 
 	return 0;
