@@ -68,7 +68,8 @@ static int bucse_getattr(const char *path, struct stat *stbuf, struct fuse_file_
 				flushFile(file);
 			}
 
-			stbuf->st_mode = S_IFREG | 0644;
+			//stbuf->st_mode = S_IFREG | 0644;
+			stbuf->st_mode = S_IFREG | 0755;
 			stbuf->st_nlink = 1;
 			stbuf->st_size = (file->dirtyFlags & DirtyFlagPendingTrunc)
 				? file->truncSize
