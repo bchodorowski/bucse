@@ -434,10 +434,15 @@ int main(int argc, char** argv)
 
 	if (conf.repository == NULL) {
 		logPrintf(LOG_ERROR, "no repository specified\n");
+		recursivelyFreeFilesystem(root);
+		fuse_opt_free_args(&args);
+		confCleanup();
 		return 2;
 	}
 	if (cacheInit() != 0) {
 		logPrintf(LOG_ERROR, "cache initialization failed\n");
+		recursivelyFreeFilesystem(root);
+		fuse_opt_free_args(&args);
 		confCleanup();
 		return 3;
 	}
@@ -461,9 +466,9 @@ int main(int argc, char** argv)
 	if (parseRepositoryJsonFile() != 0) {
 		logPrintf(LOG_ERROR, "parseRepositoryJsonFile() failed\n");
 
-		destination->shutdown();
 		cacheCleanup();
 		recursivelyFreeFilesystem(root);
+		destination->shutdown();
 		actionsCleanup();
 		fuse_opt_free_args(&args);
 		confCleanup();
@@ -509,9 +514,9 @@ int main(int argc, char** argv)
 		if (gotPass == 0) {
 			logPrintf(LOG_ERROR, "Encryption needs a passphrase\n");
 
-			destination->shutdown();
 			cacheCleanup();
 			recursivelyFreeFilesystem(root);
+			destination->shutdown();
 			actionsCleanup();
 			fuse_opt_free_args(&args);
 			confCleanup();
@@ -526,9 +531,9 @@ int main(int argc, char** argv)
 			logPrintf(LOG_ERROR, "Is the passphrase correct?\n");
 		}
 
-		destination->shutdown();
 		cacheCleanup();
 		recursivelyFreeFilesystem(root);
+		destination->shutdown();
 		actionsCleanup();
 		fuse_opt_free_args(&args);
 		confCleanup();
@@ -547,11 +552,11 @@ int main(int argc, char** argv)
 	{
 		logPrintf(LOG_ERROR, "pthread_join: %d\n", ret);
 	}
-	destination->shutdown();
 
 	cacheCleanup();
 	// free filesystem
 	recursivelyFreeFilesystem(root);
+	destination->shutdown();
 
 	actionsCleanup();
 
