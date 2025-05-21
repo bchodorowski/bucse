@@ -14,7 +14,7 @@ typedef struct {
 	char* path;
 	char* content;
 	int contentLen;
-	int size;
+	size_t size;
 	int blockSize;
 } Action;
 

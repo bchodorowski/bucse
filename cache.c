@@ -31,7 +31,7 @@ typedef struct {
 #define HASH_TABLE_BUCKETS_COUNT (1 << (4*HASH_TABLE_BUCKETS_COUNT_AS_HEX_CHARS))
 
 #define HASH_TABLE_SIZE_COUNT 1024
-#define HASH_TABLE_SIZE_BYTES 100*1024*1024
+#define HASH_TABLE_SIZE_BYTES 250*1024*1024
 
 static DynArray hashTableBuckets[HASH_TABLE_BUCKETS_COUNT];
 
@@ -162,10 +162,12 @@ int cachePut(const char* block, char* buf, size_t size)
 	while (blockslistCount > HASH_TABLE_SIZE_COUNT || blockslistBytes > HASH_TABLE_SIZE_BYTES) {
 		int indexToDelete = hexStringToHashIndex(blockslist.last->key);
 		Block* foundItemToDelete = NULL;
+		int foundItemToDeleteIndex = -1;
 		for (int i=0; i<hashTableBuckets[indexToDelete].len; i++) {
 			Block* itemToDelete = (Block*)hashTableBuckets[indexToDelete].objects[i];
 			if (strcmp(itemToDelete->key, blockslist.last->key) == 0) {
 				foundItemToDelete = itemToDelete;
+				foundItemToDeleteIndex = i;
 				break;
 			}
 		}
@@ -176,7 +178,7 @@ int cachePut(const char* block, char* buf, size_t size)
 		blockslistCount --;
 		blockslistBytes -= foundItemToDelete->size;
 		free(foundItemToDelete->data);
-		removeFromDynArrayUnorderedNoCheck(&hashTableBuckets[indexToDelete], foundItemToDelete);
+		removeFromDynArrayUnorderedByIndex(&hashTableBuckets[indexToDelete], foundItemToDeleteIndex);
 		free(foundItemToDelete);
 
 		BlockslistItem* toDelete = blockslist.last;

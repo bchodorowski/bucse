@@ -60,8 +60,8 @@ int removeFromDynArrayUnordered(DynArray *dynArray, void* element)
 	return 1;
 }
 
-void removeFromDynArrayUnorderedNoCheck(DynArray *dynArray, void* element)
+void removeFromDynArrayUnorderedByIndex(DynArray *dynArray, int i)
 {
-	element = dynArray->objects[dynArray->len-1];
+	dynArray->objects[i] = dynArray->objects[dynArray->len-1];
 	dynArray->len--;
 }

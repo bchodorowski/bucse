@@ -29,12 +29,12 @@ typedef struct
 	int64_t mtime;
 	char* content; // pointer to memory that is managed by actions
 	int contentLen;
-	int size;
+	size_t size;
 	int blockSize;
 	DirtyFlags dirtyFlags;
 	DynArray pendingWrites;
 	FilesystemDir* parentDir;
-	int truncSize;
+	size_t truncSize;
 } FilesystemFile;
 
 extern FilesystemDir* root;

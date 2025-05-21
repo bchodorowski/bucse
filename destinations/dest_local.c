@@ -32,8 +32,8 @@ static ActionAddedCallback cachedActionAddedCallback;
 // TODO: rename to ActionNames [?]
 typedef struct {
 	char* names;
-	int len;
-	int size;
+	int64_t len;
+	int64_t size;
 } Actions;
 
 static int addAction(Actions *actions, char* newActionName)

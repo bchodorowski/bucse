@@ -29,7 +29,7 @@ extern Destination *destination;
 extern Encryption *encryption;
 
 // determine block size using a file size
-static int getBlockSize(int size)
+static int getBlockSize(size_t size)
 {
 	if (size == 0) {
 		return 0;
@@ -84,7 +84,7 @@ int flushFile(FilesystemFile* file)
 	}
 	// TODO: what if create only, no writes?
 
-	int newSize = file->size;
+	size_t newSize = file->size;
 	if (file->dirtyFlags & DirtyFlagPendingTrunc) {
 		newSize = file->truncSize;
 		file->truncSize = 0;
@@ -131,7 +131,8 @@ int flushFile(FilesystemFile* file)
 	if (newContentLen > RESIZE_AT_BLOCKS_COUNT && newBlockSize < MAX_BLOCK_SIZE) {
 		logPrintf(LOG_DEBUG, "flushFile: resize blocks\n");
 		newBlockSize = getBlockSize(newSize);
-		newContentLen = newSize / newBlockSize + (int)(newSize % newBlockSize != 0);
+		newContentLen = (int)(newSize / (size_t)newBlockSize)
+			+ (int)(newSize % newBlockSize != 0);
 		resizeContent = 1;
 	}
 

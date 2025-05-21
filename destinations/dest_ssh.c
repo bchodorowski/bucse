@@ -31,8 +31,8 @@ static ActionAddedCallback cachedActionAddedCallback;
 // TODO: rename to ActionNames [?]
 typedef struct {
 	char* names;
-	int len;
-	int size;
+	int64_t len;
+	int64_t size;
 } Actions;
 
 static int addAction(Actions *actions, char* newActionName)
@@ -192,7 +192,7 @@ static size_t sftp_write_multiple_calls(sftp_file file, const void* buf, size_t 
 		if (bytesToSend > 32768)
 			bytesToSend = 32768;
 
-		size_t res = sftp_write(file, buf+sentBytes, bytesToSend);
+		size_t res = sftp_write(file, (char*)buf+sentBytes, bytesToSend);
 		if (res < 0)
 			return -1;
 
@@ -209,7 +209,7 @@ static ssize_t sftp_read_multiple_calls(sftp_file file, void* buf, size_t size)
 		if (bytesToReceive > 32768)
 			bytesToReceive = 32768;
 
-		ssize_t res = sftp_read(file, buf+receivedBytes, bytesToReceive);
+		ssize_t res = sftp_read(file, (char*)buf+receivedBytes, bytesToReceive);
 		if (res < 0)
 			return -1;
 
