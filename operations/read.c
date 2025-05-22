@@ -67,7 +67,7 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 {
 	(void) fi;
 
-	logPrintf(LOG_DEBUG, "read %s, size: %u, offset: %u\n", path, size, offset);
+	logPrintf(LOG_DEBUG, "read %s, size: %zu, offset: %jd\n", path, size, (intmax_t)offset);
 
 	if (path == NULL) {
 		return -EIO;

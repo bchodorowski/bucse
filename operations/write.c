@@ -20,7 +20,7 @@ static int bucse_write(const char *path, const char *buf, size_t size, off_t off
 {
 	(void) fi;
 
-	logPrintf(LOG_DEBUG, "write %s, size: %u, offset: %u\n", path, size, offset);
+	logPrintf(LOG_DEBUG, "write %s, size: %zu, offset: %jd\n", path, size, (intmax_t)offset);
 
 	if (path == NULL) {
 		return -EIO;

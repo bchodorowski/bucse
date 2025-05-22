@@ -513,7 +513,7 @@ char* serializeAction(Action* action)
 	json_object_object_add(jsonNewAction,
 		"content", jsonNewContent);
 	json_object_object_add(jsonNewAction,
-		"size", json_object_new_int(action->size));
+		"size", json_object_new_int64(action->size));
 	json_object_object_add(jsonNewAction,
 		"blockSize", json_object_new_int(action->blockSize));
 
