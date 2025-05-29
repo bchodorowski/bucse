@@ -3,6 +3,9 @@
 import bucseTests
 
 
+bucseTests.parseArgs()
+
+
 bucseTests.downloadTmp(
         'https://mirrors.edge.kernel.org/pub/linux/kernel/v6.x/linux-6.9.4.tar.xz',
         'linux-6.9.4.tar.xz',
