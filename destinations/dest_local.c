@@ -206,7 +206,7 @@ int destLocalCreateDirs()
 	} else if (err != 0 && errno == ENOENT) {
 		// OK
 	} else {
-		logPrintf(LOG_ERROR, "destLocalCreateDirs: repository.json file already exists\n", strerror(errno));
+		logPrintf(LOG_ERROR, "destLocalCreateDirs: repository.json file already exists\n");
 		return 5;
 	}
 
@@ -219,7 +219,7 @@ int destLocalCreateDirs()
 	} else if (err != 0 && errno == ENOENT) {
 		// OK
 	} else {
-		logPrintf(LOG_ERROR, "destLocalCreateDirs: repository file already exists\n", strerror(errno));
+		logPrintf(LOG_ERROR, "destLocalCreateDirs: repository file already exists\n");
 		return 7;
 	}
 

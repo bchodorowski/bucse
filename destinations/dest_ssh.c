@@ -244,6 +244,7 @@ static void cleanupStrings() {
 
 int destSshInit(char* repository)
 {
+	// TODO: handle username
 	char* firstSlash = strstr(repository, "/");
 	char* firstColon = strstr(repository, ":");
 	int port = 22;
@@ -436,9 +437,57 @@ void destSshShutdown()
 
 int destSshCreateDirs()
 {
-	// TODO
-	logPrintf(LOG_ERROR, "destSshCreateDirs: Not implemented yet()\n");
-	return 1;
+	if (sftp_mkdir(bucseSftpSession, repositoryPath, S_IRUSR | S_IWUSR | S_IXUSR
+		| S_IRGRP | S_IXGRP
+		| S_IROTH | S_IXOTH) != 0) {
+		logPrintf(LOG_ERROR, "destSshCreateDirs: sftp_mkdir(): %d\n", sftp_get_error(bucseSftpSession));
+		return 1;
+	}
+
+	if (sftp_mkdir(bucseSftpSession, repositoryActionsPath, S_IRUSR | S_IWUSR | S_IXUSR
+		| S_IRGRP | S_IXGRP
+		| S_IROTH | S_IXOTH) != 0) {
+		logPrintf(LOG_ERROR, "destSshCreateDirs: sftp_mkdir(): %d\n", sftp_get_error(bucseSftpSession));
+		return 2;
+	}
+
+	if (sftp_mkdir(bucseSftpSession, repositoryStoragePath, S_IRUSR | S_IWUSR | S_IXUSR
+		| S_IRGRP | S_IXGRP
+		| S_IROTH | S_IXOTH) != 0) {
+		logPrintf(LOG_ERROR, "destSshCreateDirs: sftp_mkdir(): %d\n", sftp_get_error(bucseSftpSession));
+		return 3;
+	}
+
+	sftp_attributes s;
+	int err;
+
+	// check if repository json file already exists
+	s = sftp_stat(bucseSftpSession, repositoryJsonFilePath);
+	err = sftp_get_error(bucseSftpSession);
+	if (s == NULL && err != SSH_FX_NO_SUCH_FILE) {
+		logPrintf(LOG_ERROR, "destSshCreateDirs: sftp_stat(): %d\n", err);
+		return 4;
+	} else if (s == NULL && err == SSH_FX_NO_SUCH_FILE) {
+		// OK
+	} else {
+		logPrintf(LOG_ERROR, "destSshCreateDirs: repository.json file already exists\n");
+		return 5;
+	}
+
+	// check if repository file already exists
+	s = sftp_stat(bucseSftpSession, repositoryFilePath);
+	err = sftp_get_error(bucseSftpSession);
+	if (s == NULL && err != SSH_FX_NO_SUCH_FILE ) {
+		logPrintf(LOG_ERROR, "destSshCreateDirs: sftp_stat(): %d\n", err);
+		return 6;
+	} else if (s == NULL && err == SSH_FX_NO_SUCH_FILE) {
+		// OK
+	} else {
+		logPrintf(LOG_ERROR, "destSshCreateDirs: repository file already exists\n");
+		return 7;
+	}
+
+	return 0;
 }
 
 int destSshPutStorageFile(const char* filename, char *buf, size_t size)
@@ -541,16 +590,30 @@ int destSshAddActionFile(char* filename, char *buf, size_t size)
 
 int destSshPutRepositoryJsonFile(char *buf, size_t size)
 {
-	// TODO
-	logPrintf(LOG_ERROR, "destSshPutRepositoryJsonFile: Not implemented yet()\n");
-	return 1;
+	sftp_file file = sftp_open(bucseSftpSession, repositoryJsonFilePath, O_WRONLY | O_CREAT | O_EXCL, 0644);
+	if (file == NULL) {
+		logPrintf(LOG_ERROR, "destSshPutRepositoryJsonFile: sftp_open(): %d\n",
+			sftp_get_error(bucseSftpSession));
+		return 1;
+	}
+
+	int bytesWritten = sftp_write_multiple_calls(file, buf, size);
+	if (bytesWritten < 0) {
+		logPrintf(LOG_ERROR, "destSshPutRepositoryJsonFile: sftp_write_multiple_calls(): %d\n",
+			sftp_get_error(bucseSftpSession));
+		sftp_close(file);
+		return 2;
+	}
+	sftp_close(file);
+
+	return 0;
 }
 
 int destSshGetRepositoryJsonFile(char *buf, size_t *size)
 {
 	sftp_file file = sftp_open(bucseSftpSession, repositoryJsonFilePath, O_RDONLY, 0);
 	if (file == NULL) {
-		logPrintf(LOG_ERROR, "destSshInit: sftp_open(): %d\n",
+		logPrintf(LOG_ERROR, "destSshGetRepositoryJsonFile: sftp_open(): %d\n",
 			sftp_get_error(bucseSftpSession));
 
 		return 1;
@@ -572,16 +635,30 @@ int destSshGetRepositoryJsonFile(char *buf, size_t *size)
 
 int destSshPutRepositoryFile(char *buf, size_t size)
 {
-	// TODO
-	logPrintf(LOG_ERROR, "destSshPutRepositoryFile: Not implemented yet()\n");
-	return 1;
+	sftp_file file = sftp_open(bucseSftpSession, repositoryFilePath, O_WRONLY | O_CREAT | O_EXCL, 0644);
+	if (file == NULL) {
+		logPrintf(LOG_ERROR, "destSshPutRepositoryFile: sftp_open(): %d\n",
+			sftp_get_error(bucseSftpSession));
+		return 1;
+	}
+
+	int bytesWritten = sftp_write_multiple_calls(file, buf, size);
+	if (bytesWritten < 0) {
+		logPrintf(LOG_ERROR, "destSshPutRepositoryFile: sftp_write_multiple_calls(): %d\n",
+			sftp_get_error(bucseSftpSession));
+		sftp_close(file);
+		return 2;
+	}
+	sftp_close(file);
+
+	return 0;
 }
 
 int destSshGetRepositoryFile(char *buf, size_t *size)
 {
 	sftp_file file = sftp_open(bucseSftpSession, repositoryFilePath, O_RDONLY, 0);
 	if (file == NULL) {
-		logPrintf(LOG_ERROR, "destSshInit: sftp_open(): %d\n",
+		logPrintf(LOG_ERROR, "destSshGetRepositoryFile: sftp_open(): %d\n",
 			sftp_get_error(bucseSftpSession));
 
 		return 1;
@@ -591,7 +668,7 @@ int destSshGetRepositoryFile(char *buf, size_t *size)
 	sftp_close(file);
 
 	if (bytesRead >= *size) {
-		logPrintf(LOG_ERROR, "destSshGetRepositoryJsonFile: repository.json file is too large\n");
+		logPrintf(LOG_ERROR, "destSshGetRepositoryFile: repository.json file is too large\n");
 
 		return 2;
 	}

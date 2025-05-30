@@ -4,17 +4,26 @@ import time
 import random
 import string
 import argparse
+import re
 
 pid = os.getpid()
 tmpFiles = []
 
 argDebug = False
 argValgrind = False
+argRepoPath = "."
+argEncryption = "none"
+argPassphrase = "12345"
+
 valgrindProc = None
 
 def parseArgs():
     global argDebug
     global argValgrind
+    global argRepoPath
+    global argEncryption
+    global argPassphrase
+
     parser = argparse.ArgumentParser()
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--debug",
@@ -23,11 +32,23 @@ def parseArgs():
     group.add_argument("--valgrind",
         help="Use valgrind.",
         action="store_true")
+    parser.add_argument("--repo-path", "-r",
+        help="Path where the repository will be placed.")
+    parser.add_argument("--encryption", "-e",
+        help="Encryption to be used. \"none\" or \"aes\".")
+    parser.add_argument("--passphrase", "-p",
+        help="Passphrase to be used.")
     args = parser.parse_args()
     if args.debug:
         argDebug = True
     if args.valgrind:
         argValgrind = True
+    if args.repo_path:
+        argRepoPath = args.repo_path
+    if args.encryption:
+        argEncryption = args.encryption
+    if args.passphrase:
+        argPassphrase = args.passphrase
 
 def downloadTmp(url, filename, shasum):
     p = subprocess.run(["wget", "-O", "tmp/%s"%filename, url])
@@ -42,6 +63,9 @@ def downloadTmp(url, filename, shasum):
 def mountDirs():
     global argDebug
     global argValgrind
+    global argRepoPath
+    global argEncryption
+    global argPassphrase
     global valgrindProc
 
     p = subprocess.run(["mkdir", "test_%d_mirror" % pid])
@@ -50,22 +74,21 @@ def mountDirs():
     p = subprocess.run(["mkdir", "test_%d" % pid])
     p.check_returncode()
 
-    p = subprocess.run(["../bucse-init", "test_%d_repo" % pid])
+    p = subprocess.run(["../bucse-init", "-e", argEncryption, "-p", argPassphrase, "%s/test_%d_repo" % (argRepoPath, pid)])
     p.check_returncode()
 
+    argsList = ["../bucse-mount", "-p", argPassphrase, "-r", "%s/test_%d_repo" % (argRepoPath, pid), "test_%d" % pid]
     if argDebug:
-        print(" ".join(["../bucse-mount", "-f -v 4", "-r", "test_%d_repo" % pid, "test_%d" % pid]))
+        print(" ".join(argsList + ["-f -v 4"]))
         input()
+    elif argValgrind:
+        argsList = ["valgrind", "--log-file=tmp/valgrind_%d.txt" % pid, "--error-exitcode=-1", "--leak-check=full", "--show-leak-kinds=all", "--errors-for-leak-kinds=all", "--exit-on-first-error=yes"] + argsList + ["-f"]
+        tmpFiles.append("valgrind_%d.txt" % pid)
+        valgrindProc = subprocess.Popen(argsList, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     else:
-        argsList = ["../bucse-mount", "-r", "test_%d_repo" % pid, "test_%d" % pid]
-        if argValgrind:
-            argsList = ["valgrind", "--log-file=tmp/valgrind_%d.txt" % pid, "--error-exitcode=-1", "--leak-check=full", "--show-leak-kinds=all", "--errors-for-leak-kinds=all", "--exit-on-first-error=yes"] + argsList + ["-f"]
-            tmpFiles.append("valgrind_%d.txt" % pid)
-            valgrindProc = subprocess.Popen(argsList, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        else:
-            p = subprocess.run(argsList)
-            p.check_returncode()
-        time.sleep(5)
+        p = subprocess.run(argsList)
+        p.check_returncode()
+    time.sleep(5)
 
 
 def mirrorCommand(args):
@@ -85,6 +108,9 @@ def mirrorCommand(args):
 
 def verifyWithMirror():
     global argValgrind
+    global argRepoPath
+    global argEncryption
+    global argPassphrase
     global valgrindProc
 
     p = subprocess.run(["sync"])
@@ -101,7 +127,7 @@ def verifyWithMirror():
         if valgrindProc.returncode != 0:
             raise Exception("bucse-mount returned %d" % valgrindProc.returncode)
 
-    p = subprocess.run(["../bucse-mount", "-r", "test_%d_repo" % pid, "test_%d" % pid])
+    p = subprocess.run(["../bucse-mount", "-p", argPassphrase, "-r", "%s/test_%d_repo" % (argRepoPath, pid), "test_%d" % pid])
     p.check_returncode()
 
     time.sleep(5)
@@ -111,6 +137,8 @@ def verifyWithMirror():
 
 
 def testCleanup():
+    global argRepoPath
+
     time.sleep(1)
 
     p = subprocess.run(["umount", "test_%d" % pid])
@@ -119,7 +147,19 @@ def testCleanup():
     p = subprocess.run(["rm", "-rf", "test_%d_mirror" % pid])
     p.check_returncode()
 
-    p = subprocess.run(["rm", "-rf", "test_%d_repo" % pid])
+    r = re.match('ssh://(.*?)(:(\d+))?/(.*)$', argRepoPath)
+    if r:
+        # TODO: handle usernames
+        hostname = r.groups()[0]
+        port = r.groups()[2]
+        repoPath = r.groups()[3]
+        argsList = ["ssh"]
+        if port:
+            argsList = argsList + ["-p", port]
+        argsList = argsList + [hostname, "rm", "-rf", "%s/test_%d_repo"%(repoPath, pid)]
+        p = subprocess.run(argsList)
+    else:
+        p = subprocess.run(["rm", "-rf", "%s/test_%d_repo" % (argRepoPath, pid)])
     p.check_returncode()
 
     p = subprocess.run(["rm", "-rf", "test_%d" % pid])
