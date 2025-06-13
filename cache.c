@@ -37,7 +37,7 @@ static DynArray hashTableBuckets[HASH_TABLE_BUCKETS_COUNT];
 
 static Blockslist blockslist;
 int blockslistCount;
-int blockslistBytes;
+size_t blockslistBytes;
 
 static int hexStringToHashIndex(const char* hex)
 {
