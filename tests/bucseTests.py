@@ -17,6 +17,7 @@ argPassphrase = "12345"
 
 valgrindProc = None
 
+
 def parseArgs():
     global argDebug
     global argValgrind
@@ -49,6 +50,7 @@ def parseArgs():
         argEncryption = args.encryption
     if args.passphrase:
         argPassphrase = args.passphrase
+
 
 def downloadTmp(url, filename, shasum):
     p = subprocess.run(["wget", "-O", "tmp/%s"%filename, url])
@@ -177,6 +179,7 @@ def getRandomPathInMirror():
     dirs = p.stdout.decode("UTF-8").split("\n")[:-1]
     return random.choice(dirs)
 
+
 def getRandomFileInMirror():
     p = subprocess.run(["find", "test_%d_mirror" % pid, "-type", "f"], capture_output = True)
     p.check_returncode()
@@ -196,14 +199,20 @@ def getRandomNewFileName():
         if not os.path.exists(candidate):
             return candidate.replace("test_%d_mirror" % pid, "__TESTDIR__", 1)
 
+
 def getRandomExistingDirName():
             return getRandomPathInMirror().replace("test_%d_mirror" % pid, "__TESTDIR__", 1)
+
 
 def getRandomExistingFileName():
             return getRandomFileInMirror().replace("test_%d_mirror" % pid, "__TESTDIR__", 1)
 
-def makeRandomTmpFile():
-    fileSize = random.randint(0, 1024*1024)
+
+def makeRandomTmpFile(size = 1024 * 1024, randomUpTo = True):
+    if randomUpTo:
+        fileSize = random.randint(0, size)
+    else:
+        fileSize = size
     fileName = ""
     while os.path.exists("tmp/" + fileName):
         fileName = getRandomFileName()
@@ -217,6 +226,26 @@ def makeRandomTmpFile():
     tmpFiles.append(fileName)
     return fileName
 
+
+def makeRandomTmpFileKBytes(kBytesSize = 1024, randomUpTo = True):
+    if randomUpTo:
+        fileSize = random.randint(0, kBytesSize)
+    else:
+        fileSize = kBytesSize
+    fileName = ""
+    while os.path.exists("tmp/" + fileName):
+        fileName = getRandomFileName()
+
+    fileName = getRandomFileName()
+
+    p = subprocess.run(["dd", "bs=1024", "count=%d"%fileSize, "if=/dev/random", "of=tmp/%s"%fileName, "status=none"])
+    p.check_returncode()
+
+
+    tmpFiles.append(fileName)
+    return fileName
+
+
 def mirrorOpen(fileName):
     fileName1 = []
     fileName2 = []
@@ -229,6 +258,7 @@ def mirrorOpen(fileName):
 
     return fd1, fd2
 
+
 def mirrorCreate(fileName):
     fileName1 = []
     fileName2 = []
@@ -240,6 +270,7 @@ def mirrorCreate(fileName):
     fd2 = os.open(fileName2, flags=os.O_CREAT|os.O_RDWR)
 
     return fd1, fd2
+
 
 def mirrorRandomOp(fileName, fd, fdMirror):
     fileSize = os.stat(fdMirror).st_size
@@ -276,6 +307,7 @@ def mirrorRandomOp(fileName, fd, fdMirror):
         os.write(fdMirror, buf)
 
     print([op, begin, end, fileSize])
+
 
 def mirrorOp(fileName, fd, fdMirror, op, size, offset):
     if op == "read":
