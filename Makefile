@@ -1,4 +1,4 @@
-CC=gcc -g -DFUSE_USE_VERSION=34
+CC=gcc -g -O2 -DFUSE_USE_VERSION=34
 CFLAGS=`pkg-config fuse3 --cflags` `pkg-config json-c --cflags` -Wall -pedantic
 LIBS=`pkg-config fuse3 --libs` `pkg-config json-c --libs` -lpthread -lssl -lcrypto -lssh
 
