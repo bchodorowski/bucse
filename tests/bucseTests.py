@@ -62,6 +62,16 @@ def downloadTmp(url, filename, shasum):
     tmpFiles.append(filename)
 
 
+def waitForRepoToBeMounted(mountDir):
+    while True:
+        mountProcess = subprocess.run(['mount'], check=True, capture_output=True)
+        grepProcess = subprocess.run(['grep', os.path.realpath(mountDir)],
+                              input=mountProcess.stdout, capture_output=True)
+        if grepProcess.returncode == 0:
+            return
+        time.sleep(1)
+
+
 def mountDirs():
     global argDebug
     global argValgrind
@@ -90,7 +100,8 @@ def mountDirs():
     else:
         p = subprocess.run(argsList)
         p.check_returncode()
-    time.sleep(5)
+    
+    waitForRepoToBeMounted("%s/test_%d" % (argRepoPath, pid))
 
 
 def mirrorCommand(args):
@@ -132,6 +143,7 @@ def verifyWithMirror():
     p = subprocess.run(["../bucse-mount", "-p", argPassphrase, "-r", "%s/test_%d_repo" % (argRepoPath, pid), "test_%d" % pid])
     p.check_returncode()
 
+    waitForRepoToBeMounted("test_%d" % pid)
     time.sleep(5)
 
     p = subprocess.run(["diff", "-r", "test_%d_mirror" % pid, "test_%d" % pid])
