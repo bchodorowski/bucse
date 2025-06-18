@@ -98,7 +98,7 @@ static int bucse_truncate(const char *path, long int newSize, struct fuse_file_i
 	// (newSize < size), so
 	
 	file->truncSize = newSize;
-	file->dirtyFlags |= DirtyFlagPendingWrite;
+	file->dirtyFlags |= DirtyFlagPendingTrunc;
 
 	return 0;
 }
