@@ -161,7 +161,7 @@ def testCleanup():
     p = subprocess.run(["rm", "-rf", "test_%d_mirror" % pid])
     p.check_returncode()
 
-    r = re.match('ssh://(.*?)(:(\d+))?/(.*)$', argRepoPath)
+    r = re.match(r'ssh://(.*?)(:(\d+))?/(.*)$', argRepoPath)
     if r:
         # TODO: handle usernames
         hostname = r.groups()[0]
@@ -343,6 +343,10 @@ def mirrorOp(fileName, fd, fdMirror, op, size, offset):
     elif op == "flush":
         os.fsync(fd)
         os.fsync(fdMirror)
+
+    elif op == "truncate":
+        os.ftruncate(fd, size)
+        os.ftruncate(fdMirror, size)
 
     print([op, offset, size])
 
