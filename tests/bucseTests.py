@@ -163,7 +163,6 @@ def testCleanup():
 
     r = re.match(r'ssh://(.*?)(:(\d+))?/(.*)$', argRepoPath)
     if r:
-        # TODO: handle usernames
         hostname = r.groups()[0]
         port = r.groups()[2]
         repoPath = r.groups()[3]

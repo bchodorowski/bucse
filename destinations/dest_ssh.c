@@ -17,6 +17,7 @@
 
 #include "dest.h"
 
+static char* repositoryUser;
 static char* repositoryHost;
 static char* repositoryPort;
 static char* repositoryPath;
@@ -233,6 +234,7 @@ static void cleanupString(char **s) {
 }
 
 static void cleanupStrings() {
+	cleanupString(&repositoryUser);
 	cleanupString(&repositoryHost);
 	cleanupString(&repositoryPort);
 	cleanupString(&repositoryPath);
@@ -244,7 +246,6 @@ static void cleanupStrings() {
 
 int destSshInit(char* repository)
 {
-	// TODO: handle username
 	char* firstSlash = strstr(repository, "/");
 	char* firstColon = strstr(repository, ":");
 	int port = 22;
@@ -256,7 +257,7 @@ int destSshInit(char* repository)
 	if (firstColon && firstColon < firstSlash) {
 		repositoryPort = malloc(firstSlash - firstColon);
 		if (repositoryPort == NULL) {
-			invalidDestination();
+			logPrintf(LOG_ERROR, "destSshInit: malloc(): %s\n", strerror(errno));
 			cleanupStrings();
 			return 2;
 		}
@@ -265,7 +266,7 @@ int destSshInit(char* repository)
 
 		repositoryHost = malloc(firstColon - repository + 1);
 		if (repositoryHost == NULL) {
-			invalidDestination();
+			logPrintf(LOG_ERROR, "destSshInit: malloc(): %s\n", strerror(errno));
 			cleanupStrings();
 			return 3;
 		}
@@ -274,12 +275,27 @@ int destSshInit(char* repository)
 	} else {
 		repositoryHost = malloc(firstSlash - repository + 1);
 		if (repositoryHost == NULL) {
-			invalidDestination();
+			logPrintf(LOG_ERROR, "destSshInit: malloc(): %s\n", strerror(errno));
 			cleanupStrings();
 			return 4;
 		}
 		memcpy(repositoryHost, repository, firstSlash - repository);
 		repositoryHost[firstSlash - repository] = 0;
+	}
+
+	// handle username@
+	char* firstAt = strstr(repositoryHost, "@");
+	if (firstAt) {
+		repositoryUser = malloc(firstAt - repositoryHost + 1);
+		if (repositoryUser == NULL) {
+			logPrintf(LOG_ERROR, "destSshInit: malloc(): %s\n", strerror(errno));
+			cleanupStrings();
+			return 5;
+		}
+		memcpy(repositoryUser, repositoryHost, firstAt - repositoryHost);
+		repositoryUser[firstAt - repositoryHost] = 0;
+
+		memmove(repositoryHost, firstAt+1, strlen(firstAt+1)+1);
 	}
 
 	// handle path relative to home
@@ -291,7 +307,7 @@ int destSshInit(char* repository)
 	if (repositoryPath == NULL) {
 		invalidDestination();
 		cleanupStrings();
-		return 5;
+		return 6;
 	}
 	memcpy(repositoryPath, firstSlash, strlen(firstSlash));
 	repositoryPath[strlen(firstSlash)] = 0;
@@ -299,13 +315,13 @@ int destSshInit(char* repository)
 	if (sscanf(repositoryPort, "%d", &port) <= 0) {
 		invalidDestination();
 		cleanupStrings();
-		return 6;
+		return 7;
 	}
 
 	if (port <= 0 || port > 0xffff) {
 		invalidDestination();
 		cleanupStrings();
-		return 7;
+		return 8;
 	}
 
 	// construct file path of repository.json file
@@ -314,28 +330,28 @@ int destSshInit(char* repository)
 		logPrintf(LOG_ERROR, "destSshInit: malloc(): %s\n", strerror(errno));
 
 		cleanupStrings();
-		return 1;
+		return 9;
 	}
 	repositoryFilePath = malloc(MAX_FILEPATH_LEN);
 	if (repositoryFilePath == NULL) {
 		logPrintf(LOG_ERROR, "destSshInit: malloc(): %s\n", strerror(errno));
 
 		cleanupStrings();
-		return 2;
+		return 10;
 	}
 	repositoryActionsPath = malloc(MAX_FILEPATH_LEN);
 	if (repositoryActionsPath == NULL) {
 		logPrintf(LOG_ERROR, "destSshInit: malloc(): %s\n", strerror(errno));
 
 		cleanupStrings();
-		return 3;
+		return 11;
 	}
 	repositoryStoragePath = malloc(MAX_FILEPATH_LEN);
 	if (repositoryStoragePath == NULL) {
 		logPrintf(LOG_ERROR, "destSshInit: malloc(): %s\n", strerror(errno));
 
 		cleanupStrings();
-		return 4;
+		return 12;
 	}
 
 	snprintf(repositoryJsonFilePath, MAX_FILEPATH_LEN, "%s/repository.json", repositoryPath);
@@ -346,7 +362,10 @@ int destSshInit(char* repository)
 	bucseSshSession = ssh_new();
 	if (bucseSshSession == NULL) {
 		cleanupStrings();
-		return 1;
+		return 13;
+	}
+	if (repositoryUser) {
+		ssh_options_set(bucseSshSession, SSH_OPTIONS_USER, repositoryUser);
 	}
 	ssh_options_set(bucseSshSession, SSH_OPTIONS_HOST, repositoryHost);
 	ssh_options_set(bucseSshSession, SSH_OPTIONS_PORT, &port);
@@ -360,7 +379,7 @@ int destSshInit(char* repository)
 		ssh_free(bucseSshSession);
 		bucseSshSession = NULL;
 		cleanupStrings();
-		return 2;
+		return 14;
 	}
 
 	// Verify the server's identity
@@ -371,7 +390,7 @@ int destSshInit(char* repository)
 		ssh_free(bucseSshSession);
 		bucseSshSession = NULL;
 		cleanupStrings();
-		return 3;
+		return 15;
 	}
 
 	// Authenticate ourselves
@@ -385,7 +404,7 @@ int destSshInit(char* repository)
 		ssh_free(bucseSshSession);
 		bucseSshSession = NULL;
 		cleanupStrings();
-		return 4;
+		return 16;
 	}
 
 	// sftp
@@ -398,7 +417,7 @@ int destSshInit(char* repository)
 		ssh_free(bucseSshSession);
 		bucseSshSession = NULL;
 		cleanupStrings();
-		return 5;
+		return 17;
 	}
 
 	rc = sftp_init(bucseSftpSession);
@@ -412,7 +431,7 @@ int destSshInit(char* repository)
 		ssh_free(bucseSshSession);
 		bucseSshSession = NULL;
 		cleanupStrings();
-		return 6;
+		return 18;
 	}
 
 	return 0;
