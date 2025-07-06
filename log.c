@@ -20,6 +20,7 @@ int logPrintf(int verbosity, char* format, ...)
 	int result = vfprintf(stdout, format, ptr);
 	va_end(ptr);
 
+	fflush(stdout);
 	return result;
 }
 

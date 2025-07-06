@@ -99,7 +99,7 @@ static int bucse_rmdir(const char *path)
 
 	// update filesystem
 	if (removeFromDynArrayUnordered(&containingDir->dirs, (void*)dir) != 0) {
-		logPrintf(LOG_ERROR, "bucse_unlink: removeFromDynArrayUnordered() failed\n");
+		logPrintf(LOG_ERROR, "bucse_rmdir: removeFromDynArrayUnordered() failed\n");
 		return -EIO;
 	}
 	freeDynArray(&dir->dirs);

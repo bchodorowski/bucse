@@ -1,3 +1,4 @@
+- implement renaming directories
 - handle addToDynArray failures
 - improve local destination by applying a filesystem hook to be notified about changes in the filesystem
 - s3 destination

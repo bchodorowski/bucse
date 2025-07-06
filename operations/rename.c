@@ -60,6 +60,7 @@ static int bucse_rename(const char *srcPath, const char *dstPath,
 		if (srcFile == NULL) {
 			FilesystemDir* dir = findDir(srcContainingDir, fileName);
 			if (dir) {
+				// TODO: implement renaming directories
 				return -EACCES;
 			} else {
 				return -ENOENT;
@@ -205,8 +206,14 @@ static int bucse_rename(const char *srcPath, const char *dstPath,
 	addAction(newSrcAction);
 
 	// update filesystem
+	if (removeFromDynArrayUnordered(&srcContainingDir->files, (void*)srcFile) != 0) {
+		logPrintf(LOG_ERROR, "bucse_rename: removeFromDynArrayUnordered() failed\n");
+		return -EIO;
+	}
+
 	if (dstFile == NULL) {
 		dstFile = srcFile;
+		addToDynArray(&dstContainingDir->files, dstFile);
 	} else {
 		// move file from src to dst
 		dstFile->content = newDstAction->content;
@@ -218,10 +225,6 @@ static int bucse_rename(const char *srcPath, const char *dstPath,
 		//dstFile->size = srcFile->size;
 		//dstFile->blockSize = srcFile->blockSize;
 
-		if (removeFromDynArrayUnordered(&srcContainingDir->files, (void*)srcFile) != 0) {
-			logPrintf(LOG_ERROR, "bucse_unlink: removeFromDynArrayUnordered() failed\n");
-			return -EIO;
-		}
 		free(srcFile);
 	}
 
@@ -233,7 +236,7 @@ static int bucse_rename(const char *srcPath, const char *dstPath,
 	memset(&pathArray, 0, sizeof(DynArray));
 	const char *fileName = path_split(newDstAction->path, &pathArray);
 	if (fileName == NULL) {
-		logPrintf(LOG_ERROR, "doAction: path_split() failed\n");
+		logPrintf(LOG_ERROR, "bucse_rename: path_split() failed\n");
 		return -EIO;
 	}
 	path_free(&pathArray);
