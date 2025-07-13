@@ -15,7 +15,7 @@
 
 #include "rmdir.h"
 
-static int bucse_rmdir(const char *path)
+int bucse_rmdir(const char *path)
 {
 	logPrintf(LOG_DEBUG, "rmdir %s\n", path);
 

@@ -12,6 +12,8 @@
 #include "../log.h"
 
 #include "operations.h"
+#include "mkdir.h"
+#include "rmdir.h"
 
 #include "rename.h"
 
@@ -26,7 +28,7 @@
 
 static int renameFile(FilesystemFile *srcFile, FilesystemDir *srcContainingDir,
 	FilesystemFile *dstFile, FilesystemDir *dstContainingDir,
-	char* newActionPath)
+	const char* dstPath)
 {
 	// construct new action for destination, add it to actions
 	Action* newDstAction = malloc(sizeof(Action));
@@ -36,7 +38,7 @@ static int renameFile(FilesystemFile *srcFile, FilesystemDir *srcContainingDir,
 	}
 	newDstAction->time = getCurrentTime();
 	newDstAction->actionType = dstFile ? ActionTypeEditFile : ActionTypeAddFile;
-	newDstAction->path = newActionPath;
+	newDstAction->path = strdup(dstPath+1);
 
 	if (newDstAction->path == NULL) {
 		logPrintf(LOG_ERROR, "bucse_rename: strdup(): %s\n", strerror(errno));
@@ -136,11 +138,118 @@ static int renameFile(FilesystemFile *srcFile, FilesystemDir *srcContainingDir,
 	return 0;
 }
 
-static int renameDir(FilesystemFile *srcFile, FilesystemDir *srcContainingDir,
-	FilesystemFile *dstFile, FilesystemDir *dstContainingDir,
-	char* newActionPath)
+static int renameDir(FilesystemDir *srcDir, FilesystemDir *srcContainingDir,
+	FilesystemDir *dstDir, FilesystemDir *dstContainingDir,
+	const char* dstPath)
 {
-	return -ENOSYS;
+	if (dstDir && (dstDir->files.len > 0 || dstDir->dirs.len > 0)) {
+		logPrintf(LOG_ERROR, "bucse_rename: dir not empty: %s\n", dstPath+1);
+		return -ENOTEMPTY;
+	}
+
+	int result;
+
+	// create the target directory
+	result = bucse_mkdir(dstPath, S_IRUSR | S_IWUSR | S_IXUSR
+		| S_IRGRP | S_IXGRP
+		| S_IROTH | S_IXOTH);
+
+	if (result != 0) {
+		logPrintf(LOG_ERROR, "bucse_rename: bucse_mkdir() failed\n");
+		return result;
+	}
+
+	// find dstDir
+	if (dstDir == NULL) {
+		DynArray pathArray;
+		memset(&pathArray, 0, sizeof(DynArray));
+		const char *dirName = path_split(dstPath+1, &pathArray);
+		path_free(&pathArray);
+		if (dirName == NULL) {
+			logPrintf(LOG_ERROR, "bucse_rename: path_split() failed\n");
+			return -ENOMEM;
+		}
+
+		dstDir = findDir(dstContainingDir, dirName);
+	}
+
+	if (dstDir == NULL) {
+		logPrintf(LOG_ERROR, "bucse_rename: No destination directory found after bucse_mkdir() suceeded\n");
+		return -EIO;
+	}
+
+	// recursively move everything from the directory
+	while (srcDir->files.len > 0) {
+		FilesystemFile *f = srcDir->files.objects[0];
+		size_t dstPathLen = strlen(dstPath);
+		size_t fNameLen = strlen(f->name);
+
+		char* newDstPath = malloc(dstPathLen + 2 + fNameLen);
+		if (newDstPath == NULL) {
+			logPrintf(LOG_ERROR, "bucse_rename: malloc(): %s\n", strerror(errno));
+			return -ENOMEM;
+		}
+		memcpy(newDstPath, dstPath, dstPathLen);
+		newDstPath[dstPathLen] = '/';
+		memcpy(newDstPath+dstPathLen+1, f->name, fNameLen+1);
+
+		result = renameFile(f, srcDir, NULL, dstDir, newDstPath);
+		free(newDstPath);
+
+		if (result != 0) {
+			logPrintf(LOG_ERROR, "bucse_rename: renameFile() failed\n");
+			return result;
+		}
+	}
+	while (srcDir->dirs.len > 0) {
+		FilesystemDir *d = srcDir->dirs.objects[0];
+		size_t dstPathLen = strlen(dstPath);
+		size_t dNameLen = strlen(d->name);
+
+		char* newDstPath = malloc(dstPathLen + 2 + dNameLen);
+		if (newDstPath == NULL) {
+			logPrintf(LOG_ERROR, "bucse_rename: malloc(): %s\n", strerror(errno));
+			return -ENOMEM;
+		}
+		memcpy(newDstPath, dstPath, dstPathLen);
+		newDstPath[dstPathLen] = '/';
+		memcpy(newDstPath+dstPathLen+1, d->name, dNameLen+1);
+
+		result = renameDir(d, srcDir, NULL, dstDir, newDstPath);
+		free(newDstPath);
+
+		if (result != 0) {
+			logPrintf(LOG_ERROR, "bucse_rename: renameFile() failed\n");
+			return result;
+		}
+	}
+
+	// find srcPath
+	char* srcPathWithoutFirstSlash = getFullDirPath(srcDir);
+	if (srcPathWithoutFirstSlash == NULL) {
+		logPrintf(LOG_ERROR, "bucse_rename: getFullFilePath() failed: %s\n", strerror(errno));
+		return -ENOMEM;
+	}
+
+	char* srcPath = malloc(strlen(srcPathWithoutFirstSlash) + 2);
+	if (srcPath == NULL) {
+		logPrintf(LOG_ERROR, "bucse_rename: malloc(): %s\n", strerror(errno));
+		free(srcPathWithoutFirstSlash);
+		return -ENOMEM;
+	}
+	srcPath[0] = '/';
+	memcpy(srcPath+1, srcPathWithoutFirstSlash, strlen(srcPathWithoutFirstSlash)+1);
+	free(srcPathWithoutFirstSlash);
+
+	// remove the source directory
+	result = bucse_rmdir(srcPath);
+	free(srcPath);
+
+	if (result != 0) {
+		logPrintf(LOG_ERROR, "bucse_rename: bucse_rmdir() failed\n");
+		return result;
+	}
+	return 0;
 }
 
 static int bucse_rename(const char *srcPath, const char *dstPath,
@@ -274,9 +383,9 @@ static int bucse_rename(const char *srcPath, const char *dstPath,
 	}
 
 	if (srcFile != NULL) {
-		return renameFile(srcFile, srcContainingDir, dstFile, dstContainingDir, strdup(dstPath+1));
+		return renameFile(srcFile, srcContainingDir, dstFile, dstContainingDir, dstPath);
 	} else if (srcDir != NULL) {
-		return renameDir(srcFile, srcContainingDir, dstFile, dstContainingDir, strdup(dstPath+1));
+		return renameDir(srcDir, srcContainingDir, dstDir, dstContainingDir, dstPath);
 	} else {
 		logPrintf(LOG_ERROR, "bucse_rename: Unexpected state\n");
 		return -EIO;

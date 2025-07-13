@@ -15,7 +15,7 @@
 
 #include "mkdir.h"
 
-static int bucse_mkdir(const char *path, mode_t mode)
+int bucse_mkdir(const char *path, mode_t mode)
 {
 	(void) mode;
 

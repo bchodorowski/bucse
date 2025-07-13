@@ -137,3 +137,27 @@ char* getFullFilePath(FilesystemFile* file)
 	return result;
 }
 
+char* getFullDirPath(FilesystemDir* dir)
+{
+	int len = strlen(dir->name) + 1;
+	FilesystemDir *current = dir->parentDir;
+	while (current) {
+		if (current->name) {
+			len += 1 + strlen(current->name);
+		}
+		current = current->parentDir;
+	}
+
+	char* result = malloc(len);
+	if (result == NULL) {
+		logPrintf(LOG_ERROR, "getFullFilePath: malloc(): %s\n", strerror(errno));
+		return NULL;
+	}
+
+	int index = 0;
+	index = getFullFilePathRecursion(result, index, dir->parentDir);
+	sprintf(result+index, "%s", dir->name);
+
+	return result;
+}
+

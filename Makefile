@@ -299,6 +299,8 @@ operations/rename.o: operations/rename.c \
 	actions.h \
 	time.h \
 	log.h \
+	operations/mkdir.h \
+	operations/rmdir.h \
 	operations/operations.h
 	$(CC) -c operations/rename.c -o operations/rename.o $(CFLAGS)
 

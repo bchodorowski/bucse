@@ -53,3 +53,4 @@ char* path_getFilename(DynArray *pathArray);
 void path_debugPrint(DynArray *pathArray);
 
 char* getFullFilePath(FilesystemFile* file);
+char* getFullDirPath(FilesystemDir* dir);
