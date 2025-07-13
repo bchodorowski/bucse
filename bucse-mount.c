@@ -490,7 +490,19 @@ int main(int argc, char** argv)
 
 			char passwd[1024];
 			memset(passwd, 0, 1024);
-			fgets(passwd, sizeof(passwd), stdin);
+			char* fgetsResult = fgets(passwd, sizeof(passwd), stdin);
+
+			if (fgetsResult == NULL) {
+				logPrintf(LOG_ERROR, "fgets() failed\n");
+
+				cacheCleanup();
+				recursivelyFreeFilesystem(root);
+				destination->shutdown();
+				actionsCleanup();
+				fuse_opt_free_args(&args);
+				confCleanup();
+				return 6;
+			}
 
 			term.c_lflag |= ECHO;
 			tcsetattr(fileno(stdin), 0, &term);
@@ -520,7 +532,7 @@ int main(int argc, char** argv)
 			actionsCleanup();
 			fuse_opt_free_args(&args);
 			confCleanup();
-			return 6;
+			return 7;
 		}
 	}
 
@@ -537,7 +549,7 @@ int main(int argc, char** argv)
 		actionsCleanup();
 		fuse_opt_free_args(&args);
 		confCleanup();
-		return 7;
+		return 8;
 	}
 
 	int fuse_stat;
