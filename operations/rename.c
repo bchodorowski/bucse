@@ -24,116 +24,10 @@
 #define RENAME_EXCHANGE		(1 << 1)	/* Exchange source and dest */
 #endif
 
-static int bucse_rename(const char *srcPath, const char *dstPath,
-		unsigned int flags)
+static int renameFile(FilesystemFile *srcFile, FilesystemDir *srcContainingDir,
+	FilesystemFile *dstFile, FilesystemDir *dstContainingDir,
+	char* newActionPath)
 {
-	logPrintf(LOG_DEBUG, "rename %s %s\n", srcPath, dstPath);
-
-	if (srcPath == NULL || dstPath == NULL) {
-		return -EIO;
-	}
-
-	FilesystemFile *srcFile = NULL;
-	FilesystemDir *srcContainingDir = NULL;
-
-	if (strcmp(srcPath, "/") == 0) {
-		return -EACCES;
-	} else if (srcPath[0] == '/') {
-		DynArray pathArray;
-		memset(&pathArray, 0, sizeof(DynArray));
-		const char *fileName = path_split(srcPath+1, &pathArray);
-		if (fileName == NULL) {
-			logPrintf(LOG_ERROR, "bucse_rename: path_split() failed\n");
-			return -ENOMEM;
-		}
-		//path_debugPrint(&pathArray);
-
-		srcContainingDir = findContainingDir(&pathArray);
-		path_free(&pathArray);
-
-		if (srcContainingDir == NULL) {
-			logPrintf(LOG_ERROR, "bucse_rename: path not found when moving file %s\n", srcPath);
-			return -ENOENT;
-		}
-
-		srcFile = findFile(srcContainingDir, fileName);
-		if (srcFile == NULL) {
-			FilesystemDir* dir = findDir(srcContainingDir, fileName);
-			if (dir) {
-				// TODO: implement renaming directories
-				return -EACCES;
-			} else {
-				return -ENOENT;
-			}
-		}
-		// continue working with the file below
-	} else {
-		return -ENOENT;
-	}
-
-	FilesystemFile *dstFile = NULL;
-	FilesystemDir *dstContainingDir = NULL;
-
-	if (strcmp(dstPath, "/") == 0) {
-		return -EACCES;
-	} else if (dstPath[0] == '/') {
-		DynArray pathArray;
-		memset(&pathArray, 0, sizeof(DynArray));
-		const char *fileName = path_split(dstPath+1, &pathArray);
-		if (fileName == NULL) {
-			logPrintf(LOG_ERROR, "bucse_rename: path_split() failed\n");
-			return -ENOMEM;
-		}
-		//path_debugPrint(&pathArray);
-
-		dstContainingDir = findContainingDir(&pathArray);
-		path_free(&pathArray);
-
-		if (dstContainingDir == NULL) {
-			logPrintf(LOG_ERROR, "bucse_rename: path not found when moving file %s\n", dstPath);
-			return -ENOENT;
-		}
-
-		dstFile = findFile(dstContainingDir, fileName);
-
-		if (flags & RENAME_NOREPLACE) {
-			if (dstFile != NULL) {
-				logPrintf(LOG_ERROR, "bucse_rename: noreplace but destination file %s found\n", dstPath);
-				return -EEXIST;
-			}
-			FilesystemDir* dir = findDir(dstContainingDir, fileName);
-			if (dir) {
-				logPrintf(LOG_ERROR, "bucse_rename: noreplace but destination %s is a directory\n", dstPath);
-				return -EISDIR;
-			}
-
-		} else if (flags & RENAME_EXCHANGE) {
-			if (dstFile == NULL) {
-				FilesystemDir* dir = findDir(dstContainingDir, fileName);
-				if (dir) {
-					logPrintf(LOG_ERROR, "bucse_rename: exchange but destination %s is a directory\n", dstPath);
-					return -EACCES;
-				} else {
-					logPrintf(LOG_ERROR, "bucse_rename: exchange but destination file %s not found\n", dstPath);
-					return -ENOENT;
-				}
-			}
-
-		} else {
-			if (dstFile == NULL) {
-				FilesystemDir* dir = findDir(dstContainingDir, fileName);
-				if (dir) {
-					logPrintf(LOG_ERROR, "bucse_rename: destination %s is a directory\n", dstPath);
-					return -EISDIR;
-				}
-			}
-		}
-
-		// continue working with the file below
-	} else {
-		return -ENOENT;
-	}
-
 	// construct new action for destination, add it to actions
 	Action* newDstAction = malloc(sizeof(Action));
 	if (newDstAction == NULL) {
@@ -142,7 +36,7 @@ static int bucse_rename(const char *srcPath, const char *dstPath,
 	}
 	newDstAction->time = getCurrentTime();
 	newDstAction->actionType = dstFile ? ActionTypeEditFile : ActionTypeAddFile;
-	newDstAction->path = strdup(dstPath+1);
+	newDstAction->path = newActionPath;
 
 	if (newDstAction->path == NULL) {
 		logPrintf(LOG_ERROR, "bucse_rename: strdup(): %s\n", strerror(errno));
@@ -220,10 +114,6 @@ static int bucse_rename(const char *srcPath, const char *dstPath,
 		dstFile->contentLen = newDstAction->contentLen;
 		dstFile->size = newDstAction->size;
 		dstFile->blockSize = newDstAction->blockSize;
-		//dstFile->content = srcFile->content;
-		//dstFile->contentLen = srcFile->contentLen;
-		//dstFile->size = srcFile->size;
-		//dstFile->blockSize = srcFile->blockSize;
 
 		free(srcFile);
 	}
@@ -244,6 +134,154 @@ static int bucse_rename(const char *srcPath, const char *dstPath,
 	dstFile->name = fileName;
 
 	return 0;
+}
+
+static int renameDir(FilesystemFile *srcFile, FilesystemDir *srcContainingDir,
+	FilesystemFile *dstFile, FilesystemDir *dstContainingDir,
+	char* newActionPath)
+{
+	return -ENOSYS;
+}
+
+static int bucse_rename(const char *srcPath, const char *dstPath,
+		unsigned int flags)
+{
+	logPrintf(LOG_DEBUG, "rename %s %s\n", srcPath, dstPath);
+
+	if (srcPath == NULL || dstPath == NULL) {
+		return -EIO;
+	}
+
+	FilesystemFile *srcFile = NULL;
+	FilesystemDir *srcDir = NULL;
+	FilesystemDir *srcContainingDir = NULL;
+
+	if (strcmp(srcPath, "/") == 0) {
+		return -EACCES;
+	} else if (srcPath[0] == '/') {
+		DynArray pathArray;
+		memset(&pathArray, 0, sizeof(DynArray));
+		const char *fileName = path_split(srcPath+1, &pathArray);
+		if (fileName == NULL) {
+			logPrintf(LOG_ERROR, "bucse_rename: path_split() failed\n");
+			return -ENOMEM;
+		}
+		//path_debugPrint(&pathArray);
+
+		srcContainingDir = findContainingDir(&pathArray);
+		path_free(&pathArray);
+
+		if (srcContainingDir == NULL) {
+			logPrintf(LOG_ERROR, "bucse_rename: path not found when moving file %s\n", srcPath);
+			return -ENOENT;
+		}
+
+		srcFile = findFile(srcContainingDir, fileName);
+		if (srcFile == NULL) {
+			FilesystemDir* dir = findDir(srcContainingDir, fileName);
+			if (dir) {
+				srcDir = dir;
+			} else {
+				return -ENOENT;
+			}
+		}
+		// continue working with the file below
+	} else {
+		return -ENOENT;
+	}
+
+	// srcContainingDir is not NULL
+	// either srcFile or srcDir is not NULL
+
+	FilesystemFile *dstFile = NULL;
+	FilesystemDir *dstDir = NULL;
+	FilesystemDir *dstContainingDir = NULL;
+
+	if (strcmp(dstPath, "/") == 0) {
+		return -EACCES;
+	} else if (dstPath[0] == '/') {
+		DynArray pathArray;
+		memset(&pathArray, 0, sizeof(DynArray));
+		const char *fileName = path_split(dstPath+1, &pathArray);
+		if (fileName == NULL) {
+			logPrintf(LOG_ERROR, "bucse_rename: path_split() failed\n");
+			return -ENOMEM;
+		}
+		//path_debugPrint(&pathArray);
+
+		dstContainingDir = findContainingDir(&pathArray);
+		path_free(&pathArray);
+
+		if (dstContainingDir == NULL) {
+			logPrintf(LOG_ERROR, "bucse_rename: path not found when moving file %s\n", dstPath);
+			return -ENOENT;
+		}
+
+		dstFile = findFile(dstContainingDir, fileName);
+		dstDir = findDir(dstContainingDir, fileName);
+		if (srcFile != NULL) {
+			// rename file
+
+			if (dstDir) {
+				logPrintf(LOG_ERROR, "bucse_rename: destination %s is a directory\n", dstPath);
+				return -EISDIR;
+			}
+
+			if (flags & RENAME_NOREPLACE) {
+				if (dstFile != NULL) {
+					logPrintf(LOG_ERROR, "bucse_rename: noreplace but destination file %s found\n", dstPath);
+					return -EEXIST;
+				}
+
+			} else if (flags & RENAME_EXCHANGE) {
+				if (dstFile == NULL) {
+					logPrintf(LOG_ERROR, "bucse_rename: exchange but destination file %s not found\n", dstPath);
+					return -ENOENT;
+				}
+				// TODO: implement RENAME_EXCHANGE
+				logPrintf(LOG_ERROR, "bucse_rename: RENAME_EXCHANGE not implemented\n");
+				return -ENOSYS;
+			}
+
+		} else if (srcDir != NULL) {
+			if (dstFile) {
+				logPrintf(LOG_ERROR, "bucse_rename: destination %s is not a directory\n", dstPath);
+				return -ENOTDIR;
+			}
+			if (flags & RENAME_NOREPLACE) {
+				if (dstDir != NULL) {
+					logPrintf(LOG_ERROR, "bucse_rename: noreplace but destination dir %s found\n", dstPath);
+					return -EEXIST;
+				}
+
+			} else if (flags & RENAME_EXCHANGE) {
+				if (dstDir == NULL) {
+					logPrintf(LOG_ERROR, "bucse_rename: exchange but destination dir %s not found\n", dstPath);
+					return -ENOENT;
+				}
+				// TODO: implement RENAME_EXCHANGE
+				logPrintf(LOG_ERROR, "bucse_rename: RENAME_EXCHANGE not implemented\n");
+				return -ENOSYS;
+			}
+		} else {
+			logPrintf(LOG_ERROR, "bucse_rename: Unexpected state\n");
+			return -EIO;
+		}
+
+		// continue working with the file below
+	} else {
+		return -ENOENT;
+	}
+
+	if (srcFile != NULL) {
+		return renameFile(srcFile, srcContainingDir, dstFile, dstContainingDir, strdup(dstPath+1));
+	} else if (srcDir != NULL) {
+		return renameDir(srcFile, srcContainingDir, dstFile, dstContainingDir, strdup(dstPath+1));
+	} else {
+		logPrintf(LOG_ERROR, "bucse_rename: Unexpected state\n");
+		return -EIO;
+	}
+
 }
 	
 int bucse_rename_guarded(const char *srcPath, const char *dstPath,
