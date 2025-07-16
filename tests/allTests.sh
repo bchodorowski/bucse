@@ -28,3 +28,5 @@ echo "========== test 6 =========="
 ./test6.py -r $REPO_PATH -e $ENCRYPTION -p $PASSWORD $VALGRIND $DEBUG
 echo "========== test 7 =========="
 ./test7.py -r $REPO_PATH -e $ENCRYPTION -p $PASSWORD $VALGRIND $DEBUG
+echo "========== test 8 =========="
+./test8.py -r $REPO_PATH -e $ENCRYPTION -p $PASSWORD $VALGRIND $DEBUG
