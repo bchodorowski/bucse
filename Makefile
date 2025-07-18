@@ -259,7 +259,8 @@ operations/unlink.o: operations/unlink.c \
 	actions.h \
 	time.h \
 	log.h \
-	operations/operations.h
+	operations/operations.h \
+	operations/flush.h
 	$(CC) -c operations/unlink.c -o operations/unlink.o $(CFLAGS)
 
 operations/mkdir.o: operations/mkdir.c \
@@ -301,6 +302,7 @@ operations/rename.o: operations/rename.c \
 	log.h \
 	operations/mkdir.h \
 	operations/rmdir.h \
+	operations/flush.h \
 	operations/operations.h
 	$(CC) -c operations/rename.c -o operations/rename.o $(CFLAGS)
 

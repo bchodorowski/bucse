@@ -14,6 +14,7 @@
 #include "operations.h"
 #include "mkdir.h"
 #include "rmdir.h"
+#include "flush.h"
 
 #include "rename.h"
 
@@ -30,6 +31,11 @@ static int renameFile(FilesystemFile *srcFile, FilesystemDir *srcContainingDir,
 	FilesystemFile *dstFile, FilesystemDir *dstContainingDir,
 	const char* dstPath)
 {
+	// flush srcFile to be sure pending writes have been saved
+	if (srcFile->dirtyFlags != DirtyFlagNotDirty) {
+		flushFile(srcFile);
+	}
+
 	// construct new action for destination, add it to actions
 	Action* newDstAction = malloc(sizeof(Action));
 	if (newDstAction == NULL) {

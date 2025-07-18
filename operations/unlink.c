@@ -12,6 +12,7 @@
 #include "../log.h"
 
 #include "operations.h"
+#include "flush.h"
 
 #include "unlink.h"
 
@@ -60,6 +61,11 @@ static int bucse_unlink(const char *path)
 		return -ENOENT;
 	}
 
+	// flush file to be sure pending writes have been saved
+	if (file->dirtyFlags != DirtyFlagNotDirty) {
+		flushFile(file);
+	}
+
 	// construct new action, add it to actions
 	Action* newAction = malloc(sizeof(Action));
 	if (newAction == NULL) {
@@ -80,13 +86,13 @@ static int bucse_unlink(const char *path)
 	newAction->size = 0;
 	newAction->blockSize = 0;
 
-	// write to json, encrypt call destination->addActionFile()
-	if (encryptAndAddActionFile(newAction) != 0) {
-		logPrintf(LOG_ERROR, "bucse_unlink: encryptAndAddActionFile failed\n");
-		free(newAction->path);
-		free(newAction);
-		return -EIO;
+	// clear file's pending writes
+	for (int i=0; i<file->pendingWrites.len; i++) {
+		PendingWrite* pw = file->pendingWrites.objects[i];
+		free(pw->buf);
+		free(pw);
 	}
+	freeDynArray(&file->pendingWrites);
 
 	// add to actions array
 	addAction(newAction);
