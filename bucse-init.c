@@ -125,10 +125,23 @@ int main(int argc, char *argv[])
 	while ((c = getopt (argc, argv, "Vhp:e:n:c:")) != -1) {
 		switch (c) {
 			case 'V':
-				// TODO: version
-				break;
+				fprintf(stdout, "bucse version %s\n", PACKAGE_VERSION);
+				exit(0);
 			case 'h':
-				// TODO: help
+				fprintf(stdout,
+						"Initialize bucse repository\n"
+						"\n"
+						"Usage: bucse-init [options] <repository>\n"
+						"\n"
+						"Possible options:\n"
+						"    -V                     print version\n"
+						"    -h                     print help\n"
+						"    -p STRING              target repository passphrase\n"
+						"    -e STRING              encryption, can be 'none' or 'aes'\n"
+						"    -n STRING              repository name (default: 'unnamed')\n"
+						"    -c STRING              comment about repository\n"
+				       );
+				exit(0);
 				break;
 			case 'p':
 				passphrase = optarg;

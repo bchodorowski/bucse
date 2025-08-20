@@ -46,8 +46,6 @@
 #include "operations/rename.h"
 #include "operations/init.h"
 
-#define PACKAGE_VERSION "current"
-
 uid_t cachedUid;
 gid_t cachedGid;
 
@@ -147,13 +145,20 @@ static int bucse_opt_proc(void *data, const char *arg, int key, struct fuse_args
 		fprintf(stdout,
 				"\n"
 				"bucse options:\n"
-				"    -o repository=STRING   TODO\n"
+				"    -o repository=STRING   target repository address\n"
+				"                           can be a directory for local repositories\n"
+				"                           use URL starting with ssh:// for ssh repositories\n"
 				"    -r STRING              same as '-orepository=STRING'\n"
-				"    -o verbose=INTEGER     TODO\n"
+				"    -o verbose=INTEGER     verbosity level (default: 2)\n"
+				"                           0 -- errors\n"
+				"                           1 -- all the above + warnings\n"
+				"                           2 -- all the above + notes\n"
+				"                           3 -- all the above + debug messages\n"
+				"                           4 -- all the above + verbose debug messages\n"
 				"    -v INTEGER             same as '-overbose=INTEGER'\n"
-				"    -o passphrase=STRING   TODO\n"
+				"    -o passphrase=STRING   target repository passphrase\n"
 				"    -p STRING              same as '-opassphrase=STRING'\n");
-		exit(1);
+		exit(0);
 
 	case KEY_VERSION:
 		fprintf(stdout, "bucse version %s\n", PACKAGE_VERSION);
