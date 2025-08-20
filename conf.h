@@ -1,4 +1,4 @@
-#define PACKAGE_VERSION "0.1.0"
+#define PACKAGE_VERSION "0.1.1-current"
 
 struct bucse_config {
 	char *repository;
