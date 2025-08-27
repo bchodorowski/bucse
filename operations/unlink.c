@@ -86,6 +86,14 @@ static int bucse_unlink(const char *path)
 	newAction->size = 0;
 	newAction->blockSize = 0;
 
+	// write to json, encrypt call destination->addActionFile()
+	if (encryptAndAddActionFile(newAction) != 0) {
+		logPrintf(LOG_ERROR, "bucse_rmdir: encryptAndAddActionFile failed\n");
+		free(newAction->path);
+		free(newAction);
+		return -EIO;
+	}
+
 	// clear file's pending writes
 	for (int i=0; i<file->pendingWrites.len; i++) {
 		PendingWrite* pw = file->pendingWrites.objects[i];
