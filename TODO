@@ -1,4 +1,17 @@
+- strange error when using ssh destination with no proper entry in authorized_keys present
+- possible memory leak when failing to read from /dev/urandom
+- read only option
+- historic snapshot option
+- consider option to bundle multiple action files into one that holds multiple actions to improve the performance
+- docs:
+ - README:
+  - setup guide
+  - example usage
+  - comparison to other software
+  - contribution guide
+ - whitepaper
 - correctly implement RENAME_EXCHANGE flag
+- warning when using poor password strength (zxcvbn-c?)
 - investigate a memory leak in libfuse when using fsstress
 - handle addToDynArray failures
 - improve local destination by applying a filesystem hook to be notified about changes in the filesystem
