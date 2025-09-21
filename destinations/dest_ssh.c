@@ -312,10 +312,12 @@ int destSshInit(char* repository)
 	memcpy(repositoryPath, firstSlash, strlen(firstSlash));
 	repositoryPath[strlen(firstSlash)] = 0;
 
-	if (sscanf(repositoryPort, "%d", &port) <= 0) {
-		invalidDestination();
-		cleanupStrings();
-		return 7;
+	if (repositoryPort != NULL) {
+		if (sscanf(repositoryPort, "%d", &port) <= 0) {
+			invalidDestination();
+			cleanupStrings();
+			return 7;
+		}
 	}
 
 	if (port <= 0 || port > 0xffff) {
