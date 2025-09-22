@@ -82,7 +82,9 @@ static int bucse_write(const char *path, const char *buf, size_t size, off_t off
 	// flush file if there is too many pendingWrites
 	if (file->pendingWrites.len > 10240) {
 		logPrintf(LOG_DEBUG, "bucse_write: too many pending writes, flushing\n");
-		flushFile(file);
+		if (flushFile(file) != 0) {
+			return -EIO;
+		}
 	}
 
 	return size;

@@ -62,7 +62,9 @@ static int bucse_truncate(const char *path, long int newSize, struct fuse_file_i
 	}
 
 	if (file->dirtyFlags != DirtyFlagNotDirty) {
-		flushFile(file);
+		if (flushFile(file) != 0) {
+			return -EIO;
+		}
 	}
 
 	int size = file->size;

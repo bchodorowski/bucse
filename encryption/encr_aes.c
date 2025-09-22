@@ -26,6 +26,7 @@ int encrAesEncrypt(char *inBuf, size_t inSize, char *outBuf, size_t *outSize, ch
 	FILE* f = fopen("/dev/urandom", "rb");
 	if (f == NULL) {
 		logPrintf(LOG_ERROR, "encrAesEncrypt: fopen(): %s\n", strerror(errno));
+		EVP_CIPHER_CTX_free(ctx);
 		return 2;
 	}
 
@@ -33,6 +34,7 @@ int encrAesEncrypt(char *inBuf, size_t inSize, char *outBuf, size_t *outSize, ch
 	if (got == 0) {
 		logPrintf(LOG_ERROR, "encrAesEncrypt: fread failed\n");
 		fclose(f);
+		EVP_CIPHER_CTX_free(ctx);
 		return 3;
 	}
 

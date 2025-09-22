@@ -110,7 +110,9 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 	}
 
 	if (file->dirtyFlags != DirtyFlagNotDirty) {
-		flushFile(file);
+		if (flushFile(file) != 0) {
+			return -EIO;
+		}
 	}
 
 	// determine which blocks should be read

@@ -49,7 +49,9 @@ static int bucse_release(const char *path, struct fuse_file_info *fi)
 
 		FilesystemFile *file = findFile(containingDir, fileName);
 		if (file) {
-			flushFile(file);
+			if (flushFile(file) != 0) {
+				return -EIO;
+			}
 		}
 	} else {
 		return -ENOENT;

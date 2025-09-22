@@ -63,7 +63,9 @@ static int bucse_unlink(const char *path)
 
 	// flush file to be sure pending writes have been saved
 	if (file->dirtyFlags != DirtyFlagNotDirty) {
-		flushFile(file);
+		if (flushFile(file) != 0) {
+			return -EIO;
+		}
 	}
 
 	// construct new action, add it to actions

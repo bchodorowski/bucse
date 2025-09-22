@@ -474,7 +474,9 @@ static int bucse_flush(const char *path, struct fuse_file_info *fi)
 	}
 
 	if (file->dirtyFlags & DirtyFlagPendingWrite) {
-		flushFile(file);
+		if (flushFile(file) != 0) {
+			return -EIO;
+		}
 	}
 
 	return 0;

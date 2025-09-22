@@ -33,7 +33,9 @@ static int renameFile(FilesystemFile *srcFile, FilesystemDir *srcContainingDir,
 {
 	// flush srcFile to be sure pending writes have been saved
 	if (srcFile->dirtyFlags != DirtyFlagNotDirty) {
-		flushFile(srcFile);
+		if (flushFile(srcFile) != 0) {
+			return -EIO;
+		}
 	}
 
 	// construct new action for destination, add it to actions

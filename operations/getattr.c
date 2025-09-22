@@ -65,7 +65,9 @@ static int bucse_getattr(const char *path, struct stat *stbuf, struct fuse_file_
 		FilesystemFile *file = findFile(containingDir, fileName);
 		if (file) {
 			if (file->dirtyFlags & DirtyFlagPendingWrite) {
-				flushFile(file);
+				if (flushFile(file) != 0) {
+					return -EIO;
+				}
 			}
 
 			//stbuf->st_mode = S_IFREG | 0644;
