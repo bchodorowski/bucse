@@ -10,6 +10,7 @@
 #include "../actions.h"
 #include "../time.h"
 #include "../log.h"
+#include "../conf.h"
 
 #include "operations.h"
 #include "mkdir.h"
@@ -264,6 +265,11 @@ static int bucse_rename(const char *srcPath, const char *dstPath,
 		unsigned int flags)
 {
 	logPrintf(LOG_DEBUG, "rename %s %s\n", srcPath, dstPath);
+
+	if (confIsReadOnly()) {
+		logPrintf(LOG_ERROR, "bucse_rename: cannot do that in readOnly mode\n");
+		return -EROFS;
+	}
 
 	if (srcPath == NULL || dstPath == NULL) {
 		return -EIO;

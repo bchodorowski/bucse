@@ -10,6 +10,7 @@
 #include "../filesystem.h"
 #include "../actions.h"
 #include "../log.h"
+#include "../conf.h"
 
 #include "operations.h"
 #include "flush.h"
@@ -36,7 +37,11 @@ static int bucse_getattr(const char *path, struct stat *stbuf, struct fuse_file_
 
 	memset(stbuf, 0, sizeof(struct stat));
 	if (strcmp(path, "/") == 0) {
-		stbuf->st_mode = S_IFDIR | 0755;
+		if (confIsReadOnly()) {
+			stbuf->st_mode = S_IFDIR | 0555;
+		} else {
+			stbuf->st_mode = S_IFDIR | 0755;
+		}
 		stbuf->st_nlink = 2;
 
 		stbuf->st_atim = microsecondsToNanoseconds(root->atime);
@@ -70,8 +75,13 @@ static int bucse_getattr(const char *path, struct stat *stbuf, struct fuse_file_
 				}
 			}
 
-			//stbuf->st_mode = S_IFREG | 0644;
-			stbuf->st_mode = S_IFREG | 0755;
+			if (confIsReadOnly()) {
+				//stbuf->st_mode = S_IFREG | 0444;
+				stbuf->st_mode = S_IFREG | 0555;
+			} else {
+				//stbuf->st_mode = S_IFREG | 0644;
+				stbuf->st_mode = S_IFREG | 0755;
+			}
 			stbuf->st_nlink = 1;
 			stbuf->st_size = (file->dirtyFlags & DirtyFlagPendingTrunc)
 				? file->truncSize
@@ -87,7 +97,11 @@ static int bucse_getattr(const char *path, struct stat *stbuf, struct fuse_file_
 		} else {
 			FilesystemDir* dir = findDir(containingDir, fileName);
 			if (dir) {
-				stbuf->st_mode = S_IFDIR | 0755;
+				if (confIsReadOnly()) {
+					stbuf->st_mode = S_IFDIR | 0555;
+				} else {
+					stbuf->st_mode = S_IFDIR | 0755;
+				}
 				stbuf->st_nlink = 1;
 				//stbuf->st_ino = MurmurHash64(path, strlen(path), 0);
 				stbuf->st_atim = microsecondsToNanoseconds(dir->atime);

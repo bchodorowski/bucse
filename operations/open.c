@@ -10,6 +10,7 @@
 #include "../actions.h"
 #include "../time.h"
 #include "../log.h"
+#include "../conf.h"
 
 #include "operations.h"
 
@@ -21,6 +22,11 @@ static int bucse_open(const char *path, struct fuse_file_info *fi)
 
 	if (path == NULL) {
 		return -EIO;
+	}
+
+	if (confIsReadOnly() && (fi->flags & (O_WRONLY | O_RDWR))) {
+		logPrintf(LOG_ERROR, "bucse_open: cannot do that in readOnly mode\n");
+		return -EROFS;
 	}
 
 	if (strcmp(path, "/") == 0) {

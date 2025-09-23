@@ -9,6 +9,7 @@ void confInit()
 {
 	memset(&conf, 0, sizeof(conf));
 	conf.verbose = 2;
+	conf.readOnly = 0;
 }
 
 void confCleanup()
@@ -27,3 +28,8 @@ void confCleanup()
 	}
 }
 
+int confIsReadOnly()
+{
+	// TODO: is read only or snapshot from given datetime requested
+	return conf.readOnly;
+}

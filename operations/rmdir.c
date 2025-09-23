@@ -10,6 +10,7 @@
 #include "../actions.h"
 #include "../time.h"
 #include "../log.h"
+#include "../conf.h"
 
 #include "operations.h"
 
@@ -18,6 +19,11 @@
 int bucse_rmdir(const char *path)
 {
 	logPrintf(LOG_DEBUG, "rmdir %s\n", path);
+
+	if (confIsReadOnly()) {
+		logPrintf(LOG_ERROR, "bucse_rmdir: cannot do that in readOnly mode\n");
+		return -EROFS;
+	}
 
 	if (path == NULL) {
 		return -EIO;

@@ -128,6 +128,11 @@ static struct fuse_opt bucse_opts[] = {
 	BUCSE_OPT("-v %d", verbose, 0),
 	BUCSE_OPT("passphrase=%s", passphrase, 0),
 	BUCSE_OPT("-p %s", passphrase, 0),
+	BUCSE_OPT("verbose=%d", verbose, 0),
+	BUCSE_OPT("-v %d", verbose, 0),
+	BUCSE_OPT("ro", readOnly, 1),
+	BUCSE_OPT("-R", readOnly, 1),
+	BUCSE_OPT("--read_only", readOnly, 1),
 
 	FUSE_OPT_KEY("-V",             KEY_VERSION),
 	FUSE_OPT_KEY("--version",      KEY_VERSION),
@@ -157,7 +162,10 @@ static int bucse_opt_proc(void *data, const char *arg, int key, struct fuse_args
 				"                           4 -- all the above + verbose debug messages\n"
 				"    -v INTEGER             same as '-overbose=INTEGER'\n"
 				"    -o passphrase=STRING   target repository passphrase\n"
-				"    -p STRING              same as '-opassphrase=STRING'\n");
+				"    -p STRING              same as '-opassphrase=STRING'\n"
+				"    -o ro                  read only mode\n"
+				"    -R                     same as '-oro'\n"
+				"    --read_only            same as '-oro'\n");
 		exit(0);
 
 	case KEY_VERSION:

@@ -5,9 +5,12 @@ struct bucse_config {
 	int verbose;
 	char *passphrase;
 	char *repositoryRealPath;
+	int readOnly;
 };
 
 extern struct bucse_config conf;
 
 void confInit();
 void confCleanup();
+
+int confIsReadOnly();

@@ -9,6 +9,7 @@
 #include "../filesystem.h"
 #include "../actions.h"
 #include "../log.h"
+#include "../conf.h"
 
 #include "operations.h"
 #include "flush.h"
@@ -20,6 +21,11 @@ static int bucse_truncate(const char *path, long int newSize, struct fuse_file_i
 	(void) fi;
 
 	logPrintf(LOG_DEBUG, "truncate %s, size: %ld\n", path, newSize);
+
+	if (confIsReadOnly()) {
+		logPrintf(LOG_ERROR, "bucse_truncate: cannot do that in readOnly mode\n");
+		return -EROFS;
+	}
 
 	if (path == NULL) {
 		return -EIO;

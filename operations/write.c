@@ -9,6 +9,7 @@
 #include "../filesystem.h"
 #include "../actions.h"
 #include "../log.h"
+#include "../conf.h"
 
 #include "operations.h"
 #include "flush.h"
@@ -21,6 +22,11 @@ static int bucse_write(const char *path, const char *buf, size_t size, off_t off
 	(void) fi;
 
 	logPrintf(LOG_DEBUG, "write %s, size: %zu, offset: %jd\n", path, size, (intmax_t)offset);
+
+	if (confIsReadOnly()) {
+		logPrintf(LOG_ERROR, "bucse_write: cannot do that in readOnly mode\n");
+		return -EROFS;
+	}
 
 	if (path == NULL) {
 		return -EIO;

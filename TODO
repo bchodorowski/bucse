@@ -1,5 +1,4 @@
 - strange error when using ssh destination with no proper entry in authorized_keys present
-- read only option
 - historic snapshot option
 - consider option to bundle multiple action files into one that holds multiple actions to improve the performance
 - docs:

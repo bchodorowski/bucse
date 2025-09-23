@@ -170,6 +170,7 @@ operations/getattr.o: operations/getattr.c \
 	filesystem.h \
 	actions.h \
 	log.h \
+	conf.h \
 	operations/operations.h \
 	operations/flush.h
 	$(CC) -c operations/getattr.c -o operations/getattr.o $(CFLAGS)
@@ -204,6 +205,7 @@ operations/open.o: operations/open.c \
 	actions.h \
 	time.h \
 	log.h \
+	conf.h \
 	operations/operations.h
 	$(CC) -c operations/open.c -o operations/open.o $(CFLAGS)
 
@@ -214,6 +216,7 @@ operations/create.o: operations/create.c \
 	actions.h \
 	time.h \
 	log.h \
+	conf.h \
 	operations/operations.h \
 	operations/open.h
 	$(CC) -c operations/create.c -o operations/create.o $(CFLAGS)
@@ -248,6 +251,7 @@ operations/write.o: operations/write.c \
 	filesystem.h \
 	actions.h \
 	log.h \
+	conf.h \
 	operations/operations.h \
 	operations/flush.h
 	$(CC) -c operations/write.c -o operations/write.o $(CFLAGS)
@@ -259,6 +263,7 @@ operations/unlink.o: operations/unlink.c \
 	actions.h \
 	time.h \
 	log.h \
+	conf.h \
 	operations/operations.h \
 	operations/flush.h
 	$(CC) -c operations/unlink.c -o operations/unlink.o $(CFLAGS)
@@ -270,6 +275,7 @@ operations/mkdir.o: operations/mkdir.c \
 	actions.h \
 	time.h \
 	log.h \
+	conf.h \
 	operations/operations.h
 	$(CC) -c operations/mkdir.c -o operations/mkdir.o $(CFLAGS)
 
@@ -280,6 +286,7 @@ operations/rmdir.o: operations/rmdir.c \
 	actions.h \
 	time.h \
 	log.h \
+	conf.h \
 	operations/operations.h
 	$(CC) -c operations/rmdir.c -o operations/rmdir.o $(CFLAGS)
 
@@ -289,6 +296,7 @@ operations/truncate.o: operations/truncate.c \
 	filesystem.h \
 	actions.h \
 	log.h \
+	conf.h \
 	operations/operations.h \
 	operations/flush.h
 	$(CC) -c operations/truncate.c -o operations/truncate.o $(CFLAGS)
@@ -300,6 +308,7 @@ operations/rename.o: operations/rename.c \
 	actions.h \
 	time.h \
 	log.h \
+	conf.h \
 	operations/mkdir.h \
 	operations/rmdir.h \
 	operations/flush.h \

@@ -10,6 +10,7 @@
 #include "../actions.h"
 #include "../time.h"
 #include "../log.h"
+#include "../conf.h"
 
 #include "operations.h"
 #include "flush.h"
@@ -19,6 +20,11 @@
 static int bucse_unlink(const char *path)
 {
 	logPrintf(LOG_DEBUG, "unlink %s\n", path);
+
+	if (confIsReadOnly()) {
+		logPrintf(LOG_ERROR, "bucse_unlink: cannot do that in readOnly mode\n");
+		return -EROFS;
+	}
 
 	if (path == NULL) {
 		return -EIO;
