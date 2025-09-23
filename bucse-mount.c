@@ -128,8 +128,6 @@ static struct fuse_opt bucse_opts[] = {
 	BUCSE_OPT("-v %d", verbose, 0),
 	BUCSE_OPT("passphrase=%s", passphrase, 0),
 	BUCSE_OPT("-p %s", passphrase, 0),
-	BUCSE_OPT("verbose=%d", verbose, 0),
-	BUCSE_OPT("-v %d", verbose, 0),
 	BUCSE_OPT("ro", readOnly, 1),
 	BUCSE_OPT("-R", readOnly, 1),
 	BUCSE_OPT("--read_only", readOnly, 1),
