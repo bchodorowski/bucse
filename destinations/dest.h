@@ -23,6 +23,7 @@ typedef void (*ActionAddedCallback)(char* actionName, char* buf, size_t size, in
 
 typedef struct {
 	int (*init)(char* repository);
+	int (*postInit)();
 	void (*shutdown)();
 	int (*createDirs)();
 	int (*putStorageFile)(const char* filename, char *buf, size_t size);

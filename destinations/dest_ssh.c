@@ -809,8 +809,14 @@ int destSshTick()
 	return 0;
 }
 
+int destSshPostInit()
+{
+	return destSshTick();
+}
+
 Destination destinationSsh = {
 	.init = destSshInit,
+	.postInit = destSshPostInit,
 	.shutdown = destSshShutdown,
 	.createDirs = destSshCreateDirs,
 	.putStorageFile = destSshPutStorageFile,

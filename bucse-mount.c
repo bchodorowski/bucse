@@ -245,8 +245,20 @@ int bucse_fuse_main(int argc, char *argv[], const struct fuse_operations *op,
 		goto out2;
 	}
 
+	
+	// call postInit()
+	{
+		pthread_mutex_lock(&bucseMutex);
+		int tickResult = destination->postInit();
+		pthread_mutex_unlock(&bucseMutex);
+		if (tickResult != 0) {
+			res = 5;
+			goto out3;
+		}
+	}
+
 	if (fuse_daemonize(opts.foreground) != 0) {
-		res = 5;
+		res = 6;
 		goto out3;
 	}
 
@@ -256,14 +268,14 @@ int bucse_fuse_main(int argc, char *argv[], const struct fuse_operations *op,
 		int ret = pthread_create(&tickThread, NULL, tickThreadFunc, NULL);
 		if (ret != 0) {
 			fuse_log(FUSE_LOG_ERR, "bucse_fuse_main: pthread_create: %d\n", ret);
-			res = 6;
+			res = 7;
 			goto out3;
 		}
 	}
 
 	struct fuse_session *se = fuse_get_session(fuse);
 	if (fuse_set_signal_handlers(se) != 0) {
-		res = 6;
+		res = 8;
 		goto out3;
 	}
 
@@ -275,7 +287,7 @@ int bucse_fuse_main(int argc, char *argv[], const struct fuse_operations *op,
 		res = fuse_session_loop_mt(se, &config);
 	}
 	if (res)
-		res = 8;
+		res = 9;
 
 	fuse_remove_signal_handlers(se);
 out3:

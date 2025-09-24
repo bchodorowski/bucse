@@ -555,8 +555,14 @@ int destLocalTick()
 	return 0;
 }
 
+int destLocalPostInit()
+{
+	return destLocalTick();
+}
+
 Destination destinationLocal = {
 	.init = destLocalInit,
+	.postInit = destLocalPostInit,
 	.shutdown = destLocalShutdown,
 	.createDirs = destLocalCreateDirs,
 	.putStorageFile = destLocalPutStorageFile,
