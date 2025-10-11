@@ -760,13 +760,6 @@ int destSshTick()
 
 		return 1;
 	}
-	char* actionFileBuf = malloc(MAX_ACTION_LEN);
-	if (actionFileBuf == NULL) {
-		logPrintf(LOG_ERROR, "destSshTick: malloc(): %s\n", strerror(errno));
-
-		free(actionFilePath);
-		return 1;
-	}
 
 	for (int i=0; i<newActions.len; i++) {
 		logPrintf(LOG_VERBOSE_DEBUG, "handle new action: %s\n", getAction(&newActions, i));
@@ -777,27 +770,38 @@ int destSshTick()
 		if (file == NULL) {
 			logPrintf(LOG_ERROR, "destSshTick: sftp_open(): %s\n",
 				ssh_get_error(bucseSshSession));
-
 			continue;
 		}
 
-		int bytesRead = sftp_read_multiple_calls(file, actionFileBuf, MAX_ACTION_LEN);
+		// get file size, handle errors if any
+		sftp_attributes attr = sftp_fstat(file);
+		if (attr == NULL) {
+			logPrintf(LOG_ERROR, "destSshTick: sftp_fstat(): %s\n",
+				ssh_get_error(bucseSshSession));
+			sftp_close(file);
+			continue;
+		}
+		size_t actionFileSize = attr->size;
+		sftp_attributes_free(attr);
+
+		char* actionFileBuf = malloc(actionFileSize);
+		if (actionFileBuf == NULL) {
+			logPrintf(LOG_ERROR, "destSshTick: malloc(): %s\n", strerror(errno));
+			sftp_close(file);
+			continue;
+		}
+
+		int bytesRead = sftp_read_multiple_calls(file, actionFileBuf, actionFileSize);
 		sftp_close(file);
 
-		if (bytesRead >= MAX_ACTION_LEN) {
-			logPrintf(LOG_ERROR, "destSshTick: action file is too large\n");
-			continue;
-		}
-
-		actionFileBuf[bytesRead] = 0; // null termination
 		if (cachedActionAddedCallback) {
 			cachedActionAddedCallback(getAction(&newActions, i), actionFileBuf, bytesRead, newActions.len - i - 1);
 		} else {
 			logPrintf(LOG_ERROR, "destSshTick: no action added callback\n");
 		}
+		free(actionFileBuf);
 	}
 	free(actionFilePath);
-	free(actionFileBuf);
 	
 	for (int i=0; i<newActions.len; i++) {
 		addAction(&handledActions, getAction(&newActions, i));

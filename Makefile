@@ -1,6 +1,6 @@
 CC=gcc -O2 -DFUSE_USE_VERSION=34
 CFLAGS=`pkg-config fuse3 --cflags` `pkg-config json-c --cflags` -Wall -pedantic
-LIBS=`pkg-config fuse3 --libs` `pkg-config json-c --libs` -lpthread -lssl -lcrypto -lssh
+LIBS=`pkg-config fuse3 --libs` `pkg-config json-c --libs` -lpthread -lssl -lcrypto -lssh -larchive
 
 all: bucse-mount bucse-init
 
@@ -18,6 +18,7 @@ bucse-mount: bucse-mount.o \
 	conf.o \
 	log.o \
 	cache.o \
+	tar.o \
 	operations/operations.o \
 	operations/getattr.o \
 	operations/flush.o \
@@ -47,6 +48,7 @@ bucse-mount: bucse-mount.o \
 		conf.o \
 		log.o \
 		cache.o \
+		tar.o \
 		operations/operations.o \
 		operations/getattr.o \
 		operations/flush.o \
@@ -73,6 +75,7 @@ bucse-mount.o: bucse-mount.c \
 	conf.h \
 	log.h \
 	cache.h \
+	tar.h \
 	operations/operations.h \
 	operations/getattr.h \
 	operations/flush.h \
@@ -153,6 +156,11 @@ cache.o: cache.c \
 	dynarray.h \
 	cache.h
 	$(CC) -c cache.c -o cache.o $(CFLAGS)
+
+tar.o: tar.c \
+	log.h \
+	tar.h
+	$(CC) -c tar.c -o tar.o $(CFLAGS)
 
 operations/operations.o: operations/operations.c \
 	operations/operations.h \

@@ -26,6 +26,7 @@
 #include "conf.h"
 #include "log.h"
 #include "cache.h"
+#include "tar.h"
 
 #include "destinations/dest.h"
 #include "encryption/encr.h"
@@ -75,12 +76,12 @@ static pthread_t tickThread;
 static pthread_mutex_t shutdownMutex;
 static int shutdownTicking = 0;
 
-static void actionAddedDecrypt(char* actionName, char* buf, size_t size, int moreInThisBatch)
+static void actionAddedDecryptOneAction(char* actionName, char* buf, size_t size, int moreInThisBatch)
 {
 	size_t decryptedBufLen = MAX_ACTION_LEN + DECRYPTED_BUFFER_MARGIN;
 	char* decryptedBuf = malloc(decryptedBufLen);
 	if (decryptedBuf == NULL) {
-		logPrintf(LOG_ERROR, "decryptAndAddActionFile: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "actionAddedDecryptOneAction: malloc(): %s\n", strerror(errno));
 		return;
 	}
 
@@ -89,13 +90,36 @@ static void actionAddedDecrypt(char* actionName, char* buf, size_t size, int mor
 		conf.passphrase);
 	
 	if (result != 0) {
-		logPrintf(LOG_ERROR, "actionAddedDecrypt: decrypt failed: %d\n", result);
+		logPrintf(LOG_ERROR, "actionAddedDecryptOneAction: decrypt failed: %d\n", result);
 		free(decryptedBuf);
 		return;
 	}
 	actionAdded(actionName, decryptedBuf, decryptedBufLen, moreInThisBatch);
 	free(decryptedBuf);
 }
+
+static int endsWithTar(const char* buf) {
+    size_t lenBuf = strlen(buf);
+
+    if (lenBuf < 4) {
+        return 0;
+    }
+    // Compare the end of buf to suffix
+    return strcmp(buf + lenBuf - 4, ".tar") == 0;
+}
+
+static void actionAddedDecrypt(char* actionName, char* buf, size_t size, int moreInThisBatch)
+{
+	if (endsWithTar(actionName)) {
+		int result = forEveryFileInTar(buf, size, moreInThisBatch, actionAddedDecryptOneAction);
+		if (result != 0) {
+			logPrintf(LOG_ERROR, "actionAddedDecrypt: tar file handling failed: %d\n", result);
+		}
+	} else {
+		actionAddedDecryptOneAction(actionName, buf, size, moreInThisBatch);
+	}
+}
+
 
 struct fuse_operations bucse_oper = {
 	.getattr = bucse_getattr_guarded,

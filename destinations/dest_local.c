@@ -500,13 +500,6 @@ int destLocalTick()
 
 		return 1;
 	}
-	char* actionFileBuf = malloc(MAX_ACTION_LEN);
-	if (actionFileBuf == NULL) {
-		logPrintf(LOG_ERROR, "destLocalTick: malloc(): %s\n", strerror(errno));
-
-		free(actionFilePath);
-		return 1;
-	}
 
 	for (int i=0; i<newActions.len; i++) {
 		logPrintf(LOG_VERBOSE_DEBUG, "handle new action: %s\n", getAction(&newActions, i));
@@ -519,31 +512,54 @@ int destLocalTick()
 			continue;
 		}
 
+		// get file size, handle errors if any
+		int fseekRes = fseek(file, 0, SEEK_END);
+		if (fseekRes < 0 ) {
+			logPrintf(LOG_ERROR, "destLocalTick: fseek(): %s\n", strerror(errno));
+			fclose(file);
+			continue;
+		}
+		long ftellRes = ftell(file);
+		if (ftellRes < 0 ) {
+			logPrintf(LOG_ERROR, "destLocalTick: ftell(): %s\n", strerror(errno));
+			fclose(file);
+			continue;
+		}
+		fseekRes = fseek(file, 0, SEEK_SET);
+		if (fseekRes < 0 ) {
+			logPrintf(LOG_ERROR, "destLocalTick: fseek(): %s\n", strerror(errno));
+			fclose(file);
+			continue;
+		}
+		size_t actionFileSize = (size_t)ftellRes;
+
+		char* actionFileBuf = malloc(actionFileSize);
+		if (actionFileBuf == NULL) {
+			logPrintf(LOG_ERROR, "destLocalTick: malloc(): %s\n", strerror(errno));
+			fclose(file);
+			continue;
+		}
+
 		size_t bytesRead = 0;
-		while (!feof(file) && !ferror(file) && bytesRead < MAX_ACTION_LEN) {
-			bytesRead += fread(actionFileBuf + bytesRead, 1, MAX_ACTION_LEN - bytesRead, file);
+		while (!feof(file) && !ferror(file) && bytesRead < actionFileSize) {
+			bytesRead += fread(actionFileBuf + bytesRead, 1, actionFileSize - bytesRead, file);
 		}
 		if (ferror(file)) {
 			logPrintf(LOG_ERROR, "destLocalTick: ferror() returned a non-zero value\n");
+			free(actionFileBuf);
 			fclose(file);
 			continue;
 		}
 		fclose(file);
 
-		if (bytesRead >= MAX_ACTION_LEN) {
-			logPrintf(LOG_ERROR, "destLocalTick: action file is too large\n");
-			continue;
-		}
-
-		actionFileBuf[bytesRead] = 0; // null termination
 		if (cachedActionAddedCallback) {
 			cachedActionAddedCallback(getAction(&newActions, i), actionFileBuf, bytesRead, newActions.len - i - 1);
 		} else {
 			logPrintf(LOG_ERROR, "destLocalTick: no action added callback\n");
 		}
+		free(actionFileBuf);
 	}
 	free(actionFilePath);
-	free(actionFileBuf);
 	
 	for (int i=0; i<newActions.len; i++) {
 		addAction(&handledActions, getAction(&newActions, i));

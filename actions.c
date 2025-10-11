@@ -250,14 +250,14 @@ static void parseAction(char* buf, size_t size)
 	json_object* obj = json_tokener_parse_ex(tokener, buf, size);
 	if (obj == NULL)
 	{
-		logPrintf(LOG_ERROR, "actionAdded: json_tokener_parse_ex(): %s\n", json_tokener_error_desc(json_tokener_get_error(tokener)));
+		logPrintf(LOG_ERROR, "parseAction: json_tokener_parse_ex(): %s\n", json_tokener_error_desc(json_tokener_get_error(tokener)));
 		json_tokener_free(tokener);
 		return;
 	}
 	json_tokener_free(tokener);
 
 	if (json_object_get_type(obj) != json_type_array) {
-		logPrintf(LOG_ERROR, "actionAdded: document is not an array\n");
+		logPrintf(LOG_ERROR, "parseAction: document is not an array\n");
 		json_object_put(obj);
 		return;
 	}
@@ -267,18 +267,18 @@ static void parseAction(char* buf, size_t size)
 		json_object* actionObj = json_object_array_get_idx(obj, i);
 
 		if (json_object_get_type(actionObj) != json_type_object) {
-			logPrintf(LOG_ERROR, "actionAdded: array element is not an object\n");
+			logPrintf(LOG_ERROR, "parseAction: array element is not an object\n");
 			continue;
 		}
 
 		// parse time
 		json_object* timeField;
 		if (json_object_object_get_ex(actionObj, "time", &timeField) == 0) {
-			logPrintf(LOG_ERROR, "actionAdded: action object doesn't have 'time' field\n");
+			logPrintf(LOG_ERROR, "parseAction: action object doesn't have 'time' field\n");
 			continue;
 		}
 		if (json_object_get_type(timeField) != json_type_int) {
-			logPrintf(LOG_ERROR, "actionAdded: 'time' field is not an integer\n");
+			logPrintf(LOG_ERROR, "parseAction: 'time' field is not an integer\n");
 			continue;
 		}
 		int64_t time = json_object_get_int64(timeField);
@@ -288,7 +288,7 @@ static void parseAction(char* buf, size_t size)
 		int64_t size = 0;
 		if (json_object_object_get_ex(actionObj, "size", &sizeField) != 0) {
 			if (json_object_get_type(sizeField) != json_type_int) {
-				logPrintf(LOG_ERROR, "actionAdded: 'size' field is not an integer\n");
+				logPrintf(LOG_ERROR, "parseAction: 'size' field is not an integer\n");
 				continue;
 			}
 			size = json_object_get_int64(sizeField);
@@ -299,7 +299,7 @@ static void parseAction(char* buf, size_t size)
 		int64_t blockSize = 0;
 		if (json_object_object_get_ex(actionObj, "blockSize", &blockSizeField) != 0) {
 			if (json_object_get_type(blockSizeField) != json_type_int) {
-				logPrintf(LOG_ERROR, "actionAdded: 'blockSize' field is not an integer\n");
+				logPrintf(LOG_ERROR, "parseAction: 'blockSize' field is not an integer\n");
 				continue;
 			}
 			blockSize = json_object_get_int64(blockSizeField);
@@ -308,11 +308,11 @@ static void parseAction(char* buf, size_t size)
 		// parse action
 		json_object* actionTypeField;
 		if (json_object_object_get_ex(actionObj, "action", &actionTypeField) == 0) {
-			logPrintf(LOG_ERROR, "actionAdded: action object doesn't have 'action' field\n");
+			logPrintf(LOG_ERROR, "parseAction: action object doesn't have 'action' field\n");
 			continue;
 		}
 		if (json_object_get_type(actionTypeField) != json_type_string) {
-			logPrintf(LOG_ERROR, "actionAdded: 'action' field is not a string\n");
+			logPrintf(LOG_ERROR, "parseAction: 'action' field is not a string\n");
 			continue;
 		}
 		const char* actionTypeStr = json_object_get_string(actionTypeField);
@@ -328,18 +328,18 @@ static void parseAction(char* buf, size_t size)
 		} else if (strcmp(actionTypeStr, "editFile") == 0) {
 			actionType = ActionTypeEditFile;
 		} else {
-			logPrintf(LOG_ERROR, "actionAdded: unknown action\n");
+			logPrintf(LOG_ERROR, "parseAction: unknown action\n");
 			continue;
 		}
 
 		// parse path
 		json_object* pathField;
 		if (json_object_object_get_ex(actionObj, "path", &pathField) == 0) {
-			logPrintf(LOG_ERROR, "actionAdded: action object doesn't have 'path' field\n");
+			logPrintf(LOG_ERROR, "parseAction: action object doesn't have 'path' field\n");
 			continue;
 		}
 		if (json_object_get_type(pathField) != json_type_string) {
-			logPrintf(LOG_ERROR, "actionAdded: 'path' field is not a string\n");
+			logPrintf(LOG_ERROR, "parseAction: 'path' field is not a string\n");
 			continue;
 		}
 		const char* path = json_object_get_string(pathField);
@@ -347,17 +347,17 @@ static void parseAction(char* buf, size_t size)
 		// parse content
 		json_object* contentField;
 		if (json_object_object_get_ex(actionObj, "content", &contentField) == 0) {
-			logPrintf(LOG_ERROR, "actionAdded: action object doesn't have 'content' field\n");
+			logPrintf(LOG_ERROR, "parseAction: action object doesn't have 'content' field\n");
 			continue;
 		}
 		if (json_object_get_type(contentField) != json_type_array) {
-			logPrintf(LOG_ERROR, "actionAdded: 'content' field is not an array\n");
+			logPrintf(LOG_ERROR, "parseAction: 'content' field is not an array\n");
 			continue;
 		}
 		size_t contentLen = json_object_array_length(contentField);
 		char* content = malloc(contentLen * MAX_STORAGE_NAME_LEN);
 		if (content == NULL) {
-			logPrintf(LOG_ERROR, "actionAdded: malloc(): %s\n", strerror(errno));
+			logPrintf(LOG_ERROR, "parseAction: malloc(): %s\n", strerror(errno));
 			continue;
 		}
 		size_t j;
@@ -365,7 +365,7 @@ static void parseAction(char* buf, size_t size)
 			json_object* contentItemField = json_object_array_get_idx(contentField, j);
 
 			if (json_object_get_type(contentItemField) != json_type_string) {
-				logPrintf(LOG_ERROR, "actionAdded: 'content' contents is not a string\n");
+				logPrintf(LOG_ERROR, "parseAction: 'content' contents is not a string\n");
 				break;
 			}
 			const char* contentItemStr = json_object_get_string(contentItemField);
@@ -379,7 +379,7 @@ static void parseAction(char* buf, size_t size)
 		// create new action object
 		Action* newAction = malloc(sizeof(Action));
 		if (newAction == NULL) {
-			logPrintf(LOG_ERROR, "actionAdded: malloc(): %s\n", strerror(errno));
+			logPrintf(LOG_ERROR, "parseAction: malloc(): %s\n", strerror(errno));
 			free(content);
 			continue;
 		}
@@ -387,7 +387,7 @@ static void parseAction(char* buf, size_t size)
 		newAction->actionType = actionType;
 		newAction->path = malloc(strlen(path) + 1);
 		if (newAction->path == NULL) {
-			logPrintf(LOG_ERROR, "actionAdded: malloc(): %s\n", strerror(errno));
+			logPrintf(LOG_ERROR, "parseAction: malloc(): %s\n", strerror(errno));
 			free(content);
 			free(newAction);
 			continue;
