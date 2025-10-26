@@ -52,7 +52,8 @@ int removeFromDynArrayUnordered(DynArray *dynArray, void* element)
 {
 	for (int i=0; i<dynArray->len; i++) {
 		if (dynArray->objects[i] == element) {
-			dynArray->objects[i] = dynArray->objects[dynArray->len-1];
+			if (i != dynArray->len-1)
+				dynArray->objects[i] = dynArray->objects[dynArray->len-1];
 			dynArray->len--;
 			return 0;
 		}
@@ -62,6 +63,7 @@ int removeFromDynArrayUnordered(DynArray *dynArray, void* element)
 
 void removeFromDynArrayUnorderedByIndex(DynArray *dynArray, int i)
 {
-	dynArray->objects[i] = dynArray->objects[dynArray->len-1];
+	if (i != dynArray->len-1)
+		dynArray->objects[i] = dynArray->objects[dynArray->len-1];
 	dynArray->len--;
 }

@@ -35,6 +35,23 @@ static int compareActionsByTime(const void* a1, const void* a2)
 	}
 }
 
+static int compareActionsByTimeTypePath(const void* a1, const void* a2)
+{
+	if ((*(const Action**)a1)->time > (*(const Action**)a2)->time) {
+		return 1;
+	} else if ((*(const Action**)a1)->time < (*(const Action**)a2)->time) {
+		return -1;
+	} else {
+		if ((*(const Action**)a1)->actionType > (*(const Action**)a2)->actionType) {
+			return 1;
+		} else if ((*(const Action**)a1)->actionType < (*(const Action**)a2)->actionType) {
+			return -1;
+		} else {
+			return strcmp((*(const Action**)a1)->path, (*(const Action**)a2)->path);
+		}
+	}
+}
+
 static void freeAction(Action* action)
 {
 	if (action == NULL) {
@@ -421,9 +438,63 @@ void actionAdded(char* actionName, char* buf, size_t size, int moreInThisBatch)
 	}
 
 	// prepare actionsPending
-
 	qsort(actionsPending.objects, actionsPending.len, sizeof(void*), compareActionsByTime);
 	printActions(&actionsPending);
+
+	// Check for duplicates: actions in actionsPending that already are in actions.
+	// This can occur only if there are out of order actions, hence this if statement
+	if (actions.len > 0 && actionsPending.len > 0
+		&& ((Action*)actions.objects[actions.len - 1])->time >= // time of last action in actions
+			((Action*)actionsPending.objects[0])->time // time of first action in actionsPending
+	      ) {
+		logPrintf(LOG_VERBOSE_DEBUG, "actionAdded(): duplicates\n");
+		int i = actionsPending.len - 1;
+		int j = actions.len - 1;
+		int dups = 0;
+		while (i >=0 && j >= 0) {
+			// pick next "largest" item
+			if (i==0 || compareActionsByTimeTypePath(&actions.objects[j], &actionsPending.objects[i-1]) >= 0)
+			{
+				// compare with actions
+				int c = compareActionsByTimeTypePath(&actions.objects[j], &actionsPending.objects[i]);
+				if (c > 0) {
+					j--;
+				} else if (c < 0) {
+					i--;
+				} else {
+					logPrintf(LOG_VERBOSE_DEBUG, "actionAdded(): dup found\n");
+					freeAction(actionsPending.objects[i]);
+					removeFromDynArrayUnorderedByIndex(&actionsPending, i);
+					dups++;
+					i--;
+				}
+			} else {
+				// compare with previous actionsPending
+				int c = compareActionsByTimeTypePath(&actionsPending.objects[i], &actionsPending.objects[i-1]);
+				if (c == 0) {
+					logPrintf(LOG_VERBOSE_DEBUG, "actionAdded(): dup found\n");
+					freeAction(actionsPending.objects[i]);
+					removeFromDynArrayUnorderedByIndex(&actionsPending, i);
+					dups++;
+				}
+				i--;
+			}
+		}
+		while (i>0) {
+			int c = compareActionsByTimeTypePath(&actionsPending.objects[i], &actionsPending.objects[i-1]);
+			if (c == 0) {
+				logPrintf(LOG_VERBOSE_DEBUG, "actionAdded(): dup found\n");
+				freeAction(actionsPending.objects[i]);
+				removeFromDynArrayUnorderedByIndex(&actionsPending, i);
+				dups++;
+			}
+			i--;
+		}
+		if (dups > 0) {
+			logPrintf(LOG_VERBOSE_DEBUG, "actionAdded(): duplicates: removed %d pending actions\n", dups);
+			qsort(actionsPending.objects, actionsPending.len, sizeof(void*), compareActionsByTime);
+		}
+	}
 
 	// handle out of order actions
 	int outOfOrderActions = 0;
