@@ -17,6 +17,8 @@ argPassphrase = "12345"
 
 valgrindProc = None
 
+failOnError = False
+
 
 def parseArgs():
     global argDebug
@@ -79,6 +81,7 @@ def mountDirs():
     global argEncryption
     global argPassphrase
     global valgrindProc
+    global failOnError
 
     p = subprocess.run(["mkdir", "test_%d_mirror" % pid])
     p.check_returncode()
@@ -90,6 +93,10 @@ def mountDirs():
     p.check_returncode()
 
     argsList = ["../bucse-mount", "-p", argPassphrase, "-r", "%s/test_%d_repo" % (argRepoPath, pid), "test_%d" % pid]
+
+    if failOnError:
+        argsList += ["-f", "-v 4"]
+
     if argDebug:
         print(" ".join(argsList + ["-f -v 4"]))
         input()
@@ -97,6 +104,8 @@ def mountDirs():
         argsList = ["valgrind", "--log-file=tmp/valgrind_%d.txt" % pid, "--error-exitcode=-1", "--leak-check=full", "--show-leak-kinds=all", "--errors-for-leak-kinds=all", "--exit-on-first-error=yes"] + argsList + ["-f"]
         tmpFiles.append("valgrind_%d.txt" % pid)
         valgrindProc = subprocess.Popen(argsList, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    elif failOnError:
+        valgrindProc = subprocess.Popen(argsList, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     else:
         p = subprocess.run(argsList)
         p.check_returncode()
@@ -125,6 +134,7 @@ def verifyWithMirror():
     global argEncryption
     global argPassphrase
     global valgrindProc
+    global failOnError
 
     p = subprocess.run(["sync"])
     p.check_returncode()
@@ -135,7 +145,7 @@ def verifyWithMirror():
     p = subprocess.run(["umount", "test_%d" % pid])
     p.check_returncode()
 
-    if argValgrind:
+    if argValgrind or failOnError:
         valgrindProc.communicate()
         if valgrindProc.returncode != 0:
             raise Exception("bucse-mount returned %d" % valgrindProc.returncode)
@@ -148,6 +158,27 @@ def verifyWithMirror():
 
     p = subprocess.run(["diff", "-r", "test_%d_mirror" % pid, "test_%d" % pid])
     p.check_returncode()
+
+
+def verifyFailOnError():
+    global valgrindProc
+    global failOnError
+
+    if not failOnError:
+        return
+
+    p = subprocess.run(["umount", "test_%d" % pid])
+    p.check_returncode()
+
+    outputBytes, errBytes = valgrindProc.communicate()
+    if valgrindProc.returncode != 0:
+        raise Exception("bucse-mount returned %d" % valgrindProc.returncode)
+
+    p = subprocess.run(["../bucse-mount", "-p", argPassphrase, "-r", "%s/test_%d_repo" % (argRepoPath, pid), "test_%d" % pid])
+    p.check_returncode()
+
+    if outputBytes.decode("utf-8").find("[error]") > -1:
+        raise Exception("There were errors");
 
 
 def testCleanup():
@@ -353,3 +384,7 @@ def mirrorOp(fileName, fd, fdMirror, op, size, offset):
 def mirrorClose(filename, fd, fdMirror):
     os.close(fd)
     os.close(fdMirror)
+
+def copyActions(actionsDir):
+    p = subprocess.run(["cp -f %s/* test_%d_repo/actions/" % (actionsDir, pid)], shell=True)
+    p.check_returncode()
