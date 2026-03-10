@@ -160,7 +160,7 @@ def verifyWithMirror():
     p.check_returncode()
 
 
-def verifyFailOnError():
+def verifyFailOnError(printDebug = False):
     global valgrindProc
     global failOnError
 
@@ -174,11 +174,17 @@ def verifyFailOnError():
     if valgrindProc.returncode != 0:
         raise Exception("bucse-mount returned %d" % valgrindProc.returncode)
 
-    p = subprocess.run(["../bucse-mount", "-p", argPassphrase, "-r", "%s/test_%d_repo" % (argRepoPath, pid), "test_%d" % pid])
+    if printDebug:
+        print(outputBytes.decode("utf-8"))
+
+    argsList = ["../bucse-mount", "-p", argPassphrase, "-r", "%s/test_%d_repo" % (argRepoPath, pid), "test_%d" % pid]
+    if printDebug:
+        argsList = argsList + ["-v", "4"]
+    p = subprocess.run(argsList)
     p.check_returncode()
 
     if outputBytes.decode("utf-8").find("[error]") > -1:
-        raise Exception("There were errors");
+        raise Exception("There were errors")
 
 
 def testCleanup():
@@ -387,4 +393,12 @@ def mirrorClose(filename, fd, fdMirror):
 
 def copyActions(actionsDir):
     p = subprocess.run(["cp -f %s/* test_%d_repo/actions/" % (actionsDir, pid)], shell=True)
+    p.check_returncode()
+
+def copyAction(actionFile):
+    p = subprocess.run(["cp -f %s test_%d_repo/actions/" % (actionFile, pid)], shell=True)
+    p.check_returncode()
+
+def deleteAction(actionName):
+    p = subprocess.run(["rm -f test_%d_repo/actions/%s" % (pid, actionName)], shell=True)
     p.check_returncode()
