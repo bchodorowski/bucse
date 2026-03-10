@@ -4,3 +4,4 @@ bucse-mount
 tests/__pycache__
 tests/test_*
 tests/tmp
+.vscode

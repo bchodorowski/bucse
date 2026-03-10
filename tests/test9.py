@@ -14,6 +14,8 @@ bucseTests.mountDirs()
 
 bucseTests.copyActions("data/duplicates/actions_0_begin")
 time.sleep(25)
+bucseTests.copyActions("data/duplicates/actions_0_end")
+time.sleep(40)
 
 #bucseTests.verifyWithMirror()
 bucseTests.verifyFailOnError()
