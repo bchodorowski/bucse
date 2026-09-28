@@ -18,7 +18,8 @@ typedef struct {
 	int blockSize;
 } Action;
 
-void actionAdded(char* actionName, char* buf, size_t size, int moreInThisBatch);
+void actionAdded(char* actionName, char* buf, size_t size);
+void flushActionsAdded();
 void actionsCleanup();
 char* serializeAction(Action* action);
 void addAction(Action *newAction);

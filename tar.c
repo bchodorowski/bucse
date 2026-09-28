@@ -8,7 +8,7 @@
 
 #include "tar.h"
 
-int forEveryFileInTar(char* tarBuf, size_t tarSize, int moreInThisBatch, void (*actionAddedDecryptOneAction)(char*, char*, size_t, int))
+int forEveryFileInTar(char* tarBuf, size_t tarSize, void (*actionAddedDecryptOneAction)(char*, char*, size_t))
 {
 	struct archive* a = archive_read_new();
 	struct archive_entry* entry;
@@ -81,8 +81,7 @@ int forEveryFileInTar(char* tarBuf, size_t tarSize, int moreInThisBatch, void (*
 			actionAddedDecryptOneAction(
 				(char*)archive_entry_pathname(entry),
 				fileBuf,
-				fileSize,
-				moreInThisBatch ? moreInThisBatch : fileCounter);
+				fileSize);
 
 			free(fileBuf);
 		} else {

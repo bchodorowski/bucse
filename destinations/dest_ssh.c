@@ -28,6 +28,7 @@ static char* repositoryActionsPath;
 static char* repositoryStoragePath;
 
 static ActionAddedCallback cachedActionAddedCallback;
+static FlushActionsAddedCallback cachedFlushActionsAddedCallback;
 
 // TODO: rename to ActionNames [?]
 typedef struct {
@@ -705,6 +706,12 @@ int destSshSetCallbackActionAdded(ActionAddedCallback callback)
 	return 0;
 }
 
+int destSshSetCallbackFlushActionsAdded(FlushActionsAddedCallback callback)
+{
+	cachedFlushActionsAddedCallback = callback;
+	return 0;
+}
+
 int destSshIsTickable()
 {
 	return 1;
@@ -729,6 +736,7 @@ int destSshTick()
 
 	Actions newActions;
 	memset(&newActions, 0, sizeof(Actions));
+	int flushNeeded = 0;
 
 	for (;;) {
 		errno = 0;
@@ -795,7 +803,8 @@ int destSshTick()
 		sftp_close(file);
 
 		if (cachedActionAddedCallback) {
-			cachedActionAddedCallback(getAction(&newActions, i), actionFileBuf, bytesRead, newActions.len - i - 1);
+			cachedActionAddedCallback(getAction(&newActions, i), actionFileBuf, bytesRead);
+			flushNeeded = 1;
 		} else {
 			logPrintf(LOG_ERROR, "destSshTick: no action added callback\n");
 		}
@@ -807,8 +816,15 @@ int destSshTick()
 		addAction(&handledActions, getAction(&newActions, i));
 	}
 
-
 	freeActions(&newActions);
+
+	if (flushNeeded) {
+		if (cachedFlushActionsAddedCallback) {
+			cachedFlushActionsAddedCallback();
+		} else {
+			logPrintf(LOG_ERROR, "destLocalTick: no flush actions added callback\n");
+		}
+	}
 
 	return 0;
 }
@@ -831,6 +847,7 @@ Destination destinationSsh = {
 	.putRepositoryFile = destSshPutRepositoryFile,
 	.getRepositoryFile = destSshGetRepositoryFile,
 	.setCallbackActionAdded = destSshSetCallbackActionAdded,
+	.setCallbackFlushActionsAdded = destSshSetCallbackFlushActionsAdded,
 	.isTickable = destSshIsTickable,
 	.tick = destSshTick,
 };

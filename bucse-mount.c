@@ -76,7 +76,7 @@ static pthread_t tickThread;
 static pthread_mutex_t shutdownMutex;
 static int shutdownTicking = 0;
 
-static void actionAddedDecryptOneAction(char* actionName, char* buf, size_t size, int moreInThisBatch)
+static void actionAddedDecryptOneAction(char* actionName, char* buf, size_t size)
 {
 	size_t decryptedBufLen = MAX_ACTION_LEN + DECRYPTED_BUFFER_MARGIN;
 	char* decryptedBuf = malloc(decryptedBufLen);
@@ -94,7 +94,7 @@ static void actionAddedDecryptOneAction(char* actionName, char* buf, size_t size
 		free(decryptedBuf);
 		return;
 	}
-	actionAdded(actionName, decryptedBuf, decryptedBufLen, moreInThisBatch);
+	actionAdded(actionName, decryptedBuf, decryptedBufLen);
 	free(decryptedBuf);
 }
 
@@ -108,15 +108,15 @@ static int endsWithTar(const char* buf) {
     return strcmp(buf + lenBuf - 4, ".tar") == 0;
 }
 
-static void actionAddedDecrypt(char* actionName, char* buf, size_t size, int moreInThisBatch)
+static void actionAddedDecrypt(char* actionName, char* buf, size_t size)
 {
 	if (endsWithTar(actionName)) {
-		int result = forEveryFileInTar(buf, size, moreInThisBatch, actionAddedDecryptOneAction);
+		int result = forEveryFileInTar(buf, size, actionAddedDecryptOneAction);
 		if (result != 0) {
 			logPrintf(LOG_ERROR, "actionAddedDecrypt: tar file handling failed: %d\n", result);
 		}
 	} else {
-		actionAddedDecryptOneAction(actionName, buf, size, moreInThisBatch);
+		actionAddedDecryptOneAction(actionName, buf, size);
 	}
 }
 
@@ -509,6 +509,7 @@ int main(int argc, char** argv)
 		return 4;
 	}
 	destination->setCallbackActionAdded(&actionAddedDecrypt);
+	destination->setCallbackFlushActionsAdded(&flushActionsAdded);
 
 	if (parseRepositoryJsonFile() != 0) {
 		logPrintf(LOG_ERROR, "parseRepositoryJsonFile() failed\n");

@@ -421,17 +421,16 @@ static void parseAction(char* buf, size_t size)
 	json_object_put(obj);
 }
 
-void actionAdded(char* actionName, char* buf, size_t size, int moreInThisBatch)
+void actionAdded(char* actionName, char* buf, size_t size)
 {
-	//logPrintf(LOG_DEBUG, "actionAdded(): %s\n  %s\n  %d\n  %d\n", actionName, buf, size, moreInThisBatch);
+	//logPrintf(LOG_DEBUG, "actionAdded(): %s\n  %s\n  %d\n", actionName, buf, size);
 
+	// TODO: parseAction() not needed, move it here
 	parseAction(buf, size);
+}
 
-	// early out if there is more data incoming
-	if (moreInThisBatch > 0) {
-		return;
-	}
-
+void flushActionsAdded()
+{
 	// early out if there is no pending action
 	if (actionsPending.len == 0) {
 		return;

@@ -27,6 +27,7 @@ static char* repositoryActionsPath;
 static char* repositoryStoragePath;
 
 static ActionAddedCallback cachedActionAddedCallback;
+static FlushActionsAddedCallback cachedFlushActionsAddedCallback;
 
 // TODO: the same code is in dest_ssh.c. Fix it.
 // TODO: rename to ActionNames [?]
@@ -444,6 +445,12 @@ int destLocalSetCallbackActionAdded(ActionAddedCallback callback)
 	return 0;
 }
 
+int destLocalSetCallbackFlushActionsAdded(FlushActionsAddedCallback callback)
+{
+	cachedFlushActionsAddedCallback = callback;
+	return 0;
+}
+
 int destLocalIsTickable()
 {
 	return 1;
@@ -467,6 +474,7 @@ int destLocalTick()
 
 	Actions newActions;
 	memset(&newActions, 0, sizeof(Actions));
+	int flushNeeded = 0;
 
 	for (;;) {
 		errno = 0;
@@ -553,7 +561,8 @@ int destLocalTick()
 		fclose(file);
 
 		if (cachedActionAddedCallback) {
-			cachedActionAddedCallback(getAction(&newActions, i), actionFileBuf, bytesRead, newActions.len - i - 1);
+			cachedActionAddedCallback(getAction(&newActions, i), actionFileBuf, bytesRead);
+			flushNeeded = 1;
 		} else {
 			logPrintf(LOG_ERROR, "destLocalTick: no action added callback\n");
 		}
@@ -565,8 +574,15 @@ int destLocalTick()
 		addAction(&handledActions, getAction(&newActions, i));
 	}
 
-
 	freeActions(&newActions);
+
+	if (flushNeeded) {
+		if (cachedFlushActionsAddedCallback) {
+			cachedFlushActionsAddedCallback();
+		} else {
+			logPrintf(LOG_ERROR, "destLocalTick: no flush actions added callback\n");
+		}
+	}
 
 	return 0;
 }
@@ -589,6 +605,7 @@ Destination destinationLocal = {
 	.putRepositoryFile = destLocalPutRepositoryFile,
 	.getRepositoryFile = destLocalGetRepositoryFile,
 	.setCallbackActionAdded = destLocalSetCallbackActionAdded,
+	.setCallbackFlushActionsAdded = destLocalSetCallbackFlushActionsAdded,
 	.isTickable = destLocalIsTickable,
 	.tick = destLocalTick,
 };

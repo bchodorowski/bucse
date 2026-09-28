@@ -19,7 +19,8 @@
 #define MAX_ACTION_LEN (1024 * 1024)
 #define MAX_ACTION_NAME_LEN 64
 
-typedef void (*ActionAddedCallback)(char* actionName, char* buf, size_t size, int moreInThisBatch);
+typedef void (*ActionAddedCallback)(char* actionName, char* buf, size_t size);
+typedef void (*FlushActionsAddedCallback)();
 
 typedef struct {
 	int (*init)(char* repository);
@@ -34,6 +35,7 @@ typedef struct {
 	int (*putRepositoryFile)(char *buf, size_t size);
 	int (*getRepositoryFile)(char *buf, size_t *size);
 	int (*setCallbackActionAdded)(ActionAddedCallback callback);
+	int (*setCallbackFlushActionsAdded)(FlushActionsAddedCallback callback);
 	int (*isTickable)();
 	int (*tick)();
 } Destination;
