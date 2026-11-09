@@ -7,6 +7,15 @@ a server or in a cloud without giving data access to anyone else
 # Demonstration
 ![Demonstration GIF](bucse.gif)
 
+# Compilation
+## Debian
+```
+# install requirements
+sudo apt install build-essential pkg-config libfuse3-dev libjson-c-dev libssh-dev libarchive-dev
+# build
+make
+```
+
 # Similar software
 - [EncFS](https://github.com/vgough/encfs)
 - [Rclone](https://github.com/rclone/rclone)
