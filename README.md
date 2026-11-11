@@ -16,6 +16,11 @@ sudo apt install build-essential pkg-config libfuse3-dev libjson-c-dev libssh-de
 make
 ```
 
+# Development
+- [CONTRIBUTING.md](CONTRIBUTING.md) -- how to build, test and contribute
+- [docs/design.md](docs/design.md) -- core concepts, repository layout and
+  design invariants
+
 # Similar software
 - [EncFS](https://github.com/vgough/encfs)
 - [Rclone](https://github.com/rclone/rclone)

@@ -15,3 +15,6 @@
 - improve local destination by applying a filesystem hook to be notified about changes in the filesystem
 - s3 destination
 - implement undo actions
+- a client that reads an action file while another client is still uploading it rejects it and never reads it again until remount; write action files under a temporary name and rename when complete, or retry rejected files
+- no fsync() in the local destination: after a power loss an action file may be saved without its blocks
+- aes encryption backend (AES-256-CBC) has no integrity check (MAC); consider authenticated encryption, e.g. AES-GCM
