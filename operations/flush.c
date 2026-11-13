@@ -112,8 +112,13 @@ int flushFile(FilesystemFile* file)
 		newContentLen = newSize / newBlockSize + (int)(newSize % newBlockSize != 0);
 	}
 
-	// if nothing changed
-	if (file->pendingWrites.len == 0) {
+	// when the file shrinks and its new last block is partial, that block
+	// is shorter than the stored one and has to be rewritten
+	int lastBlockShrinks = newBlockSize > 0 && newSize < file->size
+		&& newSize % newBlockSize != 0;
+
+	// if no block needs to be written
+	if (file->pendingWrites.len == 0 && !lastBlockShrinks) {
 		if (newContentLen > 0) {
 			newContent = malloc(newContentLen * MAX_STORAGE_NAME_LEN);
 			if (newContent == NULL) {
@@ -162,8 +167,7 @@ int flushFile(FilesystemFile* file)
 		blocksToWrite[file->contentLen - 1] = 1;
 	}
 
-	// another special case? when truncating. TODO: See if this is realy needed
-	if (newContentLen > 0 && file->contentLen > newContentLen) {
+	if (lastBlockShrinks) {
 		blocksToWrite[newContentLen - 1] = 1;
 	}
 	
@@ -243,12 +247,15 @@ int flushFile(FilesystemFile* file)
 				logPrintf(LOG_VERBOSE_DEBUG, "sourceBlockIndex: %d\n", sourceBlockIndex);
 				logPrintf(LOG_VERBOSE_DEBUG, "block: %s\n", block);
 
+				// a longer block is fine (see below), the bytes past
+				// expectedReadSize are overwritten by the next block or
+				// zero-filled
 				size_t bufSizeCopy=bufSize;
 				size_t encryptedBlockBufSizeCopy = encryptedBlockBufSize;
 				if (decryptBlock(block,
 					bufPtr, &bufSizeCopy,
 					encryptedBlockBuf, &encryptedBlockBufSizeCopy,
-					1, expectedReadSize) != 0) {
+					expectedReadSize) != 0) {
 					ioerror = 1;
 					break;
 				}
@@ -269,13 +276,19 @@ int flushFile(FilesystemFile* file)
 
 			const char* block = file->content + (MAX_STORAGE_NAME_LEN * i);
 			
+			// Versions before 2026-11 did not rewrite the last block
+			// when truncating, so it may be longer than expected. Accept
+			// it and zero everything after the file's end, which must
+			// read as zeroes if the file gets extended.
 			if (decryptBlock(block,
 				decryptedBlockBuf, &decryptedBlockBufSize,
 				encryptedBlockBuf, &encryptedBlockBufSize,
-				1, expectedReadSize) != 0) {
+				expectedReadSize) != 0) {
 				ioerror = 1;
 				break;
 			}
+			memset(decryptedBlockBuf + expectedReadSize, 0,
+				maxDecryptedBlockSize + DECRYPTED_BUFFER_MARGIN - expectedReadSize);
 
 		}
 		// right now we have data in decryptedBlockBuf

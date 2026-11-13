@@ -62,7 +62,6 @@ int encryptAndAddActionFile(Action* newAction)
 int decryptBlock(const char* block,
 	char* decryptedBlockBuf, size_t* decryptedBlockBufSize,
 	char* encryptedBlockBuf, size_t* encryptedBlockBufSize,
-	int exactly,
 	size_t expectedReadSize)
 {
 	if (cacheGet(block, decryptedBlockBuf, decryptedBlockBufSize) != 0) {
@@ -81,18 +80,10 @@ int decryptBlock(const char* block,
 			return 2;
 		}
 
-		if (exactly) {
-			if (*decryptedBlockBufSize != expectedReadSize) {
-				logPrintf(LOG_ERROR, "decryptBlock: expected decrypted block size %d, got %d\n",
-						expectedReadSize, *decryptedBlockBufSize);
-				return 3;
-			}
-		} else {
-			if (*decryptedBlockBufSize < expectedReadSize) {
-				logPrintf(LOG_ERROR, "decryptBlock: expected decrypted block size at least %d, got %d\n",
-						expectedReadSize, *decryptedBlockBufSize);
-				return 3;
-			}
+		if (*decryptedBlockBufSize < expectedReadSize) {
+			logPrintf(LOG_ERROR, "decryptBlock: expected decrypted block size at least %d, got %d\n",
+					expectedReadSize, *decryptedBlockBufSize);
+			return 3;
 		}
 
 		cachePut(block, decryptedBlockBuf, *decryptedBlockBufSize);

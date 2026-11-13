@@ -152,7 +152,7 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 		if (decryptBlock(block->block,
 			decryptedBlockBuf, &decryptedBlockBufSize,
 			encryptedBlockBuf, &encryptedBlockBufSize,
-			0, block->offset + block->len) != 0) {
+			block->offset + block->len) != 0) {
 			ioerror = 1;
 			break;
 		}

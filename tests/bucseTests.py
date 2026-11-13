@@ -142,6 +142,21 @@ def verifyWithMirror():
     p = subprocess.run(["diff", "-r", "test_%d_mirror" % pid, "test_%d" % pid])
     p.check_returncode()
 
+    remount()
+
+    p = subprocess.run(["diff", "-r", "test_%d_mirror" % pid, "test_%d" % pid])
+    p.check_returncode()
+
+
+# Unmounts and mounts the repository again, without reading any file, so
+# that the new bucse-mount process starts with an empty cache.
+def remount():
+    global argValgrind
+    global argRepoPath
+    global argPassphrase
+    global valgrindProc
+    global failOnError
+
     p = subprocess.run(["umount", "test_%d" % pid])
     p.check_returncode()
 
@@ -155,9 +170,6 @@ def verifyWithMirror():
 
     waitForRepoToBeMounted("test_%d" % pid)
     time.sleep(5)
-
-    p = subprocess.run(["diff", "-r", "test_%d_mirror" % pid, "test_%d" % pid])
-    p.check_returncode()
 
 
 def verifyFailOnError(printDebug = False):
