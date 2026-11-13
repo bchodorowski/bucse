@@ -51,12 +51,12 @@ Medium:
 - [ ] 19. "FUSE library version" prints the bucse version (bucse-mount.c:237)
 - [ ] 20. design.md: a truncated CBC file doesn't always fail decryption (JSON parsing rejects it)
 - [ ] 21. PBKDF2-SHA1 with 1 iteration -- crypto-related, discuss first
-- [ ] 22. tests/allTests.sh doesn't run test9-test12; test9-test11 use unencrypted action files
+- [x] 22. tests/allTests.sh doesn't run test9-test12; test9-test11 use unencrypted action files
       from tests/data, so they only work with -e none (allTests.sh uses aes); test11 fails until
       the "partially uploaded action never re-read" item above is fixed
-- [ ] 24. test4 (5.2 GB cp) kills bucse-mount on a machine with 1.9 GB RAM, before any block is
+- [ ] 24. stressTest1 (5.2 GB cp) kills bucse-mount on a machine with 1.9 GB RAM, before any block is
       stored; suspected OOM: bucse_write buffers up to 10240 pending writes (~1.3 GB with 128 KB
-      writes) before flushing. Look at it together with item 9. Note: test4/test5 also need
+      writes) before flushing. Look at it together with item 9. Note: the stress tests also need
       ~16 GB of free disk.
 
 Typos and misleading messages:

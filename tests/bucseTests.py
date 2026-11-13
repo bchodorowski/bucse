@@ -5,9 +5,27 @@ import random
 import string
 import argparse
 import re
+import shlex
+import tarfile
+import io
+import atexit
 
 pid = os.getpid()
+
+# temporary data files in tmp/, removed when the test exits (even if it fails)
 tmpFiles = []
+# logs in tmp/ (valgrind's, bucse-mount's output), removed only by
+# testCleanup(), so they are kept when a test fails
+logFiles = []
+
+
+def removeTmpFiles():
+    for tmpFile in tmpFiles:
+        path = "tmp/%s" % tmpFile
+        if os.path.exists(path):
+            os.remove(path)
+
+atexit.register(removeTmpFiles)
 
 argDebug = False
 argValgrind = False
@@ -64,6 +82,18 @@ def downloadTmp(url, filename, shasum):
     tmpFiles.append(filename)
 
 
+# Unmounts the test directory. The kernel sends release requests for closed
+# files asynchronously, so right after e.g. diff the mount may still be busy
+# for a moment (especially under valgrind); retry for a while.
+def unmount():
+    for _ in range(30):
+        p = subprocess.run(["umount", "test_%d" % pid])
+        if p.returncode == 0:
+            return
+        time.sleep(1)
+    p.check_returncode()
+
+
 def waitForRepoToBeMounted(mountDir):
     while True:
         mountProcess = subprocess.run(['mount'], check=True, capture_output=True)
@@ -89,6 +119,12 @@ def mountDirs():
     p = subprocess.run(["mkdir", "test_%d" % pid])
     p.check_returncode()
 
+    # bucse-init creates only the repository directory, not its parents
+    ssh = parseSshRepoPath()
+    if ssh:
+        sshArgs, repoPath = ssh
+        subprocess.run(sshArgs + ["mkdir -p %s" % remoteShellPath(repoPath)], check=True)
+
     p = subprocess.run(["../bucse-init", "-e", argEncryption, "-p", argPassphrase, "%s/test_%d_repo" % (argRepoPath, pid)])
     p.check_returncode()
 
@@ -97,20 +133,29 @@ def mountDirs():
     if failOnError:
         argsList += ["-f", "-v 4"]
 
+    # bucse-mount's output, checked for errors by verifyFailOnError(); a file,
+    # not a pipe, so that a lot of output can't block bucse-mount
+    mountOutput = None
+    if failOnError:
+        logFiles.append("mount_%d.txt" % pid)
+        mountOutput = open("tmp/mount_%d.txt" % pid, "wb")
+    else:
+        mountOutput = subprocess.DEVNULL
+
     if argDebug:
         print(" ".join(argsList + ["-f -v 4"]))
         input()
     elif argValgrind:
         argsList = ["valgrind", "--log-file=tmp/valgrind_%d.txt" % pid, "--error-exitcode=-1", "--leak-check=full", "--show-leak-kinds=all", "--errors-for-leak-kinds=all", "--exit-on-first-error=yes"] + argsList + ["-f"]
-        tmpFiles.append("valgrind_%d.txt" % pid)
-        valgrindProc = subprocess.Popen(argsList, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        logFiles.append("valgrind_%d.txt" % pid)
+        valgrindProc = subprocess.Popen(argsList, stdout=mountOutput, stderr=subprocess.STDOUT)
     elif failOnError:
-        valgrindProc = subprocess.Popen(argsList, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        valgrindProc = subprocess.Popen(argsList, stdout=mountOutput, stderr=subprocess.STDOUT)
     else:
         p = subprocess.run(argsList)
         p.check_returncode()
     
-    waitForRepoToBeMounted("%s/test_%d" % (argRepoPath, pid))
+    waitForRepoToBeMounted("test_%d" % pid)
 
 
 def mirrorCommand(args):
@@ -157,8 +202,7 @@ def remount():
     global valgrindProc
     global failOnError
 
-    p = subprocess.run(["umount", "test_%d" % pid])
-    p.check_returncode()
+    unmount()
 
     if argValgrind or failOnError:
         valgrindProc.communicate()
@@ -179,15 +223,17 @@ def verifyFailOnError(printDebug = False):
     if not failOnError:
         return
 
-    p = subprocess.run(["umount", "test_%d" % pid])
-    p.check_returncode()
+    unmount()
 
-    outputBytes, errBytes = valgrindProc.communicate()
+    valgrindProc.communicate()
     if valgrindProc.returncode != 0:
         raise Exception("bucse-mount returned %d" % valgrindProc.returncode)
 
+    with open("tmp/mount_%d.txt" % pid, "rb") as f:
+        output = f.read().decode("utf-8", errors="replace")
+
     if printDebug:
-        print(outputBytes.decode("utf-8"))
+        print(output)
 
     argsList = ["../bucse-mount", "-p", argPassphrase, "-r", "%s/test_%d_repo" % (argRepoPath, pid), "test_%d" % pid]
     if printDebug:
@@ -195,7 +241,7 @@ def verifyFailOnError(printDebug = False):
     p = subprocess.run(argsList)
     p.check_returncode()
 
-    if outputBytes.decode("utf-8").find("[error]") > -1:
+    if output.find("[error]") > -1:
         raise Exception("There were errors")
 
 
@@ -204,32 +250,31 @@ def testCleanup():
 
     time.sleep(1)
 
-    p = subprocess.run(["umount", "test_%d" % pid])
-    p.check_returncode()
+    unmount()
 
     p = subprocess.run(["rm", "-rf", "test_%d_mirror" % pid])
     p.check_returncode()
 
-    r = re.match(r'ssh://(.*?)(:(\d+))?/(.*)$', argRepoPath)
-    if r:
-        hostname = r.groups()[0]
-        port = r.groups()[2]
-        repoPath = r.groups()[3]
-        argsList = ["ssh"]
-        if port:
-            argsList = argsList + ["-p", port]
-        argsList = argsList + [hostname, "rm", "-rf", "%s/test_%d_repo"%(repoPath, pid)]
-        p = subprocess.run(argsList)
-    else:
-        p = subprocess.run(["rm", "-rf", "%s/test_%d_repo" % (argRepoPath, pid)])
-    p.check_returncode()
+    removeRepo()
 
     p = subprocess.run(["rm", "-rf", "test_%d" % pid])
     p.check_returncode()
 
-    for tmpFile in tmpFiles:
-        p = subprocess.run(["rm", "-rf", "tmp/%s" % tmpFile])
-        p.check_returncode()
+    removeTmpFiles()
+    for logFile in logFiles:
+        os.remove("tmp/%s" % logFile)
+
+
+# Removes the test repository. Also used by allTests.sh to clean up after a
+# failed test.
+def removeRepo():
+    ssh = parseSshRepoPath()
+    if ssh:
+        sshArgs, repoPath = ssh
+        p = subprocess.run(sshArgs + ["rm -rf %s" % remoteShellPath("%s/test_%d_repo" % (repoPath, pid))])
+    else:
+        p = subprocess.run(["rm", "-rf", "%s/test_%d_repo" % (argRepoPath, pid)])
+    p.check_returncode()
 
 
 def getRandomPathInMirror():
@@ -403,14 +448,105 @@ def mirrorClose(filename, fd, fdMirror):
     os.close(fd)
     os.close(fdMirror)
 
-def copyActions(actionsDir):
-    p = subprocess.run(["cp -f %s/* test_%d_repo/actions/" % (actionsDir, pid)], shell=True)
-    p.check_returncode()
+
+# Access to the files of the test repository, for both local and ssh
+# destinations.
+
+# Returns (ssh command prefix, path on the remote host) for an ssh repository
+# path, or None for a local one.
+def parseSshRepoPath():
+    r = re.match(r'ssh://(.*?)(:(\d+))?/(.*)$', argRepoPath)
+    if not r:
+        return None
+    hostname = r.groups()[0]
+    port = r.groups()[2]
+    sshArgs = ["ssh"]
+    if port:
+        sshArgs = sshArgs + ["-p", port]
+    return sshArgs + [hostname], r.groups()[3]
+
+
+# Quotes a remote path for the remote shell, leaving a leading ~/ unquoted so
+# that it is expanded to the home directory.
+def remoteShellPath(path):
+    if path.startswith("~/"):
+        return "~/" + shlex.quote(path[2:])
+    return shlex.quote(path)
+
+
+def writeRepoFile(relPath, data):
+    ssh = parseSshRepoPath()
+    if ssh:
+        sshArgs, repoPath = ssh
+        remotePath = remoteShellPath("%s/test_%d_repo/%s" % (repoPath, pid, relPath))
+        subprocess.run(sshArgs + ["cat > %s" % remotePath], input=data, check=True)
+    else:
+        with open("%s/test_%d_repo/%s" % (argRepoPath, pid, relPath), "wb") as f:
+            f.write(data)
+
+
+def deleteRepoFile(relPath):
+    ssh = parseSshRepoPath()
+    if ssh:
+        sshArgs, repoPath = ssh
+        remotePath = remoteShellPath("%s/test_%d_repo/%s" % (repoPath, pid, relPath))
+        subprocess.run(sshArgs + ["rm -f %s" % remotePath], check=True)
+    else:
+        path = "%s/test_%d_repo/%s" % (argRepoPath, pid, relPath)
+        if os.path.exists(path):
+            os.remove(path)
+
+
+# Encrypts data the way the repository's encryption backend does. The aes
+# backend is compatible with `openssl enc`, see encryption/encr_aes.c.
+def encryptForRepo(data):
+    if argEncryption == "none":
+        return data
+    if argEncryption == "aes":
+        p = subprocess.run(["openssl", "enc", "-aes-256-cbc", "-pbkdf2", "-md", "sha1", "-iter", "1",
+                            "-pass", "env:BUCSE_TEST_PASSPHRASE"],
+                           input=data, capture_output=True, check=True,
+                           env=dict(os.environ, BUCSE_TEST_PASSPHRASE=argPassphrase))
+        return p.stdout
+    raise Exception("Unsupported encryption: %s" % argEncryption)
+
+
+# Action files in tests/data are plain JSON. These functions encrypt them with
+# the repository's encryption backend and put them into the repository.
+
+def readEncryptedAction(actionFile):
+    with open(actionFile, "rb") as f:
+        return encryptForRepo(f.read())
+
 
 def copyAction(actionFile):
-    p = subprocess.run(["cp -f %s test_%d_repo/actions/" % (actionFile, pid)], shell=True)
-    p.check_returncode()
+    writeRepoFile("actions/%s" % os.path.basename(actionFile), readEncryptedAction(actionFile))
+
+
+def copyActions(actionsDir):
+    for name in sorted(os.listdir(actionsDir)):
+        copyAction(os.path.join(actionsDir, name))
+
+
+# Writes only the first part of an action file, as if its upload was interrupted.
+def copyActionPartially(actionFile, fraction = 0.5):
+    data = readEncryptedAction(actionFile)
+    writeRepoFile("actions/%s" % os.path.basename(actionFile), data[:int(len(data) * fraction)])
+
+
+# Packs (encrypted) action files into one tar file in the repository, like a
+# maintenance tool packing action files does.
+def copyActionsAsTar(actionsDir, tarName):
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w", format=tarfile.USTAR_FORMAT) as tar:
+        for name in sorted(os.listdir(actionsDir)):
+            data = readEncryptedAction(os.path.join(actionsDir, name))
+            info = tarfile.TarInfo(name)
+            info.size = len(data)
+            info.mtime = int(time.time())
+            tar.addfile(info, io.BytesIO(data))
+    writeRepoFile("actions/%s" % tarName, buf.getvalue())
+
 
 def deleteAction(actionName):
-    p = subprocess.run(["rm -f test_%d_repo/actions/%s" % (pid, actionName)], shell=True)
-    p.check_returncode()
+    deleteRepoFile("actions/%s" % actionName)
