@@ -9,6 +9,8 @@ import shlex
 import tarfile
 import io
 import atexit
+import hashlib
+import json
 
 pid = os.getpid()
 
@@ -86,11 +88,11 @@ def downloadTmp(url, filename, shasum):
 # files asynchronously, so right after e.g. diff the mount may still be busy
 # for a moment (especially under valgrind); retry for a while.
 def unmount():
-    for _ in range(30):
+    for _ in range(60):
         p = subprocess.run(["umount", "test_%d" % pid])
         if p.returncode == 0:
             return
-        time.sleep(1)
+        time.sleep(0.5)
     p.check_returncode()
 
 
@@ -101,7 +103,7 @@ def waitForRepoToBeMounted(mountDir):
                               input=mountProcess.stdout, capture_output=True)
         if grepProcess.returncode == 0:
             return
-        time.sleep(1)
+        time.sleep(0.2)
 
 
 def mountDirs():
@@ -172,6 +174,12 @@ def mirrorCommand(args):
     p = subprocess.run(args2)
     p.check_returncode()
 
+    global mirrorTree
+    if mirrorTree is not None and len(args2) == 2 and args2[0] == "mkdir":
+        mirrorTree[0].append(os.path.normpath(args2[1]))
+    else:
+        mirrorTree = None
+
 
 def verifyWithMirror():
     global argValgrind
@@ -213,7 +221,6 @@ def remount():
     p.check_returncode()
 
     waitForRepoToBeMounted("test_%d" % pid)
-    time.sleep(5)
 
 
 def verifyFailOnError(printDebug = False):
@@ -248,8 +255,6 @@ def verifyFailOnError(printDebug = False):
 def testCleanup():
     global argRepoPath
 
-    time.sleep(1)
-
     unmount()
 
     p = subprocess.run(["rm", "-rf", "test_%d_mirror" % pid])
@@ -277,20 +282,39 @@ def removeRepo():
     p.check_returncode()
 
 
-def getRandomPathInMirror():
-    p = subprocess.run(["find", "test_%d_mirror" % pid, "-type", "d"], capture_output = True)
-    p.check_returncode()
+# Lists of the directories and files in the mirror, used to pick random paths.
+# Rebuilt after any mirror change except a plain mkdir, which is tracked.
+mirrorTree = None
 
-    dirs = p.stdout.decode("UTF-8").split("\n")[:-1]
-    return random.choice(dirs)
+def scanMirror():
+    dirs = []
+    files = []
+    stack = ["test_%d_mirror" % pid]
+    while stack:
+        path = stack.pop()
+        dirs.append(path)
+        with os.scandir(path) as it:
+            for entry in it:
+                if entry.is_dir(follow_symlinks=False):
+                    stack.append(entry.path)
+                else:
+                    files.append(entry.path)
+    return dirs, files
+
+
+def getMirrorTree():
+    global mirrorTree
+    if mirrorTree is None:
+        mirrorTree = scanMirror()
+    return mirrorTree
+
+
+def getRandomPathInMirror():
+    return random.choice(getMirrorTree()[0])
 
 
 def getRandomFileInMirror():
-    p = subprocess.run(["find", "test_%d_mirror" % pid, "-type", "f"], capture_output = True)
-    p.check_returncode()
-
-    dirs = p.stdout.decode("UTF-8").split("\n")[:-1]
-    return random.choice(dirs)
+    return random.choice(getMirrorTree()[1])
 
 
 randomCharacters = string.ascii_letters + string.digits
@@ -313,42 +337,33 @@ def getRandomExistingFileName():
             return getRandomFileInMirror().replace("test_%d_mirror" % pid, "__TESTDIR__", 1)
 
 
-def makeRandomTmpFile(size = 1024 * 1024, randomUpTo = True):
-    if randomUpTo:
-        fileSize = random.randint(0, size)
-    else:
-        fileSize = size
-    fileName = ""
+# Writes a file of random bytes to tmp/ and returns its name.
+def writeRandomTmpFile(fileSize):
+    fileName = getRandomFileName()
     while os.path.exists("tmp/" + fileName):
         fileName = getRandomFileName()
 
-    fileName = getRandomFileName()
-
-    p = subprocess.run(["dd", "bs=1", "count=%d"%fileSize, "if=/dev/random", "of=tmp/%s"%fileName, "status=none"])
-    p.check_returncode()
-
+    with open("tmp/" + fileName, "wb") as f:
+        remaining = fileSize
+        while remaining > 0:
+            chunk = min(remaining, 1024 * 1024)
+            f.write(random.randbytes(chunk))
+            remaining -= chunk
 
     tmpFiles.append(fileName)
     return fileName
+
+
+def makeRandomTmpFile(size = 1024 * 1024, randomUpTo = True):
+    if randomUpTo:
+        size = random.randint(0, size)
+    return writeRandomTmpFile(size)
 
 
 def makeRandomTmpFileKBytes(kBytesSize = 1024, randomUpTo = True):
     if randomUpTo:
-        fileSize = random.randint(0, kBytesSize)
-    else:
-        fileSize = kBytesSize
-    fileName = ""
-    while os.path.exists("tmp/" + fileName):
-        fileName = getRandomFileName()
-
-    fileName = getRandomFileName()
-
-    p = subprocess.run(["dd", "bs=1024", "count=%d"%fileSize, "if=/dev/random", "of=tmp/%s"%fileName, "status=none"])
-    p.check_returncode()
-
-
-    tmpFiles.append(fileName)
-    return fileName
+        kBytesSize = random.randint(0, kBytesSize)
+    return writeRandomTmpFile(kBytesSize * 1024)
 
 
 def mirrorOpen(fileName):
@@ -373,6 +388,9 @@ def mirrorCreate(fileName):
     
     fd1 = os.open(fileName1, flags=os.O_CREAT|os.O_RDWR)
     fd2 = os.open(fileName2, flags=os.O_CREAT|os.O_RDWR)
+
+    global mirrorTree
+    mirrorTree = None
 
     return fd1, fd2
 
@@ -474,15 +492,23 @@ def remoteShellPath(path):
     return shlex.quote(path)
 
 
+# Writes a file of the test repository. The data is written under a temporary
+# name outside actions/ first and then renamed, so bucse-mount never sees a
+# half-written file (copyActionPartially() writes a partial one on purpose).
 def writeRepoFile(relPath, data):
+    tmpName = "tmp_%d_%s" % (pid, os.path.basename(relPath))
     ssh = parseSshRepoPath()
     if ssh:
         sshArgs, repoPath = ssh
-        remotePath = remoteShellPath("%s/test_%d_repo/%s" % (repoPath, pid, relPath))
-        subprocess.run(sshArgs + ["cat > %s" % remotePath], input=data, check=True)
+        repo = "%s/test_%d_repo" % (repoPath, pid)
+        tmpPath = remoteShellPath("%s/%s" % (repo, tmpName))
+        remotePath = remoteShellPath("%s/%s" % (repo, relPath))
+        subprocess.run(sshArgs + ["cat > %s && mv %s %s" % (tmpPath, tmpPath, remotePath)], input=data, check=True)
     else:
-        with open("%s/test_%d_repo/%s" % (argRepoPath, pid, relPath), "wb") as f:
+        repo = "%s/test_%d_repo" % (argRepoPath, pid)
+        with open("%s/%s" % (repo, tmpName), "wb") as f:
             f.write(data)
+        os.rename("%s/%s" % (repo, tmpName), "%s/%s" % (repo, relPath))
 
 
 def deleteRepoFile(relPath):
@@ -550,3 +576,39 @@ def copyActionsAsTar(actionsDir, tarName):
 
 def deleteAction(actionName):
     deleteRepoFile("actions/%s" % actionName)
+
+
+# Waits until all the given paths (relative to the mount) exist in the
+# mounted repository.
+def waitForFiles(paths, timeout = 30):
+    deadline = time.time() + timeout
+    while True:
+        missing = [p for p in paths if not os.path.exists("test_%d/%s" % (pid, p))]
+        if not missing:
+            return
+        if time.time() > deadline:
+            raise Exception("Timeout waiting for %s" % missing)
+        time.sleep(0.2)
+
+
+markerCount = 0
+
+# Waits until bucse-mount has handled everything put into the repository so
+# far. Adds a marker action (a new directory) and waits until the directory
+# shows up: bucse-mount reads new action files in batches, so by then it has
+# also read the ones written before the marker.
+def waitForActionsHandled(timeout = 30):
+    global markerCount
+    markerCount += 1
+    name = "marker_%d" % markerCount
+    action = [{
+        "time": int(time.time() * 1000000),
+        "action": "addDirectory",
+        "path": name,
+        "content": [],
+        "size": 0,
+        "blockSize": 0,
+    }]
+    data = json.dumps(action).encode("utf-8")
+    writeRepoFile("actions/%s" % hashlib.sha1(data).hexdigest(), encryptForRepo(data))
+    waitForFiles([name], timeout)

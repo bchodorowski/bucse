@@ -1,7 +1,6 @@
 #!/bin/python3
 
 import bucseTests
-import time
 import os
 
 
@@ -19,10 +18,10 @@ for name in os.listdir("data/partialAction/actions"):
         bucseTests.copyAction("data/partialAction/actions/%s" % name)
 # the upload of one action file gets interrupted ...
 bucseTests.copyActionPartially(partialAction)
-time.sleep(25)
+bucseTests.waitForActionsHandled()
 # ... and completed later
 bucseTests.copyAction(partialAction)
-time.sleep(40)
+bucseTests.waitForFiles([str(i) for i in range(10)])
 
 bucseTests.verifyFailOnError(True)
 bucseTests.testCleanup()

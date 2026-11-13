@@ -14,10 +14,14 @@ explains the core concepts and the invariants that every change must keep.
   also test the ssh destination (needs key-based ssh login to the host).
   Outputs go to `tests/logs/`. Test requirements: python3, valgrind, openssl
   (the command, to encrypt test action files for `aes`).
-- Stress tests: `tests/stressTests.sh` runs `tests/stressTest*.py` (the same
-  as some regular tests, with multi-gigabyte files). They need a lot of time,
-  RAM and about 16 GB of disk space, so run them from time to time, not for
-  every commit.
+- Keep the regular tests quick and light: the whole `allTests.sh` run should
+  take minutes on a low-end machine, also under valgrind. Wait for bucse-mount
+  with `waitForFiles()` / `waitForActionsHandled()` from `bucseTests.py`, not
+  with fixed sleeps.
+- Stress tests: `tests/stressTests.sh` runs `tests/stressTest*.py` (bigger
+  versions of some regular tests, e.g. with multi-gigabyte files, or with a
+  file downloaded from the internet). They need a lot of time, RAM and about
+  16 GB of disk space, so run them from time to time, not for every commit.
 - Action files in `tests/data/` are plain JSON; the tests encrypt them for the
   repository's backend when copying them into it.
 - Sample repositories for quickly trying out code changes:

@@ -6,7 +6,7 @@ import bucseTests
 bucseTests.parseArgs()
 
 
-fileName = bucseTests.makeRandomTmpFileKBytes(20000, False)
+fileName = bucseTests.makeRandomTmpFileKBytes(4000, False)
 
 bucseTests.mountDirs()
 
