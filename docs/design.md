@@ -44,7 +44,11 @@ Ranked: when goals conflict, the higher one wins.
 - `bucse-init` — the program that initialises a repository.
 - `bucse-mount` — the program that mounts a repository.
 - `operations/` — FUSE callbacks.
-- `destinations/` — storage backends.
+- `destinations/` — storage backends. Each destination decides on its own
+  how it finds new action files (its `tick()` is called about once a second),
+  so destinations can work very differently, e.g. list the actions directory,
+  or wait for notifications. A full listing is still made at least every
+  `check_interval` seconds (`-i`, default 10) as a fallback.
 - `encryption/` — encryption backends.
 
 ## Repository layout

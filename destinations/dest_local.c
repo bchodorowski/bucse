@@ -16,6 +16,7 @@
 
 #include <json.h>
 
+#include "../conf.h"
 #include "../log.h"
 
 #include "dest.h"
@@ -458,13 +459,12 @@ int destLocalIsTickable()
 
 int destLocalTick()
 {
-#define TICK_PERIOD_SECONDS 10
-
+	// list the actions directory every conf.checkInterval ticks
 	static int counter = 0;
 	if (--counter > 0) {
 		return 0;
 	}
-	counter = TICK_PERIOD_SECONDS;
+	counter = conf.checkInterval;
 
 	DIR *actionsDir = opendir(repositoryActionsPath);
 	if (actionsDir == NULL) {

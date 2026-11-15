@@ -135,7 +135,9 @@ def mountDirs():
     p = subprocess.run(["../bucse-init", "-e", argEncryption, "-p", argPassphrase, "%s/test_%d_repo" % (argRepoPath, pid)])
     p.check_returncode()
 
-    argsList = ["../bucse-mount", "-p", argPassphrase, "-r", "%s/test_%d_repo" % (argRepoPath, pid), "test_%d" % pid]
+    # check for new action files every second (the default is 10), so that
+    # waitForActionsHandled() and waitForFiles() don't wait long
+    argsList = ["../bucse-mount", "-p", argPassphrase, "-i", "1", "-r", "%s/test_%d_repo" % (argRepoPath, pid), "test_%d" % pid]
 
     if failOnError:
         argsList += ["-f", "-v 4"]
@@ -249,7 +251,9 @@ def verifyFailOnError(printDebug = False, allowedErrors = []):
     if printDebug:
         print(output)
 
-    argsList = ["../bucse-mount", "-p", argPassphrase, "-r", "%s/test_%d_repo" % (argRepoPath, pid), "test_%d" % pid]
+    # check for new action files every second (the default is 10), so that
+    # waitForActionsHandled() and waitForFiles() don't wait long
+    argsList = ["../bucse-mount", "-p", argPassphrase, "-i", "1", "-r", "%s/test_%d_repo" % (argRepoPath, pid), "test_%d" % pid]
     if printDebug:
         argsList = argsList + ["-v", "4"]
     p = subprocess.run(argsList)
@@ -558,8 +562,16 @@ def copyAction(actionFile):
     writeRepoFile("actions/%s" % os.path.basename(actionFile), readEncryptedAction(actionFile))
 
 
+# Copies the action files in the order of their time, as clients write them.
+# Copying takes a while (especially to an ssh repository), so bucse-mount may
+# see only some of the files at first: copied in another order, an older
+# action could arrive after newer ones and need undoing (undoAction() is not
+# implemented yet).
 def copyActions(actionsDir):
-    for name in sorted(os.listdir(actionsDir)):
+    def actionTime(name):
+        with open(os.path.join(actionsDir, name), "rb") as f:
+            return min(action["time"] for action in json.load(f))
+    for name in sorted(os.listdir(actionsDir), key=lambda name: (actionTime(name), name)):
         copyAction(os.path.join(actionsDir, name))
 
 

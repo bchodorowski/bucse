@@ -12,8 +12,24 @@
 - warning when using poor password strength (zxcvbn-c?)
 - investigate a memory leak in libfuse when using fsstress
 - handle addToDynArray failures
-- improve local destination by applying a filesystem hook to be notified about changes in the filesystem
-- s3 destination
+- local destination: use inotify (IN_CLOSE_WRITE, IN_MOVED_TO on actions/) to learn about new
+  action files instead of listing the directory; keep the full listing every check_interval
+  as a fallback (it's needed when the repository is on a network or synced filesystem, which
+  inotify doesn't see, and after an IN_Q_OVERFLOW)
+- local and ssh destinations: stat actions/ before listing it and skip the listing when its
+  mtime hasn't changed; list again when the mtime is very recent (mtime granularity can be 1 s,
+  a file added in the same second would be missed)
+- retry rejected action files without relying on a full listing (each destination keeps a list
+  of the rejected ones), needed once listings get rarer (inotify, mtime check)
+- ssh destination: optionally run inotifywait on the server over an ssh exec channel (needs a
+  Linux server with inotify-tools and shell access, not sftp-only); fall back to listing
+- s3 destination. To decide first:
+  - listing only new action files with ListObjectsV2 StartAfter needs action file names that
+    sort by time (e.g. a timestamp prefix) -- repository format change, discuss first; needs a
+    margin for clock differences between clients and an occasional full listing
+  - no directory mtime in S3; S3 event notifications (SNS/SQS/EventBridge) need extra AWS
+    setup and aren't available in S3-compatible stores -- probably not worth it
+  - HTTP library (libcurl?) and AWS request signing (openssl) -- a new dependency
 - implement undo actions (undoAction() in actions.c is a stub, so out-of-order actions are
   applied again on top of the later ones, e.g. "doAction: file already exists" in test11)
 - no fsync() in the local destination: after a power loss an action file may be saved without its blocks
@@ -57,7 +73,7 @@ Medium:
       stored; suspected OOM: bucse_write buffers up to 10240 pending writes (~1.3 GB with 128 KB
       writes) before flushing. Look at it together with item 9. Note: the stress tests also need
       ~16 GB of free disk.
-- [ ] 25. tests are slow because the local destination looks for new action files only every
+- [x] 25. tests are slow because the local destination looks for new action files only every
       10 s (TICK_PERIOD_SECONDS, dest_local.c): every waitForActionsHandled()/waitForFiles() costs
       up to 10 s (test11 takes ~70 s even without valgrind). Add an option (e.g. for bucse-mount)
       to shorten the interval and use it in the tests

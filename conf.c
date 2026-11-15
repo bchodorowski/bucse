@@ -10,6 +10,7 @@ void confInit()
 	memset(&conf, 0, sizeof(conf));
 	conf.verbose = 2;
 	conf.readOnly = 0;
+	conf.checkInterval = 10;
 }
 
 void confCleanup()

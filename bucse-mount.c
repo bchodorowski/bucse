@@ -157,6 +157,8 @@ static struct fuse_opt bucse_opts[] = {
 	BUCSE_OPT("ro", readOnly, 1),
 	BUCSE_OPT("-R", readOnly, 1),
 	BUCSE_OPT("--read_only", readOnly, 1),
+	BUCSE_OPT("check_interval=%d", checkInterval, 0),
+	BUCSE_OPT("-i %d", checkInterval, 0),
 
 	FUSE_OPT_KEY("-V",             KEY_VERSION),
 	FUSE_OPT_KEY("--version",      KEY_VERSION),
@@ -189,7 +191,13 @@ static int bucse_opt_proc(void *data, const char *arg, int key, struct fuse_args
 				"    -p STRING              same as '-opassphrase=STRING'\n"
 				"    -o ro                  read only mode\n"
 				"    -R                     same as '-oro'\n"
-				"    --read_only            same as '-oro'\n");
+				"    --read_only            same as '-oro'\n"
+				"    -o check_interval=INTEGER\n"
+				"                           how often to list the repository's action\n"
+				"                           files to find new ones, in seconds (default: 10);\n"
+				"                           a destination may also learn about new files\n"
+				"                           in between in its own way\n"
+				"    -i INTEGER             same as '-ocheck_interval=INTEGER'\n");
 		exit(0);
 
 	case KEY_VERSION:
@@ -483,6 +491,13 @@ int main(int argc, char** argv)
 
 	if (conf.repository == NULL) {
 		logPrintf(LOG_ERROR, "no repository specified\n");
+		recursivelyFreeFilesystem(root);
+		fuse_opt_free_args(&args);
+		confCleanup();
+		return 2;
+	}
+	if (conf.checkInterval < 1) {
+		logPrintf(LOG_ERROR, "check interval must be at least 1 second\n");
 		recursivelyFreeFilesystem(root);
 		fuse_opt_free_args(&args);
 		confCleanup();

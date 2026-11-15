@@ -40,6 +40,10 @@ typedef struct {
 	int (*setCallbackActionAdded)(ActionAddedCallback callback);
 	int (*setCallbackFlushActionsAdded)(FlushActionsAddedCallback callback);
 	int (*isTickable)();
+	// Called about once a second. Each destination decides how it looks for
+	// new action files (e.g. listing the actions directory, or waiting for
+	// notifications). A full listing must still be made at least every
+	// conf.checkInterval seconds.
 	int (*tick)();
 } Destination;
 

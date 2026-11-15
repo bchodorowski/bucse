@@ -6,6 +6,7 @@ struct bucse_config {
 	char *passphrase;
 	char *repositoryRealPath;
 	int readOnly;
+	int checkInterval;
 };
 
 extern struct bucse_config conf;

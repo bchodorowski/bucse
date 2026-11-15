@@ -13,6 +13,7 @@
 #include <libssh/libssh.h>
 #include <libssh/sftp.h>
 
+#include "../conf.h"
 #include "../log.h"
 
 #include "dest.h"
@@ -719,13 +720,12 @@ int destSshIsTickable()
 
 int destSshTick()
 {
-#define TICK_PERIOD_SECONDS 10
-
+	// list the actions directory every conf.checkInterval ticks
 	static int counter = 0;
 	if (--counter > 0) {
 		return 0;
 	}
-	counter = TICK_PERIOD_SECONDS;
+	counter = conf.checkInterval;
 
 	sftp_dir actionsDir = sftp_opendir(bucseSftpSession, repositoryActionsPath);
 	if (actionsDir == NULL) {
