@@ -12,8 +12,10 @@ explains the core concepts and the invariants that every change must keep.
   bucse-mount under valgrind. Options: `--no-valgrind` (faster), or test file
   names to run only those. Set `BUCSE_TEST_SSH=ssh://host/~/bucseTests` to
   also test the ssh destination (needs key-based ssh login to the host).
-  Outputs go to `tests/logs/`. Test requirements: python3, valgrind, openssl
-  (the command, to encrypt test action files for `aes`).
+  Outputs go to `tests/logs/`. A run can be stopped with Ctrl+C (or SIGTERM):
+  the running test is unmounted and its directories and repository removed.
+  Test requirements: python3, valgrind, openssl (the command, to encrypt test
+  action files for `aes`).
 - Keep the regular tests quick and light: the whole `allTests.sh` run should
   take minutes on a low-end machine, also under valgrind. Wait for bucse-mount
   with `waitForFiles()` / `waitForActionsHandled()` from `bucseTests.py`, not

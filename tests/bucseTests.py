@@ -11,6 +11,8 @@ import io
 import atexit
 import hashlib
 import json
+import signal
+import sys
 
 pid = os.getpid()
 
@@ -28,6 +30,9 @@ def removeTmpFiles():
             os.remove(path)
 
 atexit.register(removeTmpFiles)
+# on SIGTERM (e.g. allTests.sh being interrupted) exit normally, so that the
+# atexit handlers run
+signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit(128 + signum))
 
 argDebug = False
 argValgrind = False

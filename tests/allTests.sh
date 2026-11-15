@@ -19,6 +19,9 @@
 # A failed run is cleaned up (unmounted, its directories and repository
 # removed); its log and valgrind log (tmp/valgrind_<pid>.txt) are kept.
 # The exit code is non-zero if any run failed.
+#
+# When interrupted (Ctrl+C, SIGTERM, SIGHUP), the running test is stopped and
+# cleaned up the same way as a failed one, and the script exits.
 
 cd "$(dirname "$0")" || exit 1
 
@@ -55,12 +58,41 @@ cleanUp() {
 	if mountpoint -q "test_$1" 2>/dev/null; then
 		fusermount3 -u "test_$1" 2>/dev/null || fusermount3 -uz "test_$1"
 	fi
+	# a bucse-mount that is still running (e.g. not mounted yet); wait until
+	# it exits (up to 30 s, valgrind needs a while)
+	pkill -f "test_$1_repo" 2>/dev/null
+	i=0
+	while pgrep -f "test_$1_repo" > /dev/null && [ $i -lt 60 ]; do
+		sleep 0.5
+		i=$((i + 1))
+	done
 	rm -rf "test_$1" "test_$1_mirror"
 	python3 -c 'import sys, bucseTests
 bucseTests.argRepoPath = sys.argv[1]
 bucseTests.pid = int(sys.argv[2])
 bucseTests.removeRepo()' "$2" "$1"
 }
+
+# The running test (pid, repoPath, log) is cleaned up when the script is
+# interrupted. A test runs in the background, so it ignores SIGINT: it is
+# stopped with SIGTERM.
+pid=""
+interrupted() {
+	trap '' INT TERM HUP
+	echo
+	echo "Interrupted, cleaning up..."
+	if [ -n "$pid" ]; then
+		kill -TERM "$pid" 2>/dev/null
+		wait "$pid" 2>/dev/null
+		cleanUp "$pid" "$repoPath" >> "$log" 2>&1
+		echo "The interrupted test's log: $log"
+	fi
+	rm -f "$RESULTS"
+	exit "$1"
+}
+trap 'interrupted 130' INT
+trap 'interrupted 143' TERM
+trap 'interrupted 129' HUP
 
 for destination in $DESTINATIONS; do
 	if [ "$destination" = "ssh" ]; then
@@ -79,6 +111,8 @@ for destination in $DESTINATIONS; do
 			pid=$!
 			wait $pid
 			result=$?
+			testPid=$pid
+			pid=""
 
 			duration=$(( $(date +%s) - start ))
 			if [ $result -eq 0 ]; then
@@ -86,7 +120,7 @@ for destination in $DESTINATIONS; do
 			else
 				status="FAILED"
 				FAILED=1
-				cleanUp $pid "$repoPath" >> "$log" 2>&1
+				cleanUp $testPid "$repoPath" >> "$log" 2>&1
 			fi
 			echo "$status (${duration}s)"
 			echo "$name $status" >> "$RESULTS"
