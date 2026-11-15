@@ -66,6 +66,10 @@ These must ALWAYS hold. Breaking any of them is a bug.
   The server that stores the repository is not trusted.
 - Nothing unencrypted ever leaves the client (unless the `none` backend is
   used).
+- Everything read from the destination is untrusted input: sizes are
+  checked before data is copied or decrypted into a buffer. An action file
+  (or a tar entry) larger than 1 MB (`MAX_ACTION_LEN`) or a block larger
+  than its file's block size is rejected.
 - Action files are immutable once written: new actions only add new files.
   The only exception is dedicated maintenance tools, e.g. for packing action
   files or cleaning up redundant sequences of actions.

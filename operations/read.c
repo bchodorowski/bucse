@@ -147,7 +147,7 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 	for (int i=0; i<blocksToRead.len; i++) {
 		BlockOffsetLen* block = blocksToRead.objects[i];
 		size_t encryptedBlockBufSize = maxEncryptedBlockSize;
-		size_t decryptedBlockBufSize = maxDecryptedBlockSize;
+		size_t decryptedBlockBufSize = maxDecryptedBlockSize + DECRYPTED_BUFFER_MARGIN;
 
 		if (decryptBlock(block->block,
 			decryptedBlockBuf, &decryptedBlockBufSize,

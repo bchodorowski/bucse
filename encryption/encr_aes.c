@@ -1,6 +1,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <errno.h>
+#include <limits.h>
 
 #include <openssl/evp.h>
 
@@ -103,6 +104,15 @@ int encrAesDecrypt(char *inBuf, size_t inSize, char *outBuf, size_t *outSize, ch
 		return 2;
 	}
 
+	// The data comes from the untrusted server: it must fit in outBuf.
+	// A single EVP_DecryptUpdate() and EVP_DecryptFinal() together never
+	// write more than inSize bytes (the padding is removed).
+	if (inSize > *outSize || inSize > INT_MAX) {
+		logPrintf(LOG_ERROR, "encrAesDecrypt: encrypted data too large for the buffer\n");
+		EVP_CIPHER_CTX_free(ctx);
+		return 6;
+	}
+
 	unsigned char keyiv[64];
 	PKCS5_PBKDF2_HMAC_SHA1((const char*)pass, strlen(pass),
 		salt, 8, 1, sizeof(keyiv), keyiv);
@@ -117,7 +127,8 @@ int encrAesDecrypt(char *inBuf, size_t inSize, char *outBuf, size_t *outSize, ch
 
 	EVP_CIPHER_CTX_set_key_length(ctx, EVP_MAX_KEY_LENGTH);
 
-	if (EVP_DecryptUpdate(ctx, (unsigned char*)outBuf, (int*)outSize, (unsigned char*)inBuf, inSize) != 1) {
+	int updateLen = 0;
+	if (EVP_DecryptUpdate(ctx, (unsigned char*)outBuf, &updateLen, (unsigned char*)inBuf, (int)inSize) != 1) {
 		logPrintf(LOG_ERROR, "encrAesDecrypt: EVP_DecryptUpdate failed\n");
 		EVP_CIPHER_CTX_free(ctx);
 		return 4;
@@ -125,12 +136,12 @@ int encrAesDecrypt(char *inBuf, size_t inSize, char *outBuf, size_t *outSize, ch
 
 	int tmpLen = 0;
 
-	if (!EVP_DecryptFinal(ctx, (unsigned  char*)(outBuf + *outSize), &tmpLen)) {
+	if (!EVP_DecryptFinal(ctx, (unsigned  char*)(outBuf + updateLen), &tmpLen)) {
 		logPrintf(LOG_ERROR, "encrAesDecrypt: EVP_DecryptFinal failed\n");
 		EVP_CIPHER_CTX_free(ctx);
 		return 5;
 	}
-	*outSize += tmpLen;
+	*outSize = (size_t)updateLen + tmpLen;
 
 	EVP_CIPHER_CTX_free(ctx);
 

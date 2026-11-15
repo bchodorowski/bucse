@@ -86,6 +86,10 @@ int cacheGet(const char* block, char* buf, size_t *size)
 
 		// item is found in the hashtable
 
+		if (item->size > *size) {
+			logPrintf(LOG_ERROR, "cacheGet: cached block too large for the buffer: %s\n", block);
+			return -2;
+		}
 		memcpy(buf, item->data, item->size);
 		*size = item->size;
 

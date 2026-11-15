@@ -64,6 +64,12 @@ int decryptBlock(const char* block,
 	char* encryptedBlockBuf, size_t* encryptedBlockBufSize,
 	size_t expectedReadSize)
 {
+	if (*decryptedBlockBufSize < DECRYPTED_BUFFER_MARGIN) {
+		logPrintf(LOG_ERROR, "decryptBlock: buffer too small\n");
+		return 4;
+	}
+	size_t maxBlockSize = *decryptedBlockBufSize - DECRYPTED_BUFFER_MARGIN;
+
 	if (cacheGet(block, decryptedBlockBuf, decryptedBlockBufSize) != 0) {
 		int res = destination->getStorageFile(block, encryptedBlockBuf, encryptedBlockBufSize);
 		if (res != 0) {
@@ -78,6 +84,12 @@ int decryptBlock(const char* block,
 		if (res != 0) {
 			logPrintf(LOG_ERROR, "decryptBlock: decrypt failed: %d\n", res);
 			return 2;
+		}
+
+		if (*decryptedBlockBufSize > maxBlockSize) {
+			logPrintf(LOG_ERROR, "decryptBlock: decrypted block too large: %zu, at most %zu expected\n",
+					*decryptedBlockBufSize, maxBlockSize);
+			return 5;
 		}
 
 		if (*decryptedBlockBufSize < expectedReadSize) {

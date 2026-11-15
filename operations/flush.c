@@ -216,7 +216,7 @@ int flushFile(FilesystemFile* file)
 
 		memset(decryptedBlockBuf, 0, maxDecryptedBlockSize + DECRYPTED_BUFFER_MARGIN);
 		size_t encryptedBlockBufSize = maxEncryptedBlockSize;
-		size_t decryptedBlockBufSize = maxDecryptedBlockSize;
+		size_t decryptedBlockBufSize = maxDecryptedBlockSize + DECRYPTED_BUFFER_MARGIN;
 
 		// special case when we need to resize blocks
 		if (resizeContent) {
@@ -228,7 +228,7 @@ int flushFile(FilesystemFile* file)
 			// we are using the fact that the new block size is a multiple of the old block size
 			int sourceBlockIndex = (newBlockSize/file->blockSize)*i;
 			char* bufPtr = decryptedBlockBuf;
-			size_t bufSize = decryptedBlockBufSize;
+			size_t bufSize = maxDecryptedBlockSize;
 			while (toRead > 0) {
 				if (sourceBlockIndex >= file->contentLen) {
 					logPrintf(LOG_VERBOSE_DEBUG, "toRead fill with zeros: %d\n", toRead);
@@ -250,7 +250,7 @@ int flushFile(FilesystemFile* file)
 				// a longer block is fine (see below), the bytes past
 				// expectedReadSize are overwritten by the next block or
 				// zero-filled
-				size_t bufSizeCopy=bufSize;
+				size_t bufSizeCopy = bufSize + DECRYPTED_BUFFER_MARGIN;
 				size_t encryptedBlockBufSizeCopy = encryptedBlockBufSize;
 				if (decryptBlock(block,
 					bufPtr, &bufSizeCopy,

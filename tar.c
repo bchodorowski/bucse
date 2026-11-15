@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -65,8 +66,18 @@ int forEveryFileInTar(char* tarBuf, size_t tarSize, int (*actionAddedDecryptOneA
 
 		// only process regular files
 		if (archive_entry_filetype(entry) == AE_IFREG) {
-			size_t fileSize = archive_entry_size(entry);
-			char* fileBuf = malloc(fileSize);
+			// the tar file comes from the untrusted server: an entry
+			// can't be larger than the whole tar file
+			la_int64_t entrySize = archive_entry_size(entry);
+			if (entrySize < 0 || (uint64_t)entrySize > tarSize) {
+				logPrintf(LOG_ERROR, "forEveryFileInTar: invalid entry size: %lld\n",
+					(long long)entrySize);
+				archive_read_free(a);
+				return ARCHIVE_FATAL;
+			}
+			size_t fileSize = (size_t)entrySize;
+			// malloc(0) may return NULL
+			char* fileBuf = malloc(fileSize > 0 ? fileSize : 1);
 			if (!fileBuf) {
 				archive_read_free(a);
 				return ARCHIVE_FATAL;
@@ -85,6 +96,13 @@ int forEveryFileInTar(char* tarBuf, size_t tarSize, int (*actionAddedDecryptOneA
 					free(fileBuf);
 					archive_read_free(a);
 					return r;
+				}
+				if (offset < 0 || (uint64_t)offset > fileSize
+						|| size > fileSize - (size_t)offset) {
+					logPrintf(LOG_ERROR, "forEveryFileInTar: entry data outside of the entry size\n");
+					free(fileBuf);
+					archive_read_free(a);
+					return ARCHIVE_FATAL;
 				}
 				memcpy(fileBuf + offset, buf, size);
 				totalRead += size;
