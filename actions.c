@@ -260,8 +260,9 @@ static int undoAction(Action* action)
 static DynArray actions;
 static DynArray actionsPending;
 
-// parses actions json document and appends actionsPending array with the results
-static void parseAction(char* buf, size_t size)
+// parses actions json document and appends actionsPending array with the results;
+// returns non-zero if the document as a whole is invalid
+static int parseAction(char* buf, size_t size)
 {
 	json_tokener* tokener = json_tokener_new();
 	json_object* obj = json_tokener_parse_ex(tokener, buf, size);
@@ -269,14 +270,14 @@ static void parseAction(char* buf, size_t size)
 	{
 		logPrintf(LOG_ERROR, "parseAction: json_tokener_parse_ex(): %s\n", json_tokener_error_desc(json_tokener_get_error(tokener)));
 		json_tokener_free(tokener);
-		return;
+		return 1;
 	}
 	json_tokener_free(tokener);
 
 	if (json_object_get_type(obj) != json_type_array) {
 		logPrintf(LOG_ERROR, "parseAction: document is not an array\n");
 		json_object_put(obj);
-		return;
+		return 2;
 	}
 
 	// This json document is an array of action objects. Parse each of them and add to actionsPending.
@@ -419,14 +420,15 @@ static void parseAction(char* buf, size_t size)
 	}
 
 	json_object_put(obj);
+	return 0;
 }
 
-void actionAdded(char* actionName, char* buf, size_t size)
+int actionAdded(char* actionName, char* buf, size_t size)
 {
 	//logPrintf(LOG_DEBUG, "actionAdded(): %s\n  %s\n  %d\n", actionName, buf, size);
 
 	// TODO: parseAction() not needed, move it here
-	parseAction(buf, size);
+	return parseAction(buf, size);
 }
 
 void flushActionsAdded()

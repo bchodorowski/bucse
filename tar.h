@@ -1,1 +1,1 @@
-int forEveryFileInTar(char* tarBuf, size_t tarSize, void (*actionAddedDecryptOneAction)(char*, char*, size_t));
+int forEveryFileInTar(char* tarBuf, size_t tarSize, int (*actionAddedDecryptOneAction)(char*, char*, size_t));

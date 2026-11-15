@@ -18,7 +18,8 @@ typedef struct {
 	int blockSize;
 } Action;
 
-void actionAdded(char* actionName, char* buf, size_t size);
+// returns non-zero if the action file is rejected as a whole
+int actionAdded(char* actionName, char* buf, size_t size);
 void flushActionsAdded();
 void actionsCleanup();
 char* serializeAction(Action* action);

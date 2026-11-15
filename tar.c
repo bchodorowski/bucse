@@ -8,8 +8,22 @@
 
 #include "tar.h"
 
-int forEveryFileInTar(char* tarBuf, size_t tarSize, void (*actionAddedDecryptOneAction)(char*, char*, size_t))
+int forEveryFileInTar(char* tarBuf, size_t tarSize, int (*actionAddedDecryptOneAction)(char*, char*, size_t))
 {
+	// A tar file ends with two 512-byte blocks of zeros (the end-of-archive
+	// marker). libarchive doesn't require them: a tar file cut exactly between
+	// two entries would be read as a complete one, so check them here.
+	if (tarSize < 1024) {
+		logPrintf(LOG_ERROR, "forEveryFileInTar: tar file too short\n");
+		return ARCHIVE_FATAL;
+	}
+	for (size_t i = tarSize - 1024; i < tarSize; i++) {
+		if (tarBuf[i] != 0) {
+			logPrintf(LOG_ERROR, "forEveryFileInTar: no end-of-archive marker\n");
+			return ARCHIVE_FATAL;
+		}
+	}
+
 	struct archive* a = archive_read_new();
 	struct archive_entry* entry;
 	int r;
@@ -78,6 +92,8 @@ int forEveryFileInTar(char* tarBuf, size_t tarSize, void (*actionAddedDecryptOne
 
 			// decrement file counter to know if this is the last one
 			fileCounter--;
+			// an entry that is rejected is ignored: the tar file is
+			// complete, so reading it again wouldn't help
 			actionAddedDecryptOneAction(
 				(char*)archive_entry_pathname(entry),
 				fileBuf,

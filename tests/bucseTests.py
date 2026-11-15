@@ -223,7 +223,9 @@ def remount():
     waitForRepoToBeMounted("test_%d" % pid)
 
 
-def verifyFailOnError(printDebug = False):
+# Fails if bucse-mount logged an error. allowedErrors: substrings of error
+# lines that the test expects.
+def verifyFailOnError(printDebug = False, allowedErrors = []):
     global valgrindProc
     global failOnError
 
@@ -248,8 +250,10 @@ def verifyFailOnError(printDebug = False):
     p = subprocess.run(argsList)
     p.check_returncode()
 
-    if output.find("[error]") > -1:
-        raise Exception("There were errors")
+    errors = [line for line in output.splitlines()
+              if line.startswith("[error]") and not any(a in line for a in allowedErrors)]
+    if errors:
+        raise Exception("There were errors: %s" % errors[:5])
 
 
 def testCleanup():
@@ -560,18 +564,49 @@ def copyActionPartially(actionFile, fraction = 0.5):
     writeRepoFile("actions/%s" % os.path.basename(actionFile), data[:int(len(data) * fraction)])
 
 
-# Packs (encrypted) action files into one tar file in the repository, like a
+# Packs (name, encrypted data) pairs of action files into tar data, like a
 # maintenance tool packing action files does.
-def copyActionsAsTar(actionsDir, tarName):
+def makeActionsTar(actions):
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode="w", format=tarfile.USTAR_FORMAT) as tar:
-        for name in sorted(os.listdir(actionsDir)):
-            data = readEncryptedAction(os.path.join(actionsDir, name))
+        for name, data in actions:
             info = tarfile.TarInfo(name)
             info.size = len(data)
             info.mtime = int(time.time())
             tar.addfile(info, io.BytesIO(data))
-    writeRepoFile("actions/%s" % tarName, buf.getvalue())
+    return buf.getvalue()
+
+
+# Packs (encrypted) action files into one tar file in the repository.
+def copyActionsAsTar(actionsDir, tarName):
+    actions = [(name, readEncryptedAction(os.path.join(actionsDir, name)))
+               for name in sorted(os.listdir(actionsDir))]
+    writeRepoFile("actions/%s" % tarName, makeActionsTar(actions))
+
+
+# Returns (name, encrypted data) of a new action file that adds a directory.
+def makeAddDirectoryAction(path):
+    action = [{
+        "time": int(time.time() * 1000000),
+        "action": "addDirectory",
+        "path": path,
+        "content": [],
+        "size": 0,
+        "blockSize": 0,
+    }]
+    data = json.dumps(action).encode("utf-8")
+    return hashlib.sha1(data).hexdigest(), encryptForRepo(data)
+
+
+# Sets the permissions of a file of the test repository.
+def chmodRepoFile(relPath, mode):
+    ssh = parseSshRepoPath()
+    if ssh:
+        sshArgs, repoPath = ssh
+        remotePath = remoteShellPath("%s/test_%d_repo/%s" % (repoPath, pid, relPath))
+        subprocess.run(sshArgs + ["chmod %o %s" % (mode, remotePath)], check=True)
+    else:
+        os.chmod("%s/test_%d_repo/%s" % (argRepoPath, pid, relPath), mode)
 
 
 def deleteAction(actionName):
@@ -601,14 +636,6 @@ def waitForActionsHandled(timeout = 30):
     global markerCount
     markerCount += 1
     name = "marker_%d" % markerCount
-    action = [{
-        "time": int(time.time() * 1000000),
-        "action": "addDirectory",
-        "path": name,
-        "content": [],
-        "size": 0,
-        "blockSize": 0,
-    }]
-    data = json.dumps(action).encode("utf-8")
-    writeRepoFile("actions/%s" % hashlib.sha1(data).hexdigest(), encryptForRepo(data))
+    actionName, data = makeAddDirectoryAction(name)
+    writeRepoFile("actions/%s" % actionName, data)
     waitForFiles([name], timeout)

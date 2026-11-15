@@ -76,13 +76,13 @@ static pthread_t tickThread;
 static pthread_mutex_t shutdownMutex;
 static int shutdownTicking = 0;
 
-static void actionAddedDecryptOneAction(char* actionName, char* buf, size_t size)
+static int actionAddedDecryptOneAction(char* actionName, char* buf, size_t size)
 {
 	size_t decryptedBufLen = MAX_ACTION_LEN + DECRYPTED_BUFFER_MARGIN;
 	char* decryptedBuf = malloc(decryptedBufLen);
 	if (decryptedBuf == NULL) {
 		logPrintf(LOG_ERROR, "actionAddedDecryptOneAction: malloc(): %s\n", strerror(errno));
-		return;
+		return 1;
 	}
 
 	int result = encryption->decrypt(buf, size,
@@ -92,10 +92,11 @@ static void actionAddedDecryptOneAction(char* actionName, char* buf, size_t size
 	if (result != 0) {
 		logPrintf(LOG_ERROR, "actionAddedDecryptOneAction: decrypt failed: %d\n", result);
 		free(decryptedBuf);
-		return;
+		return 2;
 	}
-	actionAdded(actionName, decryptedBuf, decryptedBufLen);
+	result = actionAdded(actionName, decryptedBuf, decryptedBufLen);
 	free(decryptedBuf);
+	return result;
 }
 
 static int endsWithTar(const char* buf) {
@@ -108,15 +109,16 @@ static int endsWithTar(const char* buf) {
     return strcmp(buf + lenBuf - 4, ".tar") == 0;
 }
 
-static void actionAddedDecrypt(char* actionName, char* buf, size_t size)
+static int actionAddedDecrypt(char* actionName, char* buf, size_t size)
 {
 	if (endsWithTar(actionName)) {
 		int result = forEveryFileInTar(buf, size, actionAddedDecryptOneAction);
 		if (result != 0) {
 			logPrintf(LOG_ERROR, "actionAddedDecrypt: tar file handling failed: %d\n", result);
 		}
+		return result;
 	} else {
-		actionAddedDecryptOneAction(actionName, buf, size);
+		return actionAddedDecryptOneAction(actionName, buf, size);
 	}
 }
 

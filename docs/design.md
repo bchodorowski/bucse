@@ -78,11 +78,18 @@ These must ALWAYS hold. Breaking any of them is a bug.
 A crash or a network failure must not leave the repository in an
 inconsistent state. This rests on two rules:
 
-- **A partially written action file is ignored.** An action file is a JSON
-  document (encrypted, unless the `none` backend is used). A truncated file
-  is never valid: an encrypted one fails decryption, and a plaintext one is
-  not valid JSON. It is rejected as a whole, so a half-written action is
-  never applied.
+- **A partially written action file is ignored until it is complete.** An
+  action file is a JSON document (encrypted, unless the `none` backend is
+  used). A truncated file is never valid: an encrypted one fails decryption,
+  and a plaintext one is not valid JSON. It is rejected as a whole, so a
+  half-written action is never applied. A rejected file, or one that can't
+  be read, is not marked as handled: bucse-mount reads it again on the next
+  check, so an upload that was still in progress is picked up when it
+  completes. A tar file of packed actions is rejected if it can't be
+  unpacked or doesn't end with the end-of-archive marker (two 512-byte
+  blocks of zeros, which tar files must have); the entries read before the error are applied, and are removed
+  as duplicates on the retry. Once a tar file is unpacked, an entry inside it
+  that is rejected is ignored.
 - **Blocks are written before the action that uses them.** When a file is
   flushed, all its new blocks are stored in `storage/` first. The action file
   is written only if every block was stored successfully, so a valid action

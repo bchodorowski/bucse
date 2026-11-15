@@ -799,11 +799,23 @@ int destSshTick()
 			continue;
 		}
 
-		int bytesRead = sftp_read_multiple_calls(file, actionFileBuf, actionFileSize);
+		ssize_t bytesRead = sftp_read_multiple_calls(file, actionFileBuf, actionFileSize);
 		sftp_close(file);
+		if (bytesRead < 0) {
+			logPrintf(LOG_ERROR, "destSshTick: sftp_read(): %s\n",
+				ssh_get_error(bucseSshSession));
+			free(actionFileBuf);
+			continue;
+		}
 
 		if (cachedActionAddedCallback) {
-			cachedActionAddedCallback(getAction(&newActions, i), actionFileBuf, bytesRead);
+			// marked as handled only if accepted; a rejected file (e.g. not
+			// completely uploaded yet) is read again on the next tick
+			if (cachedActionAddedCallback(getAction(&newActions, i), actionFileBuf, bytesRead) == 0) {
+				addAction(&handledActions, getAction(&newActions, i));
+			} else {
+				logPrintf(LOG_WARNING, "action file %s rejected, it will be read again\n", getAction(&newActions, i));
+			}
 			flushNeeded = 1;
 		} else {
 			logPrintf(LOG_ERROR, "destSshTick: no action added callback\n");
@@ -812,10 +824,6 @@ int destSshTick()
 	}
 	free(actionFilePath);
 	
-	for (int i=0; i<newActions.len; i++) {
-		addAction(&handledActions, getAction(&newActions, i));
-	}
-
 	freeActions(&newActions);
 
 	if (flushNeeded) {

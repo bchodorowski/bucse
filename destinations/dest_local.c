@@ -561,7 +561,13 @@ int destLocalTick()
 		fclose(file);
 
 		if (cachedActionAddedCallback) {
-			cachedActionAddedCallback(getAction(&newActions, i), actionFileBuf, bytesRead);
+			// marked as handled only if accepted; a rejected file (e.g. not
+			// completely uploaded yet) is read again on the next tick
+			if (cachedActionAddedCallback(getAction(&newActions, i), actionFileBuf, bytesRead) == 0) {
+				addAction(&handledActions, getAction(&newActions, i));
+			} else {
+				logPrintf(LOG_WARNING, "action file %s rejected, it will be read again\n", getAction(&newActions, i));
+			}
 			flushNeeded = 1;
 		} else {
 			logPrintf(LOG_ERROR, "destLocalTick: no action added callback\n");
@@ -570,10 +576,6 @@ int destLocalTick()
 	}
 	free(actionFilePath);
 	
-	for (int i=0; i<newActions.len; i++) {
-		addAction(&handledActions, getAction(&newActions, i));
-	}
-
 	freeActions(&newActions);
 
 	if (flushNeeded) {

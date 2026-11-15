@@ -19,7 +19,10 @@
 #define MAX_ACTION_LEN (1024 * 1024)
 #define MAX_ACTION_NAME_LEN 64
 
-typedef void (*ActionAddedCallback)(char* actionName, char* buf, size_t size);
+// Returns 0 if the action file was accepted, non-zero if it was rejected as a
+// whole (e.g. it cannot be decrypted or parsed, possibly because it is not
+// completely uploaded yet). A rejected file is read again on the next tick.
+typedef int (*ActionAddedCallback)(char* actionName, char* buf, size_t size);
 typedef void (*FlushActionsAddedCallback)();
 
 typedef struct {
