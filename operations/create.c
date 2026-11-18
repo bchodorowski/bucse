@@ -57,7 +57,8 @@ static int bucse_create(const char *path, mode_t mode, struct fuse_file_info *fi
 			if ((fi->flags & O_CREAT) && (fi->flags & O_EXCL)) {
 				return -EEXIST;
 			}
-			return bucse_open_guarded(path, fi);
+			// bucseMutex is already held
+			return bucse_open(path, fi);
 		} else {
 			FilesystemDir* dir = findDir(containingDir, fileName);
 			if (dir) {

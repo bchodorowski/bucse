@@ -111,7 +111,8 @@ def waitForRepoToBeMounted(mountDir):
         time.sleep(0.2)
 
 
-def mountDirs():
+# extraArgs: more bucse-mount arguments, e.g. FUSE options
+def mountDirs(extraArgs = []):
     global argDebug
     global argValgrind
     global argRepoPath
@@ -137,7 +138,7 @@ def mountDirs():
 
     # check for new action files every second (the default is 10), so that
     # waitForActionsHandled() and waitForFiles() don't wait long
-    argsList = ["../bucse-mount", "-p", argPassphrase, "-i", "1", "-r", "%s/test_%d_repo" % (argRepoPath, pid), "test_%d" % pid]
+    argsList = ["../bucse-mount", "-p", argPassphrase, "-i", "1", "-r", "%s/test_%d_repo" % (argRepoPath, pid), "test_%d" % pid] + extraArgs
 
     if failOnError:
         argsList += ["-f", "-v 4"]
@@ -601,11 +602,12 @@ def copyActionsAsTar(actionsDir, tarName):
     writeRepoFile("actions/%s" % tarName, makeActionsTar(actions))
 
 
-# Returns (name, encrypted data) of a new action file that adds a directory.
-def makeAddDirectoryAction(path):
+# Returns (name, encrypted data) of a new action file that adds a directory,
+# or (actionType "addFile") an empty file.
+def makeAddDirectoryAction(path, actionType = "addDirectory"):
     action = [{
         "time": int(time.time() * 1000000),
-        "action": "addDirectory",
+        "action": actionType,
         "path": path,
         "content": [],
         "size": 0,

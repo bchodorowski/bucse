@@ -16,7 +16,8 @@
 
 #include "open.h"
 
-static int bucse_open(const char *path, struct fuse_file_info *fi)
+// The caller must hold bucseMutex (bucse_create() calls it too).
+int bucse_open(const char *path, struct fuse_file_info *fi)
 {
 	logPrintf(LOG_DEBUG, "open %s, access mode %d\n", path, fi->flags);
 
