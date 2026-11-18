@@ -72,6 +72,8 @@ extern Encryption encryptionAes;
 Destination *destination;
 Encryption *encryption;
 static pthread_t tickThread;
+// set only once tickThread was created, so that it is joined only then
+static int tickThreadStarted = 0;
 
 static pthread_mutex_t shutdownMutex;
 static int shutdownTicking = 0;
@@ -297,14 +299,14 @@ int bucse_fuse_main(int argc, char *argv[], const struct fuse_operations *op,
 	}
 
 	// initialize destination thread
-	if (destination->isTickable())
-	{
+	if (destination->isTickable()) {
 		int ret = pthread_create(&tickThread, NULL, tickThreadFunc, NULL);
 		if (ret != 0) {
 			fuse_log(FUSE_LOG_ERR, "bucse_fuse_main: pthread_create: %d\n", ret);
 			res = 7;
 			goto out3;
 		}
+		tickThreadStarted = 1;
 	}
 
 	struct fuse_session *se = fuse_get_session(fuse);
@@ -337,16 +339,14 @@ out1:
 #define MAX_REPOSITORY_JSON_LEN (1024 * 1024)
 int parseRepositoryJsonFile() {
 	char* repositoryJsonFileContents = malloc(MAX_REPOSITORY_JSON_LEN);
-	if (repositoryJsonFileContents == NULL)
-	{
+	if (repositoryJsonFileContents == NULL) {
 		logPrintf(LOG_ERROR, "malloc(): %s\n", strerror(errno));
 		return 1;
 	}
 	size_t repositoryJsonFileLen = MAX_REPOSITORY_JSON_LEN;
 
 	int err = destination->getRepositoryJsonFile(repositoryJsonFileContents, &repositoryJsonFileLen);
-	if (err != 0)
-	{
+	if (err != 0) {
 		logPrintf(LOG_ERROR, "destination->getRepositoryJsonFile(): %d\n", err);
 
 		free(repositoryJsonFileContents);
@@ -358,8 +358,7 @@ int parseRepositoryJsonFile() {
 
 	free(repositoryJsonFileContents);
 
-	if (repositoryJson == NULL)
-	{
+	if (repositoryJson == NULL) {
 		logPrintf(LOG_ERROR, "json_tokener_parse_ex(): %s\n", json_tokener_error_desc(json_tokener_get_error(tokener)));
 		json_tokener_free(tokener);
 		return 3;
@@ -367,15 +366,13 @@ int parseRepositoryJsonFile() {
 	json_tokener_free(tokener);
 
 	json_object* encryptionField;
-	if (json_object_object_get_ex(repositoryJson, "encryption", &encryptionField) == 0)
-	{
+	if (json_object_object_get_ex(repositoryJson, "encryption", &encryptionField) == 0) {
 		logPrintf(LOG_ERROR, "repository object doesn't have 'encryption' field\n");
 		json_object_put(repositoryJson);
 		return 4;
 	}
 
-	if (json_object_get_type(encryptionField) != json_type_string)
-	{
+	if (json_object_get_type(encryptionField) != json_type_string) {
 		logPrintf(LOG_ERROR, "'encryption' field is not a string\n");
 		json_object_put(repositoryJson);
 		return 5;
@@ -400,16 +397,14 @@ int parseRepositoryJsonFile() {
 #define MAX_REPOSITORY_LEN (1024 * 1024)
 int parseRepositoryFile() {
 	char* repositoryFileContents = malloc(MAX_REPOSITORY_LEN);
-	if (repositoryFileContents == NULL)
-	{
+	if (repositoryFileContents == NULL) {
 		logPrintf(LOG_ERROR, "malloc(): %s\n", strerror(errno));
 		return 1;
 	}
 	size_t repositoryFileLen = MAX_REPOSITORY_LEN;
 
 	int err = destination->getRepositoryFile(repositoryFileContents, &repositoryFileLen);
-	if (err != 0)
-	{
+	if (err != 0) {
 		logPrintf(LOG_ERROR, "destination->getRepositoryFile(): %d\n", err);
 
 		free(repositoryFileContents);
@@ -443,8 +438,7 @@ int parseRepositoryFile() {
 	free(repositoryFileContents);
 	free(decryptedBuf);
 
-	if (repository == NULL)
-	{
+	if (repository == NULL) {
 		logPrintf(LOG_ERROR, "json_tokener_parse_ex(): %s\n", json_tokener_error_desc(json_tokener_get_error(tokener)));
 		json_tokener_free(tokener);
 		return 5;
@@ -452,15 +446,13 @@ int parseRepositoryFile() {
 	json_tokener_free(tokener);
 
 	json_object* timeField;
-	if (json_object_object_get_ex(repository, "time", &timeField) == 0)
-	{
+	if (json_object_object_get_ex(repository, "time", &timeField) == 0) {
 		logPrintf(LOG_ERROR, "repository object doesn't have 'time' field\n");
 		json_object_put(repository);
 		return 6;
 	}
 
-	if (json_object_get_type(timeField) != json_type_int)
-	{
+	if (json_object_get_type(timeField) != json_type_int) {
 		logPrintf(LOG_ERROR, "'time' field is not a string\n");
 		json_object_put(repository);
 		return 7;
@@ -517,8 +509,7 @@ int main(int argc, char** argv)
 		&conf.repositoryRealPath, conf.repository);
 	int err = destination->init(conf.repositoryRealPath);
 
-	if (err != 0)
-	{
+	if (err != 0) {
 		logPrintf(LOG_ERROR, "destination->init(): %d\n", err);
 		cacheCleanup();
 		recursivelyFreeFilesystem(root);
@@ -626,10 +617,13 @@ int main(int argc, char** argv)
 	shutdownTicking = 1;
 	pthread_mutex_unlock(&shutdownMutex);
 
-	int ret = pthread_join(tickThread, NULL);
-	if (ret != 0)
-	{
-		logPrintf(LOG_ERROR, "pthread_join: %d\n", ret);
+	// bucse_fuse_main() may return before creating the thread (e.g. the
+	// mount failed), or the destination may not be tickable
+	if (tickThreadStarted) {
+		int ret = pthread_join(tickThread, NULL);
+		if (ret != 0) {
+			logPrintf(LOG_ERROR, "pthread_join: %d\n", ret);
+		}
 	}
 
 	cacheCleanup();
