@@ -85,9 +85,10 @@ int flushFile(FilesystemFile* file)
 	// TODO: what if create only, no writes?
 
 	size_t newSize = file->size;
+	// truncSize is kept until the flush succeeds (the flag is cleared then),
+	// so a failed flush can be retried with the same size
 	if (file->dirtyFlags & DirtyFlagPendingTrunc) {
 		newSize = file->truncSize;
-		file->truncSize = 0;
 	}
 	int newBlockSize = file->blockSize;
 	int newContentLen = file->contentLen;
