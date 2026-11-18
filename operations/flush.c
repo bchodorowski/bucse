@@ -222,7 +222,7 @@ int flushFile(FilesystemFile* file)
 		// special case when we need to resize blocks
 		if (resizeContent) {
 			logPrintf(LOG_VERBOSE_DEBUG, "content needs to be resized\n");
-			size_t toRead = newSize - (i * newBlockSize);
+			size_t toRead = newSize - ((size_t)i * newBlockSize);
 			if (toRead > newBlockSize) {
 				toRead = newBlockSize;
 			}
@@ -232,19 +232,19 @@ int flushFile(FilesystemFile* file)
 			size_t bufSize = maxDecryptedBlockSize;
 			while (toRead > 0) {
 				if (sourceBlockIndex >= file->contentLen) {
-					logPrintf(LOG_VERBOSE_DEBUG, "toRead fill with zeros: %d\n", toRead);
+					logPrintf(LOG_VERBOSE_DEBUG, "toRead fill with zeros: %zu\n", toRead);
 					memset(bufPtr, 0, toRead);
 					toRead = 0;
 					break;
 				}
-				logPrintf(LOG_VERBOSE_DEBUG, "toRead: %d\n", toRead);
-				size_t expectedReadSize = file->size - (sourceBlockIndex * file->blockSize);
+				logPrintf(LOG_VERBOSE_DEBUG, "toRead: %zu\n", toRead);
+				size_t expectedReadSize = file->size - ((size_t)sourceBlockIndex * file->blockSize);
 				if (expectedReadSize > file->blockSize) {
 					expectedReadSize = file->blockSize;
 				}
 				const char* block = file->content + (MAX_STORAGE_NAME_LEN * sourceBlockIndex);
-				logPrintf(LOG_VERBOSE_DEBUG, "expectedReadSize: %d\n", expectedReadSize);
-				logPrintf(LOG_VERBOSE_DEBUG, "bufSize: %d\n", bufSize);
+				logPrintf(LOG_VERBOSE_DEBUG, "expectedReadSize: %zu\n", expectedReadSize);
+				logPrintf(LOG_VERBOSE_DEBUG, "bufSize: %zu\n", bufSize);
 				logPrintf(LOG_VERBOSE_DEBUG, "sourceBlockIndex: %d\n", sourceBlockIndex);
 				logPrintf(LOG_VERBOSE_DEBUG, "block: %s\n", block);
 
@@ -270,7 +270,7 @@ int flushFile(FilesystemFile* file)
 			}
 		}
 		else if (i < file->contentLen) {
-			size_t expectedReadSize = file->size - (i * file->blockSize);
+			size_t expectedReadSize = file->size - ((size_t)i * file->blockSize);
 			if (expectedReadSize > file->blockSize) {
 				expectedReadSize = file->blockSize;
 			}
@@ -297,22 +297,22 @@ int flushFile(FilesystemFile* file)
 		// apply write operations
 		for (int j=0; j<file->pendingWrites.len; j++) {
 			PendingWrite* pw = file->pendingWrites.objects[j];
-			int relOffset = pw->offset - i * newBlockSize;
+			off_t relOffset = pw->offset - (off_t)i * newBlockSize;
 
 			if (relOffset >= newBlockSize) {
 				continue;
-			} else if (relOffset + (int)pw->size <= 0) {
+			} else if (relOffset + (off_t)pw->size <= 0) {
 				continue;
 			}
 
 			if (relOffset <= 0) {
-				int bytesToCopy = pw->size + relOffset;
+				off_t bytesToCopy = (off_t)pw->size + relOffset;
 				if (bytesToCopy > newBlockSize) {
 					bytesToCopy = newBlockSize;
 				}
 				memcpy(decryptedBlockBuf, pw->buf - relOffset, bytesToCopy);
 			} else {
-				int bytesToCopy = pw->size;
+				off_t bytesToCopy = (off_t)pw->size;
 				if (bytesToCopy > newBlockSize - relOffset) {
 					bytesToCopy = newBlockSize - relOffset;
 				}
@@ -320,7 +320,7 @@ int flushFile(FilesystemFile* file)
 			}
 		}
 
-		size_t expectedWriteSize = newSize - (i * newBlockSize);
+		size_t expectedWriteSize = newSize - ((size_t)i * newBlockSize);
 		if (expectedWriteSize > newBlockSize) {
 			expectedWriteSize = newBlockSize;
 		}

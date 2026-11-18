@@ -73,11 +73,11 @@ static int bucse_truncate(const char *path, long int newSize, struct fuse_file_i
 		}
 	}
 
-	int size = file->size;
+	off_t size = (off_t)file->size;
 	for (int i=0; i<file->pendingWrites.len; i++) {
 		PendingWrite* pw = file->pendingWrites.objects[i];
-		if (size < (pw->offset + pw->size)) {
-			size = (pw->offset + pw->size);
+		if (size < pw->offset + (off_t)pw->size) {
+			size = pw->offset + (off_t)pw->size;
 		}
 	}
 

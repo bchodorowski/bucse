@@ -49,7 +49,7 @@ Serious:
 - [x] 6. create.c:60 calls bucse_open_guarded() while holding bucseMutex -- deadlock
 - [x] 7. use-after-free of json tokener in error messages (bucse-mount.c:350/354, 434/438)
 - [x] 8. pthread_join on a never-created tickThread (bucse-mount.c:610)
-- [ ] 9. int overflow for files > 2 GB (flush.c:220/286/309, truncate.c:76)
+- [x] 9. int overflow for files > 2 GB (flush.c:220/286/309, truncate.c:76)
 - [ ] 10. a remote EditFile drops local unflushed writes (actions.c:146-147); RemoveFile/RemoveDirectory
       free entries with pending writes/children
 
