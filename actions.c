@@ -69,6 +69,27 @@ static void freeAction(Action* action)
 	free(action);
 }
 
+// returns non-zero if dir holds a file or directory that is in the
+// repository, i.e. not only local data that hasn't been written yet
+static int hasEntriesInRepository(FilesystemDir* dir)
+{
+	for (int i=0; i<dir->files.len; i++) {
+		FilesystemFile* f = dir->files.objects[i];
+		if (!(f->dirtyFlags & DirtyFlagPendingCreate)) {
+			return 1;
+		}
+	}
+	for (int i=0; i<dir->dirs.len; i++) {
+		FilesystemDir* d = dir->dirs.objects[i];
+		if (!d->pendingCreate) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+// Remote actions never drop local changes that haven't been flushed yet,
+// see "Concurrent changes" in docs/design.md and recreatePendingDirs().
 static int doAction(Action* action)
 {
 	logPrintf(LOG_VERBOSE_DEBUG, "do action\n");
@@ -91,6 +112,24 @@ static int doAction(Action* action)
 		}
 
 		FilesystemFile* file = findFile(containingDir, fileName);
+		if (file != NULL && (file->dirtyFlags & DirtyFlagPendingCreate)) {
+			// file->name was allocated for the pending create (see
+			// open.c), point it to the action's path instead
+			free((char*)file->name);
+			file->name = fileName;
+			file->dirtyFlags &= ~DirtyFlagPendingCreate;
+			if (file->dirtyFlags == DirtyFlagNotDirty) {
+				// nothing written locally, take the added file
+				file->atime = file->mtime = action->time;
+				file->content = action->content;
+				file->contentLen = action->contentLen;
+				file->size = action->size;
+				file->blockSize = action->blockSize;
+			} else {
+				logPrintf(LOG_WARNING, "doAction: file %s added by another client, keeping the local unflushed one\n", action->path);
+			}
+			return 0;
+		}
 		if (file != NULL) {
 			logPrintf(LOG_ERROR, "doAction: file already exists: %s\n", action->path);
 			return 3;
@@ -138,13 +177,21 @@ static int doAction(Action* action)
 			return 6;
 		}
 
+		// dirtyFlags and pendingWrites are kept: unflushed local changes
+		// are applied on top of the new content
+		if (file->dirtyFlags != DirtyFlagNotDirty) {
+			logPrintf(LOG_WARNING, "doAction: file %s edited by another client, keeping the local unflushed changes\n", action->path);
+		}
 		file->mtime = action->time;
 		file->content = action->content;
 		file->contentLen = action->contentLen;
 		file->size = action->size;
 		file->blockSize = action->blockSize;
-		file->dirtyFlags = 0;
-		memset(&file->pendingWrites, 0, sizeof(DynArray));
+		// a pending truncate cuts the new content (flushFile() can't
+		// extend a file with it)
+		if ((file->dirtyFlags & DirtyFlagPendingTrunc) && file->truncSize > file->size) {
+			file->truncSize = file->size;
+		}
 
 		return 0;
 
@@ -171,6 +218,22 @@ static int doAction(Action* action)
 			return 9;
 		}
 
+		if (file->dirtyFlags != DirtyFlagNotDirty) {
+			// keep the file, its flush adds it again
+			if (!(file->dirtyFlags & DirtyFlagPendingCreate)) {
+				// flushFile() frees the name of a pending create
+				char* name = strdup(file->name);
+				if (name == NULL) {
+					logPrintf(LOG_ERROR, "doAction: strdup(): %s\n", strerror(errno));
+					return 18;
+				}
+				file->name = name;
+				file->dirtyFlags |= DirtyFlagPendingCreate;
+			}
+			logPrintf(LOG_WARNING, "doAction: file %s removed by another client, keeping it for the local unflushed changes\n", action->path);
+			return 0;
+		}
+
 		if (removeFromDynArrayUnordered(&containingDir->files, (void*)file) != 0) {
 			logPrintf(LOG_ERROR, "doAction: removeFromDynArrayUnordered() failed\n");
 			return 10;
@@ -193,6 +256,14 @@ static int doAction(Action* action)
 		if (containingDir == NULL) {
 			logPrintf(LOG_ERROR, "doAction: path not found when adding directory %s\n", action->path);
 			return 12;
+		}
+
+		// a directory kept after another client removed it, now it is in
+		// the repository again
+		FilesystemDir* dir = findDir(containingDir, dirName);
+		if (dir != NULL && dir->pendingCreate) {
+			dir->pendingCreate = 0;
+			return 0;
 		}
 
 		FilesystemDir* newDir = malloc(sizeof(FilesystemDir));
@@ -230,6 +301,14 @@ static int doAction(Action* action)
 		if (dir == NULL) {
 			logPrintf(LOG_ERROR, "doAction: dir not found: %s\n", action->path);
 			return 16;
+		}
+
+		if (dir->files.len > 0 || dir->dirs.len > 0) {
+			if (!hasEntriesInRepository(dir)) {
+				dir->pendingCreate = 1;
+			}
+			logPrintf(LOG_WARNING, "doAction: directory %s removed by another client is not empty, keeping it\n", action->path);
+			return 0;
 		}
 
 		if (removeFromDynArrayUnordered(&containingDir->dirs, (void*)dir) != 0) {

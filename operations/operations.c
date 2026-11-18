@@ -7,6 +7,9 @@
 #include <sys/time.h>
 
 #include "../actions.h"
+#include "../dynarray.h"
+#include "../filesystem.h"
+#include "../time.h"
 #include "../destinations/dest.h"
 #include "../encryption/encr.h"
 #include "../log.h"
@@ -57,6 +60,52 @@ int encryptAndAddActionFile(Action* newAction)
 	free(jsonData);
 	free(encryptedBuf);
 	return result;
+}
+
+int recreatePendingDirs(FilesystemDir* dir)
+{
+	if (dir == NULL) {
+		return 0;
+	}
+
+	int result = recreatePendingDirs(dir->parentDir);
+	if (result != 0 || !dir->pendingCreate) {
+		return result;
+	}
+
+	Action* newAction = malloc(sizeof(Action));
+	if (newAction == NULL) {
+		logPrintf(LOG_ERROR, "recreatePendingDirs: malloc(): %s\n", strerror(errno));
+		return -ENOMEM;
+	}
+	newAction->time = getCurrentTime();
+	newAction->actionType = ActionTypeAddDirectory;
+	newAction->path = getFullDirPath(dir);
+	if (newAction->path == NULL) {
+		logPrintf(LOG_ERROR, "recreatePendingDirs: getFullDirPath() failed\n");
+		free(newAction);
+		return -ENOMEM;
+	}
+	newAction->content = NULL;
+	newAction->contentLen = 0;
+	newAction->size = 0;
+	newAction->blockSize = 0;
+
+	if (encryptAndAddActionFile(newAction) != 0) {
+		logPrintf(LOG_ERROR, "recreatePendingDirs: encryptAndAddActionFile failed\n");
+		free(newAction->path);
+		free(newAction);
+		return -EIO;
+	}
+
+	logPrintf(LOG_WARNING, "directory %s was removed by another client, added it again\n",
+		newAction->path);
+
+	// dir->name still points to the path of the action that added the dir
+	// first; actions are kept until bucse-mount exits
+	addAction(newAction);
+	dir->pendingCreate = 0;
+	return 0;
 }
 
 int decryptBlock(const char* block,

@@ -66,6 +66,12 @@ int bucse_mkdir(const char *path, mode_t mode)
 		return -ENOENT;
 	}
 
+	// another client may have removed the containing directory
+	int result = recreatePendingDirs(containingDir);
+	if (result != 0) {
+		return result;
+	}
+
 	// construct new action, add it to actions
 	Action* newAction = malloc(sizeof(Action));
 	if (newAction == NULL) {

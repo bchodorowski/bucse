@@ -368,6 +368,14 @@ int flushFile(FilesystemFile* file)
 
 constructAction:;
 
+	// another client may have removed the file's directory
+	if (recreatePendingDirs(file->parentDir) != 0) {
+		if (newContent) {
+			free(newContent);
+		}
+		return 11;
+	}
+
 	// construct new action, add it to actions
 	Action* newAction = malloc(sizeof(Action));
 	if (newAction == NULL) {

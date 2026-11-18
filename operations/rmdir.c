@@ -72,6 +72,19 @@ int bucse_rmdir(const char *path)
 		return -ENOTEMPTY;
 	}
 
+	// another client has removed the directory already, it was only kept
+	// here for its contents (see doAction())
+	if (dir->pendingCreate) {
+		if (removeFromDynArrayUnordered(&containingDir->dirs, (void*)dir) != 0) {
+			logPrintf(LOG_ERROR, "bucse_rmdir: removeFromDynArrayUnordered() failed\n");
+			return -EIO;
+		}
+		freeDynArray(&dir->dirs);
+		freeDynArray(&dir->files);
+		free(dir);
+		return 0;
+	}
+
 	// construct new action, add it to actions
 	Action* newAction = malloc(sizeof(Action));
 	if (newAction == NULL) {

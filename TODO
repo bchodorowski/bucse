@@ -50,7 +50,7 @@ Serious:
 - [x] 7. use-after-free of json tokener in error messages (bucse-mount.c:350/354, 434/438)
 - [x] 8. pthread_join on a never-created tickThread (bucse-mount.c:610)
 - [x] 9. int overflow for files > 2 GB (flush.c:220/286/309, truncate.c:76)
-- [ ] 10. a remote EditFile drops local unflushed writes (actions.c:146-147); RemoveFile/RemoveDirectory
+- [x] 10. a remote EditFile drops local unflushed writes (actions.c:146-147); RemoveFile/RemoveDirectory
       free entries with pending writes/children
 
 Medium:
@@ -77,6 +77,9 @@ Medium:
       10 s (TICK_PERIOD_SECONDS, dest_local.c): every waitForActionsHandled()/waitForFiles() costs
       up to 10 s (test11 takes ~70 s even without valgrind). Add an option (e.g. for bucse-mount)
       to shorten the interval and use it in the tests
+- [ ] 26. a shrinking truncate followed by a write past the new end, flushed together, keeps the
+      old bytes between them instead of zeros (flushFile ignores truncSize when it reads the old
+      blocks): 1000 x "A", ftruncate(10), pwrite("X", 20) reads back as 20 x "A" + "X"
 
 Typos and misleading messages:
 - [ ] 23. log message typos/copy-paste errors (dest_ssh.c, unlink.c, rmdir.c, actions.c, bucse-mount.c,

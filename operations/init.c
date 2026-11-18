@@ -2,6 +2,8 @@
 #include <pthread.h>
 
 #include "../actions.h"
+#include "../dynarray.h"
+#include "../filesystem.h"
 
 #include "operations.h"
 

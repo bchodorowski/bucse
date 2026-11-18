@@ -20,6 +20,10 @@ typedef struct _FilesystemDir
 	DynArray files;
 	DynArray dirs;
 	struct _FilesystemDir* parentDir;
+	// another client removed this directory, but it is kept here because
+	// it holds data that is not in the repository yet (unflushed files);
+	// an addDirectory action has to be written before anything inside it
+	int pendingCreate;
 } FilesystemDir;
 
 typedef struct

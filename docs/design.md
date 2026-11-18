@@ -107,6 +107,24 @@ inconsistent state. This rests on two rules:
 As a result, an interrupted operation is either fully applied or not
 applied at all. The worst case is that the last action is lost.
 
+## Concurrent changes
+
+Another client's action never drops local changes that haven't been flushed
+yet (pending writes, a pending truncate, a file created but not flushed):
+
+- **editFile:** the new content becomes the base, the local changes are
+  applied on top of it when the file is flushed (a pending truncate cuts the
+  new content).
+- **addFile** of a file that was created locally but not flushed yet: if
+  nothing was written to it, the added file is taken; otherwise the local one
+  is kept and its flush writes an editFile.
+- **removeFile:** the file is kept, and its flush adds it again.
+- **removeDirectory** of a directory that isn't empty: the directory is kept.
+  If it holds something that is in the repository (the other client hadn't
+  seen it yet), every client keeps it. If it holds only local data, it is
+  marked, and before the next action inside it an addDirectory is written
+  for it (and for its marked parents).
+
 ## Non-goals
 
 - bucse is not meant to be a general-purpose network filesystem. Still,

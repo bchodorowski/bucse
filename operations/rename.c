@@ -39,6 +39,12 @@ static int renameFile(FilesystemFile *srcFile, FilesystemDir *srcContainingDir,
 		}
 	}
 
+	// another client may have removed the destination directory
+	int result = recreatePendingDirs(dstContainingDir);
+	if (result != 0) {
+		return result;
+	}
+
 	// construct new action for destination, add it to actions
 	Action* newDstAction = malloc(sizeof(Action));
 	if (newDstAction == NULL) {
