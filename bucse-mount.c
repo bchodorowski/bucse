@@ -357,13 +357,14 @@ int parseRepositoryJsonFile() {
 	json_object* repositoryJson = json_tokener_parse_ex(tokener, repositoryJsonFileContents, repositoryJsonFileLen);
 
 	free(repositoryJsonFileContents);
-	json_tokener_free(tokener);
 
 	if (repositoryJson == NULL)
 	{
 		logPrintf(LOG_ERROR, "json_tokener_parse_ex(): %s\n", json_tokener_error_desc(json_tokener_get_error(tokener)));
+		json_tokener_free(tokener);
 		return 3;
 	}
+	json_tokener_free(tokener);
 
 	json_object* encryptionField;
 	if (json_object_object_get_ex(repositoryJson, "encryption", &encryptionField) == 0)
@@ -441,13 +442,14 @@ int parseRepositoryFile() {
 
 	free(repositoryFileContents);
 	free(decryptedBuf);
-	json_tokener_free(tokener);
 
 	if (repository == NULL)
 	{
 		logPrintf(LOG_ERROR, "json_tokener_parse_ex(): %s\n", json_tokener_error_desc(json_tokener_get_error(tokener)));
+		json_tokener_free(tokener);
 		return 5;
 	}
+	json_tokener_free(tokener);
 
 	json_object* timeField;
 	if (json_object_object_get_ex(repository, "time", &timeField) == 0)

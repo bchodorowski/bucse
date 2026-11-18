@@ -47,7 +47,7 @@ Serious:
       results unchecked -- action may point to a missing block
 - [x] 5. ssh tick: read error -1 passed on as a huge size_t (dest_ssh.c:802)
 - [x] 6. create.c:60 calls bucse_open_guarded() while holding bucseMutex -- deadlock
-- [ ] 7. use-after-free of json tokener in error messages (bucse-mount.c:350/354, 434/438)
+- [x] 7. use-after-free of json tokener in error messages (bucse-mount.c:350/354, 434/438)
 - [ ] 8. pthread_join on a never-created tickThread (bucse-mount.c:610)
 - [ ] 9. int overflow for files > 2 GB (flush.c:220/286/309, truncate.c:76)
 - [ ] 10. a remote EditFile drops local unflushed writes (actions.c:146-147); RemoveFile/RemoveDirectory

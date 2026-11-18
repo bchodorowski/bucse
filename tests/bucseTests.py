@@ -525,6 +525,16 @@ def writeRepoFile(relPath, data):
         os.rename("%s/%s" % (repo, tmpName), "%s/%s" % (repo, relPath))
 
 
+def readRepoFile(relPath):
+    ssh = parseSshRepoPath()
+    if ssh:
+        sshArgs, repoPath = ssh
+        remotePath = remoteShellPath("%s/test_%d_repo/%s" % (repoPath, pid, relPath))
+        return subprocess.run(sshArgs + ["cat %s" % remotePath], capture_output=True, check=True).stdout
+    with open("%s/test_%d_repo/%s" % (argRepoPath, pid, relPath), "rb") as f:
+        return f.read()
+
+
 def deleteRepoFile(relPath):
     ssh = parseSshRepoPath()
     if ssh:
