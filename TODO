@@ -43,7 +43,7 @@ Serious:
 - [x] 2. after a shrinking truncate the last block keeps its old length; later writes to it fail
       with EIO once the block is not cached (flush.c:116-127)
 - [x] 3. flushFile resets truncSize before I/O; a failed flush makes the next one truncate to 0 (flush.c:88-91)
-- [ ] 4. ssh: sftp_write errors never detected (size_t res < 0, dest_ssh.c:197); sftp_close/fclose
+- [x] 4. ssh: sftp_write errors never detected (size_t res < 0, dest_ssh.c:197); sftp_close/fclose
       results unchecked -- action may point to a missing block
 - [x] 5. ssh tick: read error -1 passed on as a huge size_t (dest_ssh.c:802)
 - [ ] 6. create.c:60 calls bucse_open_guarded() while holding bucseMutex -- deadlock

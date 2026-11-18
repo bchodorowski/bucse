@@ -255,7 +255,10 @@ int destLocalPutStorageFile(const char* filename, char *buf, size_t size)
 		fclose(file);
 		return 3;
 	}
-	fclose(file);
+	if (fclose(file) != 0) {
+		logPrintf(LOG_ERROR, "destLocalPutStorageFile: fclose(): %s\n", strerror(errno));
+		return 4;
+	}
 
 	return 0;
 }
@@ -328,7 +331,10 @@ int destLocalAddActionFile(char* filename, char *buf, size_t size)
 		fclose(file);
 		return 3;
 	}
-	fclose(file);
+	if (fclose(file) != 0) {
+		logPrintf(LOG_ERROR, "destLocalAddActionFile: fclose(): %s\n", strerror(errno));
+		return 4;
+	}
 
 	addAction(&handledActions, filename);
 	return 0;
@@ -351,7 +357,10 @@ int destLocalPutRepositoryJsonFile(char *buf, size_t size)
 		fclose(file);
 		return 2;
 	}
-	fclose(file);
+	if (fclose(file) != 0) {
+		logPrintf(LOG_ERROR, "destLocalPutRepositoryJsonFile: fclose(): %s\n", strerror(errno));
+		return 3;
+	}
 
 	return 0;
 }
@@ -404,7 +413,10 @@ int destLocalPutRepositoryFile(char *buf, size_t size)
 		fclose(file);
 		return 2;
 	}
-	fclose(file);
+	if (fclose(file) != 0) {
+		logPrintf(LOG_ERROR, "destLocalPutRepositoryFile: fclose(): %s\n", strerror(errno));
+		return 3;
+	}
 
 	return 0;
 }

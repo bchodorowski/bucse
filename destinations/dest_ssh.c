@@ -187,7 +187,7 @@ static int verify_knownhost(ssh_session session)
 	return 0;
 }
 
-static size_t sftp_write_multiple_calls(sftp_file file, const void* buf, size_t size)
+static ssize_t sftp_write_multiple_calls(sftp_file file, const void* buf, size_t size)
 {
 	size_t sentBytes = 0;
 	while (sentBytes < size) {
@@ -195,11 +195,11 @@ static size_t sftp_write_multiple_calls(sftp_file file, const void* buf, size_t 
 		if (bytesToSend > 32768)
 			bytesToSend = 32768;
 
-		size_t res = sftp_write(file, (char*)buf+sentBytes, bytesToSend);
-		if (res < 0)
+		ssize_t res = sftp_write(file, (char*)buf+sentBytes, bytesToSend);
+		if (res <= 0) // 0 would loop forever
 			return -1;
 
-		sentBytes += res;
+		sentBytes += (size_t)res;
 	}
 	return sentBytes;
 }
@@ -532,14 +532,18 @@ int destSshPutStorageFile(const char* filename, char *buf, size_t size)
 		return 2;
 	}
 
-	int bytesWritten = sftp_write_multiple_calls(file, buf, size);
+	ssize_t bytesWritten = sftp_write_multiple_calls(file, buf, size);
 	if (bytesWritten < 0) {
 		logPrintf(LOG_ERROR, "destSshPutStorageFile: sftp_write_multiple_calls(): %d\n",
 			sftp_get_error(bucseSftpSession));
 		sftp_close(file);
 		return 3;
 	}
-	sftp_close(file);
+	if (sftp_close(file) != SSH_OK) {
+		logPrintf(LOG_ERROR, "destSshPutStorageFile: sftp_close(): %d\n",
+			sftp_get_error(bucseSftpSession));
+		return 4;
+	}
 
 	return 0;
 }
@@ -598,14 +602,18 @@ int destSshAddActionFile(char* filename, char *buf, size_t size)
 		return 2;
 	}
 
-	int bytesWritten = sftp_write_multiple_calls(file, buf, size);
+	ssize_t bytesWritten = sftp_write_multiple_calls(file, buf, size);
 	if (bytesWritten < 0) {
 		logPrintf(LOG_ERROR, "destSshAddActionFile: sftp_write_multiple_calls(): %d\n",
 			sftp_get_error(bucseSftpSession));
 		sftp_close(file);
 		return 3;
 	}
-	sftp_close(file);
+	if (sftp_close(file) != SSH_OK) {
+		logPrintf(LOG_ERROR, "destSshAddActionFile: sftp_close(): %d\n",
+			sftp_get_error(bucseSftpSession));
+		return 4;
+	}
 
 	addAction(&handledActions, filename);
 	return 0;
@@ -620,14 +628,18 @@ int destSshPutRepositoryJsonFile(char *buf, size_t size)
 		return 1;
 	}
 
-	int bytesWritten = sftp_write_multiple_calls(file, buf, size);
+	ssize_t bytesWritten = sftp_write_multiple_calls(file, buf, size);
 	if (bytesWritten < 0) {
 		logPrintf(LOG_ERROR, "destSshPutRepositoryJsonFile: sftp_write_multiple_calls(): %d\n",
 			sftp_get_error(bucseSftpSession));
 		sftp_close(file);
 		return 2;
 	}
-	sftp_close(file);
+	if (sftp_close(file) != SSH_OK) {
+		logPrintf(LOG_ERROR, "destSshPutRepositoryJsonFile: sftp_close(): %d\n",
+			sftp_get_error(bucseSftpSession));
+		return 3;
+	}
 
 	return 0;
 }
@@ -665,14 +677,18 @@ int destSshPutRepositoryFile(char *buf, size_t size)
 		return 1;
 	}
 
-	int bytesWritten = sftp_write_multiple_calls(file, buf, size);
+	ssize_t bytesWritten = sftp_write_multiple_calls(file, buf, size);
 	if (bytesWritten < 0) {
 		logPrintf(LOG_ERROR, "destSshPutRepositoryFile: sftp_write_multiple_calls(): %d\n",
 			sftp_get_error(bucseSftpSession));
 		sftp_close(file);
 		return 2;
 	}
-	sftp_close(file);
+	if (sftp_close(file) != SSH_OK) {
+		logPrintf(LOG_ERROR, "destSshPutRepositoryFile: sftp_close(): %d\n",
+			sftp_get_error(bucseSftpSession));
+		return 3;
+	}
 
 	return 0;
 }
