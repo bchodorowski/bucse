@@ -77,7 +77,7 @@ Medium:
       10 s (TICK_PERIOD_SECONDS, dest_local.c): every waitForActionsHandled()/waitForFiles() costs
       up to 10 s (test11 takes ~70 s even without valgrind). Add an option (e.g. for bucse-mount)
       to shorten the interval and use it in the tests
-- [ ] 26. a shrinking truncate followed by a write past the new end, flushed together, keeps the
+- [x] 26. a shrinking truncate followed by a write past the new end, flushed together, keeps the
       old bytes between them instead of zeros (flushFile ignores truncSize when it reads the old
       blocks): 1000 x "A", ftruncate(10), pwrite("X", 20) reads back as 20 x "A" + "X"
 

@@ -90,6 +90,12 @@ int flushFile(FilesystemFile* file)
 	if (file->dirtyFlags & DirtyFlagPendingTrunc) {
 		newSize = file->truncSize;
 	}
+	// the old data that is kept: after a shrinking truncate, the bytes
+	// past truncSize must read as zeroes if a write extends the file again
+	size_t validSize = file->size;
+	if (newSize < validSize) {
+		validSize = newSize;
+	}
 	int newBlockSize = file->blockSize;
 	int newContentLen = file->contentLen;
 	char* newContent = NULL;
@@ -160,12 +166,15 @@ int flushFile(FilesystemFile* file)
 		determineBlocksToWrite(blocksToWrite, pw->offset, pw->size, newBlockSize);
 	}
 
-	// a special case where the last block was not touched, but there were
-	// writes afterwards that extend the file. In that case, we need to
-	// force that block to be reasaved (not copied over), because we need
-	// trailing zeroes
-	if (file->contentLen > 0 && file->contentLen < newContentLen) {
-		blocksToWrite[file->contentLen - 1] = 1;
+	// when there are writes past the kept data (validSize), blocks from
+	// the one containing validSize up to the end may not have been
+	// touched by them. They must be rewritten (not copied over), because
+	// the bytes past validSize must be zeroes (e.g. a shrinking truncate
+	// followed by a write past the new end)
+	if (validSize < newSize) {
+		for (int i = (int)(validSize / newBlockSize); i < newContentLen; i++) {
+			blocksToWrite[i] = 1;
+		}
 	}
 
 	if (lastBlockShrinks) {
@@ -231,7 +240,7 @@ int flushFile(FilesystemFile* file)
 			char* bufPtr = decryptedBlockBuf;
 			size_t bufSize = maxDecryptedBlockSize;
 			while (toRead > 0) {
-				if (sourceBlockIndex >= file->contentLen) {
+				if ((size_t)sourceBlockIndex * file->blockSize >= validSize) {
 					logPrintf(LOG_VERBOSE_DEBUG, "toRead fill with zeros: %zu\n", toRead);
 					memset(bufPtr, 0, toRead);
 					toRead = 0;
@@ -269,7 +278,7 @@ int flushFile(FilesystemFile* file)
 				break;
 			}
 		}
-		else if (i < file->contentLen) {
+		else if (i < file->contentLen && (size_t)i * newBlockSize < validSize) {
 			size_t expectedReadSize = file->size - ((size_t)i * file->blockSize);
 			if (expectedReadSize > file->blockSize) {
 				expectedReadSize = file->blockSize;
@@ -288,9 +297,15 @@ int flushFile(FilesystemFile* file)
 				ioerror = 1;
 				break;
 			}
-			memset(decryptedBlockBuf + expectedReadSize, 0,
-				maxDecryptedBlockSize + DECRYPTED_BUFFER_MARGIN - expectedReadSize);
+		}
 
+		// zero everything past the kept data (validSize): the rest of a
+		// longer block, or bytes cut off by a pending truncate
+		size_t blockStart = (size_t)i * newBlockSize;
+		if (blockStart + newBlockSize > validSize) {
+			size_t keep = validSize > blockStart ? validSize - blockStart : 0;
+			memset(decryptedBlockBuf + keep, 0,
+				maxDecryptedBlockSize + DECRYPTED_BUFFER_MARGIN - keep);
 		}
 		// right now we have data in decryptedBlockBuf
 		
