@@ -82,6 +82,12 @@ int flushFile(FilesystemFile* file)
 	if (file->dirtyFlags == DirtyFlagNotDirty) {
 		return 0;
 	}
+	// the operations reject changes in readOnly mode, this is the last
+	// guard against writing to the repository anyway
+	if (confIsReadOnly()) {
+		logPrintf(LOG_ERROR, "flushFile: cannot do that in readOnly mode\n");
+		return -EROFS;
+	}
 	// TODO: what if create only, no writes?
 
 	size_t newSize = file->size;

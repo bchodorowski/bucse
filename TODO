@@ -54,7 +54,7 @@ Serious:
       free entries with pending writes/children
 
 Medium:
-- [ ] 11. read-only mode: O_RDONLY|O_TRUNC sets PendingTrunc (open.c:58); flushFile doesn't check confIsReadOnly()
+- [x] 11. read-only mode: O_RDONLY|O_TRUNC sets PendingTrunc (open.c:58); flushFile doesn't check confIsReadOnly()
 - [ ] 12. actions sorted by time only (unstable qsort, microsecond timestamps); renameFile gives two actions
       the same time; dedup assumes identical actions are adjacent
 - [ ] 13. AddDirectory doesn't check for an existing entry; out-of-order replay duplicates directories

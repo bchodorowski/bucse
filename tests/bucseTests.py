@@ -211,7 +211,8 @@ def verifyWithMirror():
 
 # Unmounts and mounts the repository again, without reading any file, so
 # that the new bucse-mount process starts with an empty cache.
-def remount():
+# extraArgs: more bucse-mount arguments, e.g. -R
+def remount(extraArgs = []):
     global argValgrind
     global argRepoPath
     global argPassphrase
@@ -225,7 +226,7 @@ def remount():
         if valgrindProc.returncode != 0:
             raise Exception("bucse-mount returned %d" % valgrindProc.returncode)
 
-    p = subprocess.run(["../bucse-mount", "-p", argPassphrase, "-r", "%s/test_%d_repo" % (argRepoPath, pid), "test_%d" % pid])
+    p = subprocess.run(["../bucse-mount", "-p", argPassphrase, "-r", "%s/test_%d_repo" % (argRepoPath, pid), "test_%d" % pid] + extraArgs)
     p.check_returncode()
 
     waitForRepoToBeMounted("test_%d" % pid)

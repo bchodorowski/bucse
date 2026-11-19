@@ -25,7 +25,8 @@ int bucse_open(const char *path, struct fuse_file_info *fi)
 		return -EIO;
 	}
 
-	if (confIsReadOnly() && (fi->flags & (O_WRONLY | O_RDWR))) {
+	// O_TRUNC truncates the file also with O_RDONLY
+	if (confIsReadOnly() && (fi->flags & (O_WRONLY | O_RDWR | O_TRUNC))) {
 		logPrintf(LOG_ERROR, "bucse_open: cannot do that in readOnly mode\n");
 		return -EROFS;
 	}
@@ -68,6 +69,10 @@ int bucse_open(const char *path, struct fuse_file_info *fi)
 				return -EACCES;
 			} else {
 				if (fi->flags & O_CREAT) {
+					if (confIsReadOnly()) {
+						logPrintf(LOG_ERROR, "bucse_open: cannot do that in readOnly mode\n");
+						return -EROFS;
+					}
 					FilesystemFile* newFile = malloc(sizeof(FilesystemFile));
 					if (newFile == NULL) {
 						logPrintf(LOG_ERROR, "bucse_open: malloc(): %s\n", strerror(errno));
