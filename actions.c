@@ -709,26 +709,24 @@ char* serializeAction(Action* action)
 {
 	json_object* jsonNewActions = json_object_new_array();
 	if (!jsonNewActions) {
+		logPrintf(LOG_ERROR, "serializeAction: can't create JSON array\n");
 		return NULL;
 	}
+	// from here on, every value is added to jsonNewActions (or to an object
+	// in it) right after it is created, so releasing jsonNewActions releases
+	// everything; a value that can't be added is released on its own
+	// (json_object_put(NULL) is a no-op)
 	json_object* jsonNewAction = json_object_new_object();
-	if (!jsonNewAction) {
-		json_object_put(jsonNewActions);
-		return NULL;
-	}
-	json_object* jsonNewContent = json_object_new_array();
-	if (!jsonNewAction) {
-		json_object_put(jsonNewActions);
+	if (jsonNewAction == NULL || json_object_array_add(jsonNewActions, jsonNewAction) != 0) {
 		json_object_put(jsonNewAction);
-		return NULL;
-	}
-	for (int i=0; i<action->contentLen; i++) {
-		json_object_array_add(jsonNewContent,
-			json_object_new_string(action->content + i*MAX_STORAGE_NAME_LEN));
+		goto error;
 	}
 
-	json_object_object_add(jsonNewAction,
-		"time", json_object_new_int64(action->time));
+	json_object* val = json_object_new_int64(action->time);
+	if (val == NULL || json_object_object_add(jsonNewAction, "time", val) != 0) {
+		json_object_put(val);
+		goto error;
+	}
 
 	const char* actionStr = NULL;
 	if (action->actionType == ActionTypeAddFile) {
@@ -744,21 +742,48 @@ char* serializeAction(Action* action)
 	} else {
 		actionStr = "unknown";
 	}
-	json_object_object_add(jsonNewAction,
-		"action", json_object_new_string(actionStr));
-	json_object_object_add(jsonNewAction,
-		"path", json_object_new_string(action->path));
-	json_object_object_add(jsonNewAction,
-		"content", jsonNewContent);
-	json_object_object_add(jsonNewAction,
-		"size", json_object_new_int64(action->size));
-	json_object_object_add(jsonNewAction,
-		"blockSize", json_object_new_int(action->blockSize));
+	val = json_object_new_string(actionStr);
+	if (val == NULL || json_object_object_add(jsonNewAction, "action", val) != 0) {
+		json_object_put(val);
+		goto error;
+	}
 
-	json_object_array_add(jsonNewActions, jsonNewAction);
+	val = json_object_new_string(action->path);
+	if (val == NULL || json_object_object_add(jsonNewAction, "path", val) != 0) {
+		json_object_put(val);
+		goto error;
+	}
 
-	char* jsonData = (char*)json_object_to_json_string_ext(
+	json_object* jsonNewContent = json_object_new_array();
+	if (jsonNewContent == NULL || json_object_object_add(jsonNewAction, "content", jsonNewContent) != 0) {
+		json_object_put(jsonNewContent);
+		goto error;
+	}
+	for (int i=0; i<action->contentLen; i++) {
+		val = json_object_new_string(action->content + i*MAX_STORAGE_NAME_LEN);
+		if (val == NULL || json_object_array_add(jsonNewContent, val) != 0) {
+			json_object_put(val);
+			goto error;
+		}
+	}
+
+	val = json_object_new_int64(action->size);
+	if (val == NULL || json_object_object_add(jsonNewAction, "size", val) != 0) {
+		json_object_put(val);
+		goto error;
+	}
+
+	val = json_object_new_int(action->blockSize);
+	if (val == NULL || json_object_object_add(jsonNewAction, "blockSize", val) != 0) {
+		json_object_put(val);
+		goto error;
+	}
+
+	const char* jsonData = json_object_to_json_string_ext(
 		jsonNewActions, JSON_C_TO_STRING_PRETTY);
+	if (jsonData == NULL) {
+		goto error;
+	}
 
 	char* result = malloc(strlen(jsonData)+1);
 	if (result == NULL) {
@@ -771,6 +796,11 @@ char* serializeAction(Action* action)
 	json_object_put(jsonNewActions);
 
 	return result;
+
+error:
+	logPrintf(LOG_ERROR, "serializeAction: can't build JSON\n");
+	json_object_put(jsonNewActions);
+	return NULL;
 }
 
 // Adds a local action. An action with the same time as the last ones (the

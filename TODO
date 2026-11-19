@@ -60,7 +60,7 @@ Medium:
 - [x] 13. AddDirectory doesn't check for an existing entry; out-of-order replay duplicates directories
       (and addFile/addDirectory now check for a directory/file of the same name)
 - [x] 14. renaming a dir onto an existing empty dir fails with EEXIST (rename.c:162)
-- [ ] 15. serializeAction checks jsonNewAction instead of jsonNewContent (actions.c:553)
+- [x] 15. serializeAction checks jsonNewAction instead of jsonNewContent (actions.c:553)
 - [ ] 16. bucse-init ignores putRepositoryJsonFile result, exits 0 without a repository argument,
       misreports missing option arguments
 - [x] 17. action files that fail to open/read are still marked handled (both destinations)
