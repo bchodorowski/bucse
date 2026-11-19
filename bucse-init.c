@@ -28,6 +28,7 @@ static int initRepo(char* repository, char* passphrase, char* encryptionStr,
 	char* realPath = NULL;
 	getDestinationByPathPrefix(&destination, &realPath, repository);
 	int err = destination->init(realPath);
+	free(realPath);
 	if (err != 0)
 	{
 		logPrintf(LOG_ERROR, "destination->init(): %d\n", err);
@@ -39,7 +40,6 @@ static int initRepo(char* repository, char* passphrase, char* encryptionStr,
 		logPrintf(LOG_ERROR, "destination->createDirs(): %d\n", err);
 		return 2;
 	}
-	free(realPath);
 
 	// save new repository.json
 	json_object* jsonRepositoryJson = json_object_new_object();
@@ -57,10 +57,18 @@ static int initRepo(char* repository, char* passphrase, char* encryptionStr,
 
 	char* jsonData = (char*)json_object_to_json_string_ext(
 		jsonRepositoryJson, JSON_C_TO_STRING_PRETTY);
+	if (jsonData == NULL) {
+		logPrintf(LOG_ERROR, "initRepo: json_object_to_json_string_ext() failed\n");
+		json_object_put(jsonRepositoryJson);
+		return 3;
+	}
 
-	destination->putRepositoryJsonFile(jsonData, strlen(jsonData));
-
+	err = destination->putRepositoryJsonFile(jsonData, strlen(jsonData));
 	json_object_put(jsonRepositoryJson);
+	if (err != 0) {
+		logPrintf(LOG_ERROR, "initRepo: destination->putRepositoryJsonFile(): %d\n", err);
+		return 3;
+	}
 
 	// save new repository
 
@@ -73,7 +81,12 @@ static int initRepo(char* repository, char* passphrase, char* encryptionStr,
 		"time", json_object_new_int64(getCurrentTime()));
 	char* repositoryData = (char*)json_object_to_json_string_ext(
 		jsonRepository, JSON_C_TO_STRING_PRETTY);
-	
+	if (repositoryData == NULL) {
+		logPrintf(LOG_ERROR, "initRepo: json_object_to_json_string_ext() failed\n");
+		json_object_put(jsonRepository);
+		return 4;
+	}
+
 	// prepare encryption buffers
 	size_t maxEncryptedBufSize = getMaxEncryptedBlockSize(
 		strlen(repositoryData));
@@ -122,7 +135,7 @@ int main(int argc, char *argv[])
 	confInit();
 
 	int c;
-	while ((c = getopt (argc, argv, "Vhp:e:n:c:")) != -1) {
+	while ((c = getopt (argc, argv, ":Vhp:e:n:c:")) != -1) {
 		switch (c) {
 			case 'V':
 				fprintf(stdout, "bucse version %s\n", PACKAGE_VERSION);
@@ -155,10 +168,11 @@ int main(int argc, char *argv[])
 			case 'c':
 				comment = optarg;
 				break;
+			case ':':
+				logPrintf(LOG_ERROR, "Option -%c requires an argument.\n", optopt);
+				return 1;
 			case '?':
-				if (optopt == 'p')
-					logPrintf(LOG_ERROR, "Option -%c requires an argument.\n", optopt);
-				else if (isprint(optopt))
+				if (isprint(optopt))
 					logPrintf(LOG_ERROR, "Unknown option `-%c'.\n", optopt);
 				else
 					logPrintf(LOG_ERROR, "Unknown option character `\\x%x'.\n", optopt);
@@ -166,6 +180,11 @@ int main(int argc, char *argv[])
 			default:
 				abort ();
 		}
+	}
+
+	if (optind >= argc) {
+		logPrintf(LOG_ERROR, "No repository given, see bucse-init -h\n");
+		return 1;
 	}
 
 	encryption = getEncryptionByName(encryptionStr);
@@ -181,9 +200,12 @@ int main(int argc, char *argv[])
 
 	int index;
 	int ret = 0;
-	for (index = optind; index < argc; index++)
-		ret += initRepo(argv[index], passphrase, encryptionStr,
-			name, comment);
+	for (index = optind; index < argc; index++) {
+		// not a sum of the results: it could wrap around to 0 as an exit code
+		if (initRepo(argv[index], passphrase, encryptionStr,
+			name, comment) != 0)
+			ret = 4;
+	}
 
 	return ret;
 }
