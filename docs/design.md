@@ -126,6 +126,17 @@ yet (pending writes, a pending truncate, a file created but not flushed):
   seen it yet), every client keeps it. If it holds only local data, it is
   marked, and before the next action inside it an addDirectory is written
   for it (and for its marked parents).
+- **addFile** of a path where a directory exists, or **addDirectory** where
+  a file exists: if the existing entry is in the repository, the action is
+  rejected (every client applies actions in the same order, so they all
+  reject the same one). If it holds only local data (a file not flushed yet,
+  or a directory marked as above), the local entry is renamed to
+  `name.conflict` (`name.conflict2`, ... if that is taken), and its flush or
+  next action writes it under the new name. FUSE operations are path based,
+  so a file still open under the old name can't be written through that
+  handle any more; its data is kept under the new name.
+- An **addDirectory** of a directory that already exists keeps the existing
+  one and its contents.
 
 ## Non-goals
 

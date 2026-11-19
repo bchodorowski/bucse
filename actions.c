@@ -103,6 +103,28 @@ static int hasEntriesInRepository(FilesystemDir* dir)
 	return 0;
 }
 
+// names of the directories renamed by renameConflict(), freed in
+// actionsCleanup() (a directory doesn't own its name)
+static DynArray conflictDirNames;
+
+// Returns a new name for a local entry called name in dir that clashes with
+// an entry of the other type added by another client: "name.conflict", or
+// "name.conflictN" if that is taken too. The result is malloc()ed.
+static char* conflictName(FilesystemDir* dir, const char* name)
+{
+	size_t len = strlen(name) + sizeof(".conflict") + 20;
+	char* result = malloc(len);
+	if (result == NULL) {
+		logPrintf(LOG_ERROR, "conflictName: malloc(): %s\n", strerror(errno));
+		return NULL;
+	}
+	snprintf(result, len, "%s.conflict", name);
+	for (int i=2; findFile(dir, result) != NULL || findDir(dir, result) != NULL; i++) {
+		snprintf(result, len, "%s.conflict%d", name, i);
+	}
+	return result;
+}
+
 // Remote actions never drop local changes that haven't been flushed yet,
 // see "Concurrent changes" in docs/design.md and recreatePendingDirs().
 static int doAction(Action* action)
@@ -124,6 +146,26 @@ static int doAction(Action* action)
 		if (containingDir == NULL) {
 			logPrintf(LOG_ERROR, "doAction: path not found when adding file %s\n", action->path);
 			return 2;
+		}
+
+		FilesystemDir* dir = findDir(containingDir, fileName);
+		if (dir != NULL && dir->pendingCreate) {
+			// a directory kept after another client removed it, it holds
+			// only local data: rename it, its addDirectory is written
+			// with the new name
+			char* newName = conflictName(containingDir, fileName);
+			if (newName == NULL) {
+				return 19;
+			}
+			if (addToDynArray(&conflictDirNames, newName) != 0) {
+				free(newName);
+				return 20;
+			}
+			logPrintf(LOG_WARNING, "doAction: file %s added by another client, renamed the local unwritten directory to %s\n", action->path, newName);
+			dir->name = newName;
+		} else if (dir != NULL) {
+			logPrintf(LOG_ERROR, "doAction: a directory with that name already exists, not adding file %s\n", action->path);
+			return 21;
 		}
 
 		FilesystemFile* file = findFile(containingDir, fileName);
@@ -286,6 +328,23 @@ static int doAction(Action* action)
 		if (dir != NULL) {
 			logPrintf(LOG_WARNING, "doAction: directory already exists: %s\n", action->path);
 			return 0;
+		}
+
+		FilesystemFile* file = findFile(containingDir, dirName);
+		if (file != NULL && (file->dirtyFlags & DirtyFlagPendingCreate)) {
+			// a file that isn't in the repository yet: rename it, its
+			// flush adds it with the new name; file->name is owned by
+			// the pending create (see open.c)
+			char* newName = conflictName(containingDir, dirName);
+			if (newName == NULL) {
+				return 22;
+			}
+			logPrintf(LOG_WARNING, "doAction: directory %s added by another client, renamed the local unflushed file to %s\n", action->path, newName);
+			free((char*)file->name);
+			file->name = newName;
+		} else if (file != NULL) {
+			logPrintf(LOG_ERROR, "doAction: a file with that name already exists, not adding directory %s\n", action->path);
+			return 23;
 		}
 
 		FilesystemDir* newDir = malloc(sizeof(FilesystemDir));
@@ -639,6 +698,11 @@ void actionsCleanup()
 		freeAction(actionsPending.objects[i]);
 	}
 	freeDynArray(&actionsPending);
+
+	for (int i=0; i<conflictDirNames.len; i++) {
+		free(conflictDirNames.objects[i]);
+	}
+	freeDynArray(&conflictDirNames);
 }
 
 char* serializeAction(Action* action)
