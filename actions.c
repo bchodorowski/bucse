@@ -280,6 +280,13 @@ static int doAction(Action* action)
 			dir->pendingCreate = 0;
 			return 0;
 		}
+		// already there: two clients created the same directory, or an
+		// out-of-order action made the later ones be applied again (see
+		// undoAction()); keep the existing one and its contents
+		if (dir != NULL) {
+			logPrintf(LOG_WARNING, "doAction: directory already exists: %s\n", action->path);
+			return 0;
+		}
 
 		FilesystemDir* newDir = malloc(sizeof(FilesystemDir));
 		if (newDir == NULL) {

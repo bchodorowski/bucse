@@ -57,7 +57,8 @@ Medium:
 - [x] 11. read-only mode: O_RDONLY|O_TRUNC sets PendingTrunc (open.c:58); flushFile doesn't check confIsReadOnly()
 - [x] 12. actions sorted by time only (unstable qsort, microsecond timestamps); renameFile gives two actions
       the same time; dedup assumes identical actions are adjacent
-- [ ] 13. AddDirectory doesn't check for an existing entry; out-of-order replay duplicates directories
+- [x] 13. AddDirectory doesn't check for an existing entry; out-of-order replay duplicates directories
+      (still open: addFile/addDirectory don't check for a directory/file of the same name)
 - [ ] 14. renaming a dir onto an existing empty dir fails with EEXIST (rename.c:162)
 - [ ] 15. serializeAction checks jsonNewAction instead of jsonNewContent (actions.c:553)
 - [ ] 16. bucse-init ignores putRepositoryJsonFile result, exits 0 without a repository argument,
