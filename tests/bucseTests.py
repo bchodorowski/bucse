@@ -536,6 +536,16 @@ def readRepoFile(relPath):
         return f.read()
 
 
+def listRepoDir(relPath):
+    ssh = parseSshRepoPath()
+    if ssh:
+        sshArgs, repoPath = ssh
+        remotePath = remoteShellPath("%s/test_%d_repo/%s" % (repoPath, pid, relPath))
+        output = subprocess.run(sshArgs + ["ls -A %s" % remotePath], capture_output=True, check=True).stdout
+        return output.decode("utf-8").split()
+    return os.listdir("%s/test_%d_repo/%s" % (argRepoPath, pid, relPath))
+
+
 def deleteRepoFile(relPath):
     ssh = parseSshRepoPath()
     if ssh:

@@ -24,32 +24,47 @@ static void printActions(DynArray* array)
 	}
 }
 
-static int compareActionsByTime(const void* a1, const void* a2)
+// Orders actions by time, and actions with the same time (e.g. the two
+// actions of a rename) by all their other fields. So the order is the same
+// on every client, and only identical actions compare equal, which
+// deduplication in flushActionsAdded() relies on (identical actions are
+// adjacent once sorted).
+static int compareActions(const Action* a1, const Action* a2)
 {
-	if ((*(const Action**)a1)->time > (*(const Action**)a2)->time) {
-		return 1;
-	} else if ((*(const Action**)a1)->time < (*(const Action**)a2)->time) {
-		return -1;
-	} else {
-		return 0;
+	if (a1->time != a2->time) {
+		return a1->time > a2->time ? 1 : -1;
 	}
-}
-
-static int compareActionsByTimeTypePath(const void* a1, const void* a2)
-{
-	if ((*(const Action**)a1)->time > (*(const Action**)a2)->time) {
-		return 1;
-	} else if ((*(const Action**)a1)->time < (*(const Action**)a2)->time) {
-		return -1;
-	} else {
-		if ((*(const Action**)a1)->actionType > (*(const Action**)a2)->actionType) {
-			return 1;
-		} else if ((*(const Action**)a1)->actionType < (*(const Action**)a2)->actionType) {
-			return -1;
-		} else {
-			return strcmp((*(const Action**)a1)->path, (*(const Action**)a2)->path);
+	if (a1->actionType != a2->actionType) {
+		return a1->actionType > a2->actionType ? 1 : -1;
+	}
+	int c = strcmp(a1->path, a2->path);
+	if (c != 0) {
+		return c;
+	}
+	if (a1->contentLen != a2->contentLen) {
+		return a1->contentLen > a2->contentLen ? 1 : -1;
+	}
+	// each content entry is a string in a MAX_STORAGE_NAME_LEN slot, the
+	// bytes after its end aren't initialised
+	for (int i=0; i<a1->contentLen; i++) {
+		c = strncmp(a1->content + i*MAX_STORAGE_NAME_LEN,
+			a2->content + i*MAX_STORAGE_NAME_LEN, MAX_STORAGE_NAME_LEN);
+		if (c != 0) {
+			return c;
 		}
 	}
+	if (a1->size != a2->size) {
+		return a1->size > a2->size ? 1 : -1;
+	}
+	if (a1->blockSize != a2->blockSize) {
+		return a1->blockSize > a2->blockSize ? 1 : -1;
+	}
+	return 0;
+}
+
+static int compareActionPtrs(const void* a1, const void* a2)
+{
+	return compareActions(*(const Action**)a1, *(const Action**)a2);
 }
 
 static void freeAction(Action* action)
@@ -518,7 +533,7 @@ void flushActionsAdded()
 	}
 
 	// prepare actionsPending
-	qsort(actionsPending.objects, actionsPending.len, sizeof(void*), compareActionsByTime);
+	qsort(actionsPending.objects, actionsPending.len, sizeof(void*), compareActionPtrs);
 	printActions(&actionsPending);
 
 	// Check for duplicates: actions in actionsPending that already are in actions.
@@ -533,10 +548,10 @@ void flushActionsAdded()
 		logPrintf(LOG_VERBOSE_DEBUG, "actionAdded(): duplicates\n");
 		while (i >=0 && j >= 0) {
 			// pick next "largest" item
-			if (i==0 || compareActionsByTimeTypePath(&actions.objects[j], &actionsPending.objects[i-1]) >= 0)
+			if (i==0 || compareActionPtrs(&actions.objects[j], &actionsPending.objects[i-1]) >= 0)
 			{
 				// compare with actions
-				int c = compareActionsByTimeTypePath(&actions.objects[j], &actionsPending.objects[i]);
+				int c = compareActionPtrs(&actions.objects[j], &actionsPending.objects[i]);
 				if (c > 0) {
 					j--;
 				} else if (c < 0) {
@@ -550,7 +565,7 @@ void flushActionsAdded()
 				}
 			} else {
 				// compare with previous actionsPending
-				int c = compareActionsByTimeTypePath(&actionsPending.objects[i], &actionsPending.objects[i-1]);
+				int c = compareActionPtrs(&actionsPending.objects[i], &actionsPending.objects[i-1]);
 				if (c == 0) {
 					logPrintf(LOG_VERBOSE_DEBUG, "actionAdded(): dup found\n");
 					freeAction(actionsPending.objects[i]);
@@ -563,7 +578,7 @@ void flushActionsAdded()
 
 	}
 	while (i>0) {
-		int c = compareActionsByTimeTypePath(&actionsPending.objects[i], &actionsPending.objects[i-1]);
+		int c = compareActionPtrs(&actionsPending.objects[i], &actionsPending.objects[i-1]);
 		if (c == 0) {
 			logPrintf(LOG_VERBOSE_DEBUG, "actionAdded(): dup found\n");
 			freeAction(actionsPending.objects[i]);
@@ -574,7 +589,7 @@ void flushActionsAdded()
 	}
 	if (dups > 0) {
 		logPrintf(LOG_VERBOSE_DEBUG, "actionAdded(): duplicates: removed %d pending actions\n", dups);
-		qsort(actionsPending.objects, actionsPending.len, sizeof(void*), compareActionsByTime);
+		qsort(actionsPending.objects, actionsPending.len, sizeof(void*), compareActionPtrs);
 	}
 
 	// handle out of order actions
@@ -594,7 +609,7 @@ void flushActionsAdded()
 	}
 
 	if (outOfOrderActions > 0) {
-		qsort(actionsPending.objects, actionsPending.len, sizeof(void*), compareActionsByTime);
+		qsort(actionsPending.objects, actionsPending.len, sizeof(void*), compareActionPtrs);
 	}
 
 	// move actions from actinsPending to actions, acting on them
@@ -687,7 +702,23 @@ char* serializeAction(Action* action)
 	return result;
 }
 
+// Adds a local action. An action with the same time as the last ones (the
+// second action of a rename) is put among them in the order of
+// compareActions(), so that actions stays sorted the way flushActionsAdded()
+// expects.
 void addAction(Action *newAction)
 {
-	addToDynArray(&actions, newAction);
+	if (addToDynArray(&actions, newAction) != 0) {
+		return;
+	}
+	int i = actions.len - 1;
+	while (i > 0) {
+		Action* prev = actions.objects[i-1];
+		if (prev->time != newAction->time || compareActions(prev, newAction) <= 0) {
+			break;
+		}
+		actions.objects[i] = prev;
+		actions.objects[i-1] = newAction;
+		i--;
+	}
 }

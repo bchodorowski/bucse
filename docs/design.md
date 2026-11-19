@@ -29,8 +29,10 @@ Ranked: when goals conflict, the higher one wins.
   describes one action.
 - **actionsPending** — an in-memory dynamic array of actions, either just
   performed by the user or just read from action files. They are sorted by
-  time, deduplicated, executed (handling out-of-order actions) and moved to
-  the `actions` dynamic array.
+  time (actions with the same time, e.g. the two actions of a rename, by
+  their other fields, so every client applies them in the same order and
+  identical ones are adjacent), deduplicated, executed (handling
+  out-of-order actions) and moved to the `actions` dynamic array.
 - **Packing (tar) of actions** — an optimisation: many action files are
   packed into one tar file, so they can be handled as one big pack instead
   of one by one.

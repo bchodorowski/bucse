@@ -55,7 +55,7 @@ Serious:
 
 Medium:
 - [x] 11. read-only mode: O_RDONLY|O_TRUNC sets PendingTrunc (open.c:58); flushFile doesn't check confIsReadOnly()
-- [ ] 12. actions sorted by time only (unstable qsort, microsecond timestamps); renameFile gives two actions
+- [x] 12. actions sorted by time only (unstable qsort, microsecond timestamps); renameFile gives two actions
       the same time; dedup assumes identical actions are adjacent
 - [ ] 13. AddDirectory doesn't check for an existing entry; out-of-order replay duplicates directories
 - [ ] 14. renaming a dir onto an existing empty dir fails with EEXIST (rename.c:162)
@@ -80,6 +80,15 @@ Medium:
 - [x] 26. a shrinking truncate followed by a write past the new end, flushed together, keeps the
       old bytes between them instead of zeros (flushFile ignores truncSize when it reads the old
       blocks): 1000 x "A", ftruncate(10), pwrite("X", 20) reads back as 20 x "A" + "X"
+- [ ] 27. a new local action can get an earlier time than actions already applied (gettimeofday()
+      steps back, or this client's clock is behind another's), so every client applies it before
+      them: edit then (clock steps back) delete leaves the file with its old content after a
+      remount and on other clients; deleting a file just added by a client whose clock is ahead
+      leaves it in place. addAction() then also leaves actions unsorted by time. Fix: a Lamport
+      clock, the time of a new action = max(getCurrentTime(), time of the last action in
+      actions + 1), instead of getCurrentTime() at the 6 places that create actions (no format
+      change). Concurrent actions that haven't seen each other keep an arbitrary but consistent
+      order. A client whose clock is far ahead pushes everyone's later times (and mtimes) after it
 
 Typos and misleading messages:
 - [ ] 23. log message typos/copy-paste errors (dest_ssh.c, unlink.c, rmdir.c, actions.c, bucse-mount.c,
