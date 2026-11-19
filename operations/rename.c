@@ -162,15 +162,25 @@ static int renameDir(FilesystemDir *srcDir, FilesystemDir *srcContainingDir,
 		return -ENOTEMPTY;
 	}
 
+	if (dstDir == srcDir) {
+		return 0;
+	}
+
 	int result;
 
-	// create the target directory
-	result = bucse_mkdir(dstPath, S_IRUSR | S_IWUSR | S_IXUSR
-		| S_IRGRP | S_IXGRP
-		| S_IROTH | S_IXOTH);
+	if (dstDir) {
+		// an existing empty directory is replaced: reuse it; if another
+		// client removed it, add it again
+		result = recreatePendingDirs(dstDir);
+	} else {
+		// create the target directory
+		result = bucse_mkdir(dstPath, S_IRUSR | S_IWUSR | S_IXUSR
+			| S_IRGRP | S_IXGRP
+			| S_IROTH | S_IXOTH);
+	}
 
 	if (result != 0) {
-		logPrintf(LOG_ERROR, "bucse_rename: bucse_mkdir() failed\n");
+		logPrintf(LOG_ERROR, "bucse_rename: creating the destination directory failed\n");
 		return result;
 	}
 
