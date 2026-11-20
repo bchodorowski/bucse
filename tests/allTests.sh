@@ -17,7 +17,10 @@
 #
 # The output of every run is kept in logs/<test>_<encryption>_<destination>.log.
 # A failed run is cleaned up (unmounted, its directories and repository
-# removed); its log and valgrind log (tmp/valgrind_<pid>.txt) are kept.
+# removed). The test's pid, its valgrind log (tmp/valgrind_<pid>.txt),
+# bucse-mount's output (tmp/mount_<pid>.txt) and a list of the running
+# processes (something else, e.g. a file indexer, may have used the mount) are
+# appended to its log; the files in tmp/ are kept too.
 # The exit code is non-zero if any run failed.
 #
 # When interrupted (Ctrl+C, SIGTERM, SIGHUP), the running test is stopped and
@@ -73,6 +76,32 @@ bucseTests.pid = int(sys.argv[2])
 bucseTests.removeRepo()' "$2" "$1"
 }
 
+# appendProcesses <log>: appends the running processes, right after a test
+# failed (something else, e.g. a file indexer, may have used the mount)
+appendProcesses() {
+	{
+		echo
+		echo "=== running processes:"
+		ps aux
+	} >> "$1" 2>&1
+}
+
+# appendLogs <pid> <log>: appends the failed test's pid and logs; called after
+# cleanUp, so that a bucse-mount under valgrind has exited and its log is
+# complete
+appendLogs() {
+	{
+		echo
+		echo "=== test pid: $1"
+		for f in "tmp/valgrind_$1.txt" "tmp/mount_$1.txt"; do
+			if [ -f "$f" ]; then
+				echo "=== $f:"
+				cat "$f"
+			fi
+		done
+	} >> "$2" 2>&1
+}
+
 # The running test (pid, repoPath, log) is cleaned up when the script is
 # interrupted. A test runs in the background, so it ignores SIGINT: it is
 # stopped with SIGTERM.
@@ -84,7 +113,9 @@ interrupted() {
 	if [ -n "$pid" ]; then
 		kill -TERM "$pid" 2>/dev/null
 		wait "$pid" 2>/dev/null
+		appendProcesses "$log"
 		cleanUp "$pid" "$repoPath" >> "$log" 2>&1
+		appendLogs "$pid" "$log"
 		echo "The interrupted test's log: $log"
 	fi
 	rm -f "$RESULTS"
@@ -120,7 +151,9 @@ for destination in $DESTINATIONS; do
 			else
 				status="FAILED"
 				FAILED=1
+				appendProcesses "$log"
 				cleanUp $testPid "$repoPath" >> "$log" 2>&1
+				appendLogs $testPid "$log"
 			fi
 			echo "$status (${duration}s)"
 			echo "$name $status" >> "$RESULTS"

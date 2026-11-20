@@ -143,10 +143,11 @@ def mountDirs(extraArgs = []):
     if failOnError:
         argsList += ["-f", "-v 4"]
 
-    # bucse-mount's output, checked for errors by verifyFailOnError(); a file,
-    # not a pipe, so that a lot of output can't block bucse-mount
+    # bucse-mount's output, checked for errors by verifyFailOnError() and kept
+    # for debugging if the test fails; a file, not a pipe, so that a lot of
+    # output can't block bucse-mount
     mountOutput = None
-    if failOnError:
+    if failOnError or argValgrind:
         logFiles.append("mount_%d.txt" % pid)
         mountOutput = open("tmp/mount_%d.txt" % pid, "wb")
     else:
@@ -156,7 +157,7 @@ def mountDirs(extraArgs = []):
         print(" ".join(argsList + ["-f -v 4"]))
         input()
     elif argValgrind:
-        argsList = ["valgrind", "--log-file=tmp/valgrind_%d.txt" % pid, "--error-exitcode=-1", "--leak-check=full", "--show-leak-kinds=all", "--errors-for-leak-kinds=all", "--exit-on-first-error=yes"] + argsList + ["-f"]
+        argsList = ["valgrind", "--log-file=tmp/valgrind_%d.txt" % pid, "--error-exitcode=-1", "--leak-check=full", "--show-leak-kinds=all", "--errors-for-leak-kinds=all", "--exit-on-first-error=no", "--num-callers=30"] + argsList + ["-f"]
         logFiles.append("valgrind_%d.txt" % pid)
         valgrindProc = subprocess.Popen(argsList, stdout=mountOutput, stderr=subprocess.STDOUT)
     elif failOnError:
@@ -209,6 +210,18 @@ def verifyWithMirror():
     p.check_returncode()
 
 
+# Waits for the bucse-mount started by mountDirs() (under valgrind, or with
+# failOnError) to exit, and fails if it returned non-zero. Under valgrind,
+# 255 means valgrind found an error (e.g. a leak); see its log.
+def checkMountExit():
+    valgrindProc.communicate()
+    if valgrindProc.returncode != 0:
+        logs = [path for path in ["tmp/valgrind_%d.txt" % pid, "tmp/mount_%d.txt" % pid]
+                if os.path.exists(path)]
+        raise Exception("bucse-mount returned %d, logs: %s"
+                        % (valgrindProc.returncode, ", ".join(logs) or "none"))
+
+
 # Unmounts and mounts the repository again, without reading any file, so
 # that the new bucse-mount process starts with an empty cache.
 # extraArgs: more bucse-mount arguments, e.g. -R
@@ -222,9 +235,7 @@ def remount(extraArgs = []):
     unmount()
 
     if argValgrind or failOnError:
-        valgrindProc.communicate()
-        if valgrindProc.returncode != 0:
-            raise Exception("bucse-mount returned %d" % valgrindProc.returncode)
+        checkMountExit()
 
     p = subprocess.run(["../bucse-mount", "-p", argPassphrase, "-r", "%s/test_%d_repo" % (argRepoPath, pid), "test_%d" % pid] + extraArgs)
     p.check_returncode()
@@ -243,9 +254,7 @@ def verifyFailOnError(printDebug = False, allowedErrors = []):
 
     unmount()
 
-    valgrindProc.communicate()
-    if valgrindProc.returncode != 0:
-        raise Exception("bucse-mount returned %d" % valgrindProc.returncode)
+    checkMountExit()
 
     with open("tmp/mount_%d.txt" % pid, "rb") as f:
         output = f.read().decode("utf-8", errors="replace")
