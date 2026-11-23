@@ -533,6 +533,10 @@ int main(int argc, char** argv)
 				tcsetattr(fileno(stdin), TCSANOW, &term);
 			}
 
+			// no stdio buffer for stdin: fgets() would leave a copy of
+			// the passphrase in it, which can't be wiped
+			setvbuf(stdin, NULL, _IONBF, 0);
+
 			char passwd[1024];
 			memset(passwd, 0, 1024);
 			char* fgetsResult = fgets(passwd, sizeof(passwd), stdin);
@@ -544,6 +548,7 @@ int main(int argc, char** argv)
 
 			if (fgetsResult == NULL) {
 				logPrintf(LOG_ERROR, "fgets() failed\n");
+				wipeMemory(passwd, sizeof(passwd));
 
 				cacheCleanup();
 				recursivelyFreeFilesystem(root);
@@ -567,6 +572,7 @@ int main(int argc, char** argv)
 					gotPass = 1;
 				}
 			}
+			wipeMemory(passwd, sizeof(passwd));
 		}
 
 		if (gotPass == 0) {

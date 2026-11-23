@@ -92,9 +92,12 @@ def downloadTmp(url, filename, shasum):
 # Unmounts the test directory. The kernel sends release requests for closed
 # files asynchronously, so right after e.g. diff the mount may still be busy
 # for a moment (especially under valgrind); retry for a while.
-def unmount():
+# mountDir: the test's mount directory by default; retried while it's busy
+def unmount(mountDir = None):
+    if mountDir is None:
+        mountDir = "test_%d" % pid
     for _ in range(60):
-        p = subprocess.run(["umount", "test_%d" % pid])
+        p = subprocess.run(["umount", mountDir])
         if p.returncode == 0:
             return
         time.sleep(0.5)

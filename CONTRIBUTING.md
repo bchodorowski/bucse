@@ -46,6 +46,9 @@ explains the core concepts and the invariants that every change must keep.
 - Error handling: return non-zero on error; failures must propagate to
   FUSE.
 - Logging: use `log.h`; never log secrets or plaintext.
+- Secrets (e.g. the passphrase): wipe a buffer with `wipeMemory()` (`conf.h`)
+  once it's no longer needed, not with `memset()`, which the compiler may
+  drop.
 - Dependencies: libfuse3, json-c, libssh, libarchive — avoid adding more.
 - Keep the Makefile simple.
 
