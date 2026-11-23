@@ -80,7 +80,7 @@ static int bucse_unlink(const char *path)
 		logPrintf(LOG_ERROR, "bucse_unlink: malloc(): %s\n", strerror(errno));
 		return -ENOMEM;
 	}
-	newAction->time = getCurrentTime();
+	newAction->time = getNewActionTime();
 	newAction->actionType = ActionTypeRemoveFile;
 
 	newAction->path = getFullFilePath(file);

@@ -78,7 +78,7 @@ int bucse_mkdir(const char *path, mode_t mode)
 		logPrintf(LOG_ERROR, "bucse_mkdir: malloc(): %s\n", strerror(errno));
 		return -ENOMEM;
 	}
-	newAction->time = getCurrentTime();
+	newAction->time = getNewActionTime();
 	newAction->actionType = ActionTypeAddDirectory;
 
 	newAction->path = strdup(path+1);

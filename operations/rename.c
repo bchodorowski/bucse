@@ -51,7 +51,7 @@ static int renameFile(FilesystemFile *srcFile, FilesystemDir *srcContainingDir,
 		logPrintf(LOG_ERROR, "bucse_rename: malloc(): %s\n", strerror(errno));
 		return -ENOMEM;
 	}
-	newDstAction->time = getCurrentTime();
+	newDstAction->time = getNewActionTime();
 	newDstAction->actionType = dstFile ? ActionTypeEditFile : ActionTypeAddFile;
 	newDstAction->path = strdup(dstPath+1);
 

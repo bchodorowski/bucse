@@ -78,7 +78,7 @@ int recreatePendingDirs(FilesystemDir* dir)
 		logPrintf(LOG_ERROR, "recreatePendingDirs: malloc(): %s\n", strerror(errno));
 		return -ENOMEM;
 	}
-	newAction->time = getCurrentTime();
+	newAction->time = getNewActionTime();
 	newAction->actionType = ActionTypeAddDirectory;
 	newAction->path = getFullDirPath(dir);
 	if (newAction->path == NULL) {

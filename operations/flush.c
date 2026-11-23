@@ -406,7 +406,7 @@ constructAction:;
 		}
 		return 6;
 	}
-	newAction->time = getCurrentTime();
+	newAction->time = getNewActionTime();
 
 	if (file->dirtyFlags & DirtyFlagPendingCreate) {
 		newAction->actionType = ActionTypeAddFile;

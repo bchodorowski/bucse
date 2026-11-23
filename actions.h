@@ -23,4 +23,5 @@ int actionAdded(char* actionName, char* buf, size_t size);
 void flushActionsAdded();
 void actionsCleanup();
 char* serializeAction(Action* action);
+int64_t getNewActionTime();
 void addAction(Action *newAction);

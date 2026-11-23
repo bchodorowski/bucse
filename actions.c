@@ -10,6 +10,7 @@
 #include "dynarray.h"
 #include "filesystem.h"
 #include "log.h"
+#include "time.h"
 
 #include "actions.h"
 
@@ -803,6 +804,23 @@ error:
 	logPrintf(LOG_ERROR, "serializeAction: can't build JSON\n");
 	json_object_put(jsonNewActions);
 	return NULL;
+}
+
+// Returns the time for a new local action: the current time, but always
+// later than every action already applied (a Lamport clock). So a new action
+// is ordered after everything this client has seen, even if gettimeofday()
+// stepped back or another client's clock is ahead; otherwise every client
+// would apply it before them (e.g. a delete before the edit it follows).
+int64_t getNewActionTime()
+{
+	int64_t t = getCurrentTime();
+	if (actions.len > 0) {
+		int64_t last = ((Action*)actions.objects[actions.len - 1])->time;
+		if (t <= last) {
+			t = last + 1;
+		}
+	}
+	return t;
 }
 
 // Adds a local action. An action with the same time as the last ones (the

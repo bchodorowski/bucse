@@ -136,7 +136,8 @@ actions.o: actions.c \
 	actions.h \
 	dynarray.h \
 	filesystem.h \
-	log.h
+	log.h \
+	time.h
 	$(CC) -c actions.c -o actions.o $(CFLAGS)
 
 time.o: time.c

@@ -33,6 +33,13 @@ Ranked: when goals conflict, the higher one wins.
   their other fields, so every client applies them in the same order and
   identical ones are adjacent), deduplicated, executed (handling
   out-of-order actions) and moved to the `actions` dynamic array.
+- **Action time** — a new local action gets the current time, but always
+  later than every action already applied (a Lamport clock), so it is
+  ordered after everything the client has seen, even if the client's clock
+  steps back or another client's clock is ahead. Actions of clients that
+  haven't seen each other keep an arbitrary but consistent order. A client
+  whose clock is far ahead pushes the times (and mtimes) of everyone's later
+  actions after its own.
 - **Packing (tar) of actions** — an optimisation: many action files are
   packed into one tar file, so they can be handled as one big pack instead
   of one by one.

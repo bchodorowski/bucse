@@ -91,7 +91,7 @@ int bucse_rmdir(const char *path)
 		logPrintf(LOG_ERROR, "bucse_rmdir: malloc(): %s\n", strerror(errno));
 		return -ENOMEM;
 	}
-	newAction->time = getCurrentTime();
+	newAction->time = getNewActionTime();
 	newAction->actionType = ActionTypeRemoveDirectory;
 
 	newAction->path = strdup(path+1);

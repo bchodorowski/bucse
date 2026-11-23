@@ -83,7 +83,7 @@ Medium:
 - [x] 26. a shrinking truncate followed by a write past the new end, flushed together, keeps the
       old bytes between them instead of zeros (flushFile ignores truncSize when it reads the old
       blocks): 1000 x "A", ftruncate(10), pwrite("X", 20) reads back as 20 x "A" + "X"
-- [ ] 27. a new local action can get an earlier time than actions already applied (gettimeofday()
+- [x] 27. a new local action can get an earlier time than actions already applied (gettimeofday()
       steps back, or this client's clock is behind another's), so every client applies it before
       them: edit then (clock steps back) delete leaves the file with its old content after a
       remount and on other clients; deleting a file just added by a client whose clock is ahead
@@ -92,6 +92,7 @@ Medium:
       actions + 1), instead of getCurrentTime() at the 6 places that create actions (no format
       change). Concurrent actions that haven't seen each other keep an arbitrary but consistent
       order. A client whose clock is far ahead pushes everyone's later times (and mtimes) after it
+      -- fixed: getNewActionTime() (actions.c), test30.py
 - [ ] 28. the passphrase read from the terminal stays in the passwd[1024] stack buffer after it
       is copied to conf.passphrase, and on every error path (bucse-mount.c:553); wipe it once it
       is no longer needed (a plain memset() before it goes out of scope can be optimised away,
