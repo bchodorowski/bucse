@@ -540,15 +540,24 @@ int main(int argc, char** argv)
 			fprintf(stdout, "Passphrase: ");
 			fflush(stdout);
 
-			struct termios term;
-			tcgetattr(fileno(stdin), &term);
-
-			term.c_lflag &= ~ECHO;
-			tcsetattr(fileno(stdin), 0, &term);
+			// turn off echo, and restore the original settings right
+			// after reading, also when reading fails
+			struct termios termOrig;
+			int termSaved = (tcgetattr(fileno(stdin), &termOrig) == 0);
+			if (termSaved) {
+				struct termios term = termOrig;
+				term.c_lflag &= ~ECHO;
+				tcsetattr(fileno(stdin), TCSANOW, &term);
+			}
 
 			char passwd[1024];
 			memset(passwd, 0, 1024);
 			char* fgetsResult = fgets(passwd, sizeof(passwd), stdin);
+
+			if (termSaved) {
+				tcsetattr(fileno(stdin), TCSANOW, &termOrig);
+			}
+			fprintf(stdout, "\n");
 
 			if (fgetsResult == NULL) {
 				logPrintf(LOG_ERROR, "fgets() failed\n");
@@ -561,10 +570,6 @@ int main(int argc, char** argv)
 				confCleanup();
 				return 6;
 			}
-
-			term.c_lflag |= ECHO;
-			tcsetattr(fileno(stdin), 0, &term);
-			fprintf(stdout, "\n");
 
 			passwd[1024 - 1] = 0;
 			if (strlen(passwd) > 0 && passwd[strlen(passwd)-1] == '\n') {

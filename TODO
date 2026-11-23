@@ -64,7 +64,7 @@ Medium:
 - [x] 16. bucse-init ignores putRepositoryJsonFile result, exits 0 without a repository argument,
       misreports missing option arguments
 - [x] 17. action files that fail to open/read are still marked handled (both destinations)
-- [ ] 18. terminal echo not restored when the passphrase fgets fails (bucse-mount.c:543)
+- [x] 18. terminal echo not restored when the passphrase fgets fails (bucse-mount.c:543)
 - [ ] 19. "FUSE library version" prints the bucse version (bucse-mount.c:237)
 - [ ] 20. design.md: a truncated CBC file doesn't always fail decryption (JSON parsing rejects it)
 - [ ] 21. PBKDF2-SHA1 with 1 iteration -- crypto-related, discuss first
@@ -90,6 +90,10 @@ Medium:
       actions + 1), instead of getCurrentTime() at the 6 places that create actions (no format
       change). Concurrent actions that haven't seen each other keep an arbitrary but consistent
       order. A client whose clock is far ahead pushes everyone's later times (and mtimes) after it
+- [ ] 28. the passphrase read from the terminal stays in the passwd[1024] stack buffer after it
+      is copied to conf.passphrase, and on every error path (bucse-mount.c:553); wipe it once it
+      is no longer needed (a plain memset() before it goes out of scope can be optimised away,
+      e.g. explicit_bzero() or a volatile loop) -- secret handling, discuss first
 
 Typos and misleading messages:
 - [ ] 23. log message typos/copy-paste errors (dest_ssh.c, unlink.c, rmdir.c, actions.c, bucse-mount.c,
