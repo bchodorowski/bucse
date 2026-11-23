@@ -2,6 +2,7 @@
 #include <stdarg.h>
 
 #include "conf.h"
+#include "log.h"
 
 static char* verbosityLabels[] = {
 	"error", "warning", "note", "debug", "verbose_debug"};

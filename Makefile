@@ -100,10 +100,13 @@ destinations/dest.o: destinations/dest.c \
 
 destinations/dest_local.o: destinations/dest_local.c \
 	log.h \
+	conf.h \
 	destinations/dest.h
 	$(CC) -c destinations/dest_local.c -o destinations/dest_local.o $(CFLAGS)
 
 destinations/dest_ssh.o: destinations/dest_ssh.c \
+	log.h \
+	conf.h \
 	destinations/dest.h
 	$(CC) -c destinations/dest_ssh.c -o destinations/dest_ssh.o $(CFLAGS)
 
@@ -165,7 +168,10 @@ tar.o: tar.c \
 
 operations/operations.o: operations/operations.c \
 	operations/operations.h \
+	dynarray.h \
+	filesystem.h \
 	actions.h \
+	time.h \
 	destinations/dest.h \
 	log.h \
 	conf.h \
@@ -247,7 +253,6 @@ operations/read.o: operations/read.c \
 	actions.h \
 	time.h \
 	log.h \
-	conf.h \
 	destinations/dest.h \
 	encryption/encr.h \
 	operations/operations.h \
@@ -326,6 +331,8 @@ operations/rename.o: operations/rename.c \
 
 operations/init.o: operations/init.c \
 	operations/init.h \
+	dynarray.h \
+	filesystem.h \
 	actions.h \
 	operations/operations.h
 	$(CC) -c operations/init.c -o operations/init.o $(CFLAGS)
@@ -353,9 +360,9 @@ bucse-init: bucse-init.o \
 		$(LIBS)
 
 bucse-init.o: bucse-init.c \
-	time.o \
-	conf.o \
-	log.o \
+	conf.h \
+	log.h \
+	time.h \
 	destinations/dest.h \
 	encryption/encr.h
 	$(CC) -c bucse-init.c $(CFLAGS)
@@ -375,6 +382,7 @@ clean:
 		conf.o \
 		log.o \
 		cache.o \
+		tar.o \
 		operations/operations.o \
 		operations/getattr.o \
 		operations/flush.o \
