@@ -436,7 +436,7 @@ int parseRepositoryFile() {
 	}
 
 	if (json_object_get_type(timeField) != json_type_int) {
-		logPrintf(LOG_ERROR, "'time' field is not a string\n");
+		logPrintf(LOG_ERROR, "'time' field is not an integer\n");
 		json_object_put(repository);
 		return 7;
 	}

@@ -142,7 +142,7 @@ int decryptBlock(const char* block,
 		}
 
 		if (*decryptedBlockBufSize < expectedReadSize) {
-			logPrintf(LOG_ERROR, "decryptBlock: expected decrypted block size at least %d, got %d\n",
+			logPrintf(LOG_ERROR, "decryptBlock: expected decrypted block size at least %zu, got %zu\n",
 					expectedReadSize, *decryptedBlockBufSize);
 			return 3;
 		}

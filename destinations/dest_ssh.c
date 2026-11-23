@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -140,7 +141,7 @@ static int verify_knownhost(ssh_session session)
 
 			return -1;
 		case SSH_KNOWN_HOSTS_OTHER:
-			logPrintf(LOG_ERROR, "The host key for this server was not found but an other"
+			logPrintf(LOG_ERROR, "The host key for this server was not found but another"
 				"type of key exists.\n"
 				"An attacker might change the default server key to"
 				"confuse your client into thinking the key does not exist\n");
@@ -378,7 +379,7 @@ int destSshInit(char* repository)
 	int rc = ssh_connect(bucseSshSession);
 	if (rc != SSH_OK)
 	{
-		logPrintf(LOG_ERROR, "Error connecting to localhost: %s\n",
+		logPrintf(LOG_ERROR, "Error connecting to %s: %s\n", repositoryHost,
 			ssh_get_error(bucseSshSession));
 		ssh_free(bucseSshSession);
 		bucseSshSession = NULL;
@@ -707,7 +708,7 @@ int destSshGetRepositoryFile(char *buf, size_t *size)
 	sftp_close(file);
 
 	if (bytesRead >= *size) {
-		logPrintf(LOG_ERROR, "destSshGetRepositoryFile: repository.json file is too large\n");
+		logPrintf(LOG_ERROR, "destSshGetRepositoryFile: repository file is too large\n");
 
 		return 2;
 	}
@@ -745,7 +746,7 @@ int destSshTick()
 
 	sftp_dir actionsDir = sftp_opendir(bucseSftpSession, repositoryActionsPath);
 	if (actionsDir == NULL) {
-		logPrintf(LOG_ERROR, "warning: destSshTick(): sftp_opendir(): %s\n",
+		logPrintf(LOG_WARNING, "destSshTick: sftp_opendir(): %s\n",
 			ssh_get_error(bucseSshSession));
 		return 0;
 	}
@@ -776,7 +777,7 @@ int destSshTick()
 	}
 	sftp_closedir(actionsDir);
 
-	logPrintf(LOG_DEBUG, "new actions count: %d\n", newActions.len);
+	logPrintf(LOG_DEBUG, "new actions count: %" PRId64 "\n", newActions.len);
 
 	char* actionFilePath = malloc(MAX_FILEPATH_LEN);
 	if (actionFilePath == NULL) {
@@ -846,7 +847,7 @@ int destSshTick()
 		if (cachedFlushActionsAddedCallback) {
 			cachedFlushActionsAddedCallback();
 		} else {
-			logPrintf(LOG_ERROR, "destLocalTick: no flush actions added callback\n");
+			logPrintf(LOG_ERROR, "destSshTick: no flush actions added callback\n");
 		}
 	}
 

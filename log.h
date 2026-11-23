@@ -4,4 +4,10 @@
 #define LOG_DEBUG 3
 #define LOG_VERBOSE_DEBUG 4
 
-int logPrintf(int verbosity, char* format, ...);
+#ifdef __GNUC__
+#define LOG_PRINTF_FORMAT __attribute__((format(printf, 2, 3)))
+#else
+#define LOG_PRINTF_FORMAT
+#endif
+
+int logPrintf(int verbosity, char* format, ...) LOG_PRINTF_FORMAT;

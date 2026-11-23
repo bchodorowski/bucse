@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <string.h>
 #include <sys/types.h>
 #include <dirent.h>
@@ -480,7 +481,7 @@ int destLocalTick()
 
 	DIR *actionsDir = opendir(repositoryActionsPath);
 	if (actionsDir == NULL) {
-		logPrintf(LOG_ERROR, "warning: destLocalTick(): opendir(): %s\n", strerror(errno));
+		logPrintf(LOG_WARNING, "destLocalTick: opendir(): %s\n", strerror(errno));
 		return 0;
 	}
 
@@ -494,7 +495,7 @@ int destLocalTick()
 		if (actionDir == NULL && errno == 0) {
 			break;
 		} else if (errno) {
-			logPrintf(LOG_ERROR, "warning: destLocalTick(): readdir(): %s\n", strerror(errno));
+			logPrintf(LOG_WARNING, "destLocalTick: readdir(): %s\n", strerror(errno));
 
 			closedir(actionsDir);
 			return 0;
@@ -512,7 +513,7 @@ int destLocalTick()
 	}
 	closedir(actionsDir);
 
-	logPrintf(LOG_DEBUG, "new actions count: %d\n", newActions.len);
+	logPrintf(LOG_DEBUG, "new actions count: %" PRId64 "\n", newActions.len);
 
 	char* actionFilePath = malloc(MAX_FILEPATH_LEN);
 	if (actionFilePath == NULL) {

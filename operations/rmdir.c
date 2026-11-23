@@ -49,7 +49,7 @@ int bucse_rmdir(const char *path)
 		path_free(&pathArray);
 
 		if (containingDir == NULL) {
-			logPrintf(LOG_ERROR, "bucse_rmdir: path not found when adding directory %s\n", path);
+			logPrintf(LOG_ERROR, "bucse_rmdir: path not found when removing directory %s\n", path);
 			return -ENOENT;
 		}
 

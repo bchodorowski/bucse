@@ -81,7 +81,7 @@ static int bucse_create(const char *path, mode_t mode, struct fuse_file_info *fi
 	// and clean up when flushing the file in flush.c
 	newFile->name = strdup(fileName);
 	if (newFile->name == NULL) {
-		logPrintf(LOG_ERROR, "splitPath: strdup(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "bucse_create: strdup(): %s\n", strerror(errno));
 		free(newFile);
 		return -ENOMEM;
 	}

@@ -199,7 +199,7 @@ static int renameDir(FilesystemDir *srcDir, FilesystemDir *srcContainingDir,
 	}
 
 	if (dstDir == NULL) {
-		logPrintf(LOG_ERROR, "bucse_rename: No destination directory found after bucse_mkdir() suceeded\n");
+		logPrintf(LOG_ERROR, "bucse_rename: No destination directory found after bucse_mkdir() succeeded\n");
 		return -EIO;
 	}
 

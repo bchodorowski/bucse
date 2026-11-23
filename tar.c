@@ -47,7 +47,7 @@ int forEveryFileInTar(char* tarBuf, size_t tarSize, int (*actionAddedDecryptOneA
 			fileCounter++;
 		}
 	}
-	logPrintf(LOG_VERBOSE_DEBUG, "files in tar archive:: %d\n", fileCounter);
+	logPrintf(LOG_VERBOSE_DEBUG, "files in tar archive: %d\n", fileCounter);
 
 	// reopen the archive
 	archive_read_close(a);

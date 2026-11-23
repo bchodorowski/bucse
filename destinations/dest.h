@@ -6,7 +6,7 @@
  * prefix of this string denotes a type (implementation) of the destination.
  *
  * Implementations:
- * - A directory elswhere in a filesystem.
+ * - A directory elsewhere in a filesystem.
  *   implemented in: destinations/dest_local.c,
  *   repository prefix: file://
  * - A directory accessed via ssh (sftp).
@@ -48,7 +48,7 @@ typedef struct {
 } Destination;
 
 // auxiliary function that returns 20 random bytes as a hex string. filename
-// needs to point to a buffer of size at least 41 bytes, prefferably
+// needs to point to a buffer of size at least 41 bytes, preferably
 // MAX_ACTION_NAME_LEN bytes.
 int getRandomStorageFileName(char* filename);
 

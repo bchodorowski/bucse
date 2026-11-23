@@ -63,7 +63,7 @@ const char* path_split(const char* path, DynArray *result)
 {
 	char* pathCopy = strdup(path);
 	if (pathCopy == NULL) {
-		logPrintf(LOG_ERROR, "splitPath: strdup(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "path_split: strdup(): %s\n", strerror(errno));
 		return NULL;
 	}
 
@@ -97,7 +97,7 @@ void path_debugPrint(DynArray *pathArray)
 {
 	logPrintf(LOG_DEBUG, "print debug path:\n");
 	for (int i=0; i<pathArray->len; i++) {
-		logPrintf(LOG_DEBUG, "\t%d: %s\n", i, pathArray->objects[i]);
+		logPrintf(LOG_DEBUG, "\t%d: %s\n", i, (char*)pathArray->objects[i]);
 	}
 }
 
@@ -150,7 +150,7 @@ char* getFullDirPath(FilesystemDir* dir)
 
 	char* result = malloc(len);
 	if (result == NULL) {
-		logPrintf(LOG_ERROR, "getFullFilePath: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "getFullDirPath: malloc(): %s\n", strerror(errno));
 		return NULL;
 	}
 

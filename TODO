@@ -97,6 +97,6 @@ Medium:
       e.g. explicit_bzero() or a volatile loop) -- secret handling, discuss first
 
 Typos and misleading messages:
-- [ ] 23. log message typos/copy-paste errors (dest_ssh.c, unlink.c, rmdir.c, actions.c, bucse-mount.c,
+- [x] 23. log message typos/copy-paste errors (dest_ssh.c, unlink.c, rmdir.c, actions.c, bucse-mount.c,
       create.c, filesystem.c, rename.c, flush.c, dest.h, encr.c, tar.c); add a printf format
       attribute to logPrintf and fix the %d/size_t mismatches it reports

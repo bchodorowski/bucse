@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <unistd.h>
 
 #include <json.h>
@@ -20,7 +21,7 @@ static void printActions(DynArray* array)
 	logPrintf(LOG_VERBOSE_DEBUG, "printActions():\n");
 	for (int i=0; i<array->len; i++) {
 		Action* action = ((Action*)array->objects[i]);
-		logPrintf(LOG_VERBOSE_DEBUG, "- %lld\n", action->time);
+		logPrintf(LOG_VERBOSE_DEBUG, "- %" PRId64 "\n", action->time);
 	}
 }
 
@@ -374,7 +375,7 @@ static int doAction(Action* action)
 		path_free(&pathArray);
 
 		if (containingDir == NULL) {
-			logPrintf(LOG_ERROR, "doAction: path not found when adding directory %s\n", action->path);
+			logPrintf(LOG_ERROR, "doAction: path not found when removing directory %s\n", action->path);
 			return 15;
 		}
 
@@ -611,7 +612,7 @@ void flushActionsAdded()
 		&& ((Action*)actions.objects[actions.len - 1])->time >= // time of last action in actions
 			((Action*)actionsPending.objects[0])->time // time of first action in actionsPending
 	      ) {
-		logPrintf(LOG_VERBOSE_DEBUG, "actionAdded(): duplicates\n");
+		logPrintf(LOG_VERBOSE_DEBUG, "flushActionsAdded: duplicates\n");
 		while (i >=0 && j >= 0) {
 			// pick next "largest" item
 			if (i==0 || compareActionPtrs(&actions.objects[j], &actionsPending.objects[i-1]) >= 0)
@@ -623,7 +624,7 @@ void flushActionsAdded()
 				} else if (c < 0) {
 					i--;
 				} else {
-					logPrintf(LOG_VERBOSE_DEBUG, "actionAdded(): dup found\n");
+					logPrintf(LOG_VERBOSE_DEBUG, "flushActionsAdded: dup found\n");
 					freeAction(actionsPending.objects[i]);
 					removeFromDynArrayUnorderedByIndex(&actionsPending, i);
 					dups++;
@@ -633,7 +634,7 @@ void flushActionsAdded()
 				// compare with previous actionsPending
 				int c = compareActionPtrs(&actionsPending.objects[i], &actionsPending.objects[i-1]);
 				if (c == 0) {
-					logPrintf(LOG_VERBOSE_DEBUG, "actionAdded(): dup found\n");
+					logPrintf(LOG_VERBOSE_DEBUG, "flushActionsAdded: dup found\n");
 					freeAction(actionsPending.objects[i]);
 					removeFromDynArrayUnorderedByIndex(&actionsPending, i);
 					dups++;
@@ -646,7 +647,7 @@ void flushActionsAdded()
 	while (i>0) {
 		int c = compareActionPtrs(&actionsPending.objects[i], &actionsPending.objects[i-1]);
 		if (c == 0) {
-			logPrintf(LOG_VERBOSE_DEBUG, "actionAdded(): dup found\n");
+			logPrintf(LOG_VERBOSE_DEBUG, "flushActionsAdded: dup found\n");
 			freeAction(actionsPending.objects[i]);
 			removeFromDynArrayUnorderedByIndex(&actionsPending, i);
 			dups++;
@@ -654,7 +655,7 @@ void flushActionsAdded()
 		i--;
 	}
 	if (dups > 0) {
-		logPrintf(LOG_VERBOSE_DEBUG, "actionAdded(): duplicates: removed %d pending actions\n", dups);
+		logPrintf(LOG_VERBOSE_DEBUG, "flushActionsAdded: duplicates: removed %d pending actions\n", dups);
 		qsort(actionsPending.objects, actionsPending.len, sizeof(void*), compareActionPtrs);
 	}
 

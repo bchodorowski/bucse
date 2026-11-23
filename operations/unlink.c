@@ -96,7 +96,7 @@ static int bucse_unlink(const char *path)
 
 	// write to json, encrypt call destination->addActionFile()
 	if (encryptAndAddActionFile(newAction) != 0) {
-		logPrintf(LOG_ERROR, "bucse_rmdir: encryptAndAddActionFile failed\n");
+		logPrintf(LOG_ERROR, "bucse_unlink: encryptAndAddActionFile failed\n");
 		free(newAction->path);
 		free(newAction);
 		return -EIO;

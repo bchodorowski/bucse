@@ -25,7 +25,7 @@ Encryption* getEncryptionByName(char* name)
 	} else if (strcmp(name, "aes") == 0) {
 		return &encryptionAes;
 	} else {
-		logPrintf(LOG_ERROR, "getEncryptionByName:() Unsupported encryption: %s\n", name);
+		logPrintf(LOG_ERROR, "getEncryptionByName: unsupported encryption: %s\n", name);
 		return NULL;
 	}
 }
