@@ -90,9 +90,16 @@ inconsistent state. This rests on two rules:
 
 - **A partially written action file is ignored until it is complete.** An
   action file is a JSON document (encrypted, unless the `none` backend is
-  used). A truncated file is never valid: an encrypted one fails decryption,
-  and a plaintext one is not valid JSON. It is rejected as a whole, so a
-  half-written action is never applied. A rejected file, or one that can't
+  used). A truncated file is never valid: the document is a single JSON
+  array, and any prefix of it lacks the closing `]`, so it is not valid
+  JSON. Decryption alone doesn't guarantee this: `aes` is AES-CBC, and a
+  file cut off at a 16-byte block boundary can pass the padding check by
+  chance, but it then decrypts to a prefix of the plaintext, which the JSON
+  parser rejects (the same holds for the `repository` file, a single JSON
+  object). This protects against accidental truncation only, not against a
+  server that modifies files on purpose (`aes` has no integrity check). A
+  truncated file is rejected as a whole, so a half-written action is never
+  applied. A rejected file, or one that can't
   be read, is not marked as handled: bucse-mount reads it again on the next
   check, so an upload that was still in progress is picked up when it
   completes. A tar file of packed actions is rejected if it can't be
