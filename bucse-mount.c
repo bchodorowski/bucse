@@ -242,29 +242,12 @@ int bucse_fuse_main(int argc, char *argv[], const struct fuse_operations *op,
 	int res;
 	struct fuse_loop_config config;
 
+	// -h/--help and -V/--version never get here: bucse_opt_proc() handles
+	// them (with libfuse's fuse_main()) and exits
 	if (fuse_parse_cmdline(&args, &opts) != 0)
 		return 1;
 
-	if (opts.show_version) {
-		printf("FUSE library version %s\n", PACKAGE_VERSION);
-		fuse_lowlevel_version();
-		res = 0;
-		goto out1;
-	}
-
-	if (opts.show_help) {
-		if(args.argv[0][0] != '\0')
-			printf("usage: %s [options] <mountpoint>\n\n",
-					args.argv[0]);
-		printf("FUSE options:\n");
-		fuse_cmdline_help();
-		fuse_lib_help(&args);
-		res = 0;
-		goto out1;
-	}
-
-	if (!opts.show_help &&
-			!opts.mountpoint) {
+	if (!opts.mountpoint) {
 		fuse_log(FUSE_LOG_ERR, "no mountpoint specified\n");
 		res = 2;
 		goto out1;

@@ -65,7 +65,8 @@ Medium:
       misreports missing option arguments
 - [x] 17. action files that fail to open/read are still marked handled (both destinations)
 - [x] 18. terminal echo not restored when the passphrase fgets fails (bucse-mount.c:543)
-- [ ] 19. "FUSE library version" prints the bucse version (bucse-mount.c:237)
+- [x] 19. "FUSE library version" prints the bucse version (bucse-mount.c:237) -- unreachable: -V/--version
+      are handled in bucse_opt_proc, which calls libfuse's fuse_main(); dead show_version/show_help branches removed
 - [ ] 20. design.md: a truncated CBC file doesn't always fail decryption (JSON parsing rejects it)
 - [ ] 21. PBKDF2-SHA1 with 1 iteration -- crypto-related, discuss first
 - [x] 22. tests/allTests.sh doesn't run test9-test12; test9-test11 use unencrypted action files
