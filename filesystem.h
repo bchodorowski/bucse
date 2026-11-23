@@ -37,6 +37,7 @@ typedef struct
 	int blockSize;
 	DirtyFlags dirtyFlags;
 	DynArray pendingWrites;
+	size_t pendingWritesSize; // the sum of pendingWrites' sizes
 	FilesystemDir* parentDir;
 	size_t truncSize;
 } FilesystemFile;

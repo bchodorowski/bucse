@@ -207,6 +207,7 @@ static int doAction(Action* action)
 		newFile->blockSize = action->blockSize;
 		newFile->dirtyFlags = 0;
 		memset(&newFile->pendingWrites, 0, sizeof(DynArray));
+		newFile->pendingWritesSize = 0;
 		newFile->parentDir = containingDir;
 
 		addToDynArray(&containingDir->files, newFile);

@@ -94,6 +94,7 @@ int bucse_open(const char *path, struct fuse_file_info *fi)
 					newFile->blockSize = 0;
 					newFile->dirtyFlags = DirtyFlagPendingCreate;
 					memset(&newFile->pendingWrites, 0, sizeof(DynArray));
+					newFile->pendingWritesSize = 0;
 					newFile->parentDir = containingDir;
 
 					addToDynArray(&containingDir->files, newFile);

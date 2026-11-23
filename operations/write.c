@@ -16,6 +16,15 @@
 
 #include "write.h"
 
+// A file is flushed once its pending writes reach either limit, so that
+// writing a big file (e.g. cp of a multi-gigabyte one) doesn't keep all of
+// it in memory. The size limit is the maximum block size (flush.c): writes
+// that go on from where the last flush ended then fill whole blocks, and
+// fewer partial blocks are stored and then replaced. The count limit keeps
+// the overhead of many small writes down.
+#define MAX_PENDING_WRITES_SIZE (128 * 1024 * 1024)
+#define MAX_PENDING_WRITES_COUNT 10240
+
 static int bucse_write(const char *path, const char *buf, size_t size, off_t offset,
 		struct fuse_file_info *fi)
 {
@@ -83,11 +92,13 @@ static int bucse_write(const char *path, const char *buf, size_t size, off_t off
 	memcpy(newPendingWrite->buf, buf, size);
 	newPendingWrite->offset = offset;
 	addToDynArray(&file->pendingWrites, newPendingWrite);
+	file->pendingWritesSize += size;
 	file->dirtyFlags |= DirtyFlagPendingWrite;
 
-	// flush file if there is too many pendingWrites
-	if (file->pendingWrites.len > 10240) {
-		logPrintf(LOG_DEBUG, "bucse_write: too many pending writes, flushing\n");
+	if (file->pendingWritesSize >= MAX_PENDING_WRITES_SIZE
+		|| file->pendingWrites.len >= MAX_PENDING_WRITES_COUNT) {
+		logPrintf(LOG_DEBUG, "bucse_write: too many pending writes (%d, %zu bytes), flushing\n",
+			file->pendingWrites.len, file->pendingWritesSize);
 		if (flushFile(file) != 0) {
 			return -EIO;
 		}

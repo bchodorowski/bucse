@@ -466,6 +466,7 @@ constructAction:;
 		free(pw);
 	}
 	freeDynArray(&file->pendingWrites);
+	file->pendingWritesSize = 0;
 
 	return 0;
 }

@@ -99,6 +99,7 @@ static int bucse_truncate(const char *path, long int newSize, struct fuse_file_i
 		memset(newPendingWrite->buf, 0, newSize - size);
 		newPendingWrite->offset = size;
 		addToDynArray(&file->pendingWrites, newPendingWrite);
+		file->pendingWritesSize += newPendingWrite->size;
 		file->dirtyFlags |= DirtyFlagPendingWrite;
 		return 0;
 	}

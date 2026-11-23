@@ -109,6 +109,7 @@ static int bucse_unlink(const char *path)
 		free(pw);
 	}
 	freeDynArray(&file->pendingWrites);
+	file->pendingWritesSize = 0;
 
 	// add to actions array
 	addAction(newAction);
