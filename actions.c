@@ -247,11 +247,8 @@ static int doAction(Action* action)
 		file->contentLen = action->contentLen;
 		file->size = action->size;
 		file->blockSize = action->blockSize;
-		// a pending truncate cuts the new content (flushFile() can't
-		// extend a file with it)
-		if ((file->dirtyFlags & DirtyFlagPendingTrunc) && file->truncSize > file->size) {
-			file->truncSize = file->size;
-		}
+		// a pending truncate sets the size of the new content: it cuts
+		// it, or extends it with zeroes (flushFile())
 
 		return 0;
 

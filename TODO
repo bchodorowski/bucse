@@ -111,8 +111,29 @@ Medium:
       (actions.c) rejects an addFile/editFile with a block size that isn't 0 or a power of 2
       from 512 B to 128 MB, a negative size, or too few blocks in content (a zero block size
       divided by zero in bucse_read(), a short content was read past its end); test33.py
-- [ ] 30. an extending truncate mallocs the whole gap as one zero-filled pending write
+- [x] 30. an extending truncate mallocs the whole gap as one zero-filled pending write
       (operations/truncate.c): truncate -s 5G of an empty file needs 5 GB of RAM
+      -- GCC turns the malloc+memset into calloc, so the RAM wasn't touched, but the allocation
+      failed: truncate -s 3G gave ENOMEM on a machine with 2 GB RAM + 1 GB swap.
+      Fixed: an extending truncate is a pending truncate too (truncSize > size, no buffer);
+      flushFile() writes the blocks past the old size as zeroes, one block at a time. An
+      editFile of another client no longer clamps a pending truncate to its size: the truncate
+      sets the size (cuts, or extends with zeroes); docs/design.md updated. test34.py,
+      test19.py (a pending extend with a shorter remote editFile)
+- [x] 33. a truncate(2) by path (no open handle) stays pending until a later release of the
+      file or the unmount; a crash loses it. Flush right away when fi == NULL?
+      -- fixed: bucse_truncate() flushes when fi == NULL; if the flush fails, the truncate is
+      undone and -EIO returned (so it isn't applied later). test35.py
+- [x] 34. close() doesn't flush a pending truncate (or a create with no writes): bucse_flush()
+      flushes only DirtyFlagPendingWrite, so they're written by the release, which the kernel
+      sends after close() returns. A crash right after close() can lose them. Flush any dirty
+      file in bucse_flush()? Check first why it's limited to pending writes
+      -- fixed: bucse_flush() flushes any dirty file, like bucse_release() (the limit dates
+      from the 2024 refactor, no reason recorded). FUSE also flushes when a forked child's copy
+      of a descriptor is closed (at its exec), so test19/test24, which keep local changes
+      unflushed while running openssl/ssh, now keep the files open in a separate process:
+      bucseTests.FileHolder. test35.py (ftruncate, O_TRUNC and a create without writes are
+      written before close() returns)
 - [ ] 31. a passphrase given on the command line (bucse-mount -p / -o passphrase=, bucse-init -p)
       is visible to every local user in /proc/<pid>/cmdline and ps for as long as the process
       runs, and ends up in the shell history; bucse-init has no prompt yet (TODO at

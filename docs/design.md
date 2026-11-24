@@ -126,14 +126,18 @@ inconsistent state. This rests on two rules:
 As a result, an interrupted operation is either fully applied or not
 applied at all. The worst case is that the last action is lost.
 
+A file's local changes (writes, a truncate, a create) are written to the
+repository when the file is closed, before `close()` returns, and a truncate
+by path (`truncate()`, with no open file) before it returns.
+
 ## Concurrent changes
 
 Another client's action never drops local changes that haven't been flushed
 yet (pending writes, a pending truncate, a file created but not flushed):
 
 - **editFile:** the new content becomes the base, the local changes are
-  applied on top of it when the file is flushed (a pending truncate cuts the
-  new content).
+  applied on top of it when the file is flushed (a pending truncate sets its
+  size: it cuts the new content, or extends it with zeroes).
 - **addFile** of a file that was created locally but not flushed yet: if
   nothing was written to it, the added file is taken; otherwise the local one
   is kept and its flush writes an editFile.

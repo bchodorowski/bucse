@@ -38,7 +38,7 @@ def closeIgnoringError(fd):
     # flush and release are path based, the old path now leads to the other
     # client's entry
     try:
-        os.close(fd)
+        holder.close(fd)
     except OSError:
         pass
 
@@ -53,17 +53,19 @@ bucseTests.waitForActionsHandled()
 # The local files below are created but nothing is written to them before the
 # other client's action is applied: getattr flushes a file with pending
 # writes, and the kernel may call it at any time, which would put the file
-# into the repository before the action.
+# into the repository before the action. They are kept open by a FileHolder,
+# so that the test's subprocesses (openssl, ssh) don't flush them.
+holder = bucseTests.FileHolder()
 
 # 2. A local unflushed file, then another client adds a directory with its
 # name
-fdFile = os.open("%s/x" % mount, os.O_WRONLY | os.O_CREAT, 0o644)
+fdFile = holder.open("%s/x" % mount, os.O_WRONLY | os.O_CREAT, 0o644)
 writeAction("addDirectory", "x")
 
 # 3. A directory kept after another client removed it (it holds an
 # unflushed file), then another client adds a file with its name
 os.mkdir("%s/d" % mount)
-fdInDir = os.open("%s/d/f" % mount, os.O_WRONLY | os.O_CREAT, 0o644)
+fdInDir = holder.open("%s/d/f" % mount, os.O_WRONLY | os.O_CREAT, 0o644)
 writeAction("removeDirectory", "d")
 bucseTests.waitForActionsHandled()
 writeAction("addFile", "d")

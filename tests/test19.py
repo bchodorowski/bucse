@@ -3,7 +3,8 @@
 # Actions of another client must not drop local changes that haven't been
 # flushed yet (they used to be dropped, and RemoveDirectory freed a directory
 # together with its contents):
-# - editFile: the local changes are applied on top of the new content,
+# - editFile: the local changes are applied on top of the new content (a
+#   pending truncate sets its size: cuts it, or extends it with zeroes),
 # - removeFile: the file is kept and added again when it is flushed,
 # - removeDirectory of a directory with an unflushed new file: the directories
 #   are kept and added again before the file,
@@ -14,7 +15,9 @@
 # The results must be the same after a remount, i.e. in the repository.
 #
 # The local changes are truncates and creates: they stay unflushed until the
-# file is closed, while written data is flushed by getattr already.
+# file is closed, while written data is flushed by getattr already. The files
+# are kept open by a FileHolder, so that the test's subprocesses (openssl,
+# ssh) don't flush them.
 
 import bucseTests
 import hashlib
@@ -70,6 +73,7 @@ bucseTests.writeRepoFile("storage/%s" % remoteBlock, bucseTests.encryptForRepo(r
 
 # files and directories in the repository
 writeFile("edited", b"A" * 1000)
+writeFile("extended", b"E" * 100)
 writeFile("removed", b"C" * 100)
 os.mkdir(path("dir"))
 os.mkdir(path("dir/sub"))
@@ -77,16 +81,20 @@ os.mkdir(path("dirWithFile"))
 writeFile("dirWithFile/file", b"G" * 10)
 
 # local changes that aren't flushed while the files are open
-fdEdited = os.open(path("edited"), os.O_WRONLY)
-os.ftruncate(fdEdited, 10)
-fdRemoved = os.open(path("removed"), os.O_WRONLY)
-os.ftruncate(fdRemoved, 5)
-fdNew = os.open(path("dir/sub/new"), os.O_WRONLY | os.O_CREAT, 0o644)
-fdAdded = os.open(path("added"), os.O_WRONLY | os.O_CREAT, 0o644)
+holder = bucseTests.FileHolder()
+fdEdited = holder.open(path("edited"), os.O_WRONLY)
+holder.ftruncate(fdEdited, 10)
+fdExtended = holder.open(path("extended"), os.O_WRONLY)
+holder.ftruncate(fdExtended, 3000)
+fdRemoved = holder.open(path("removed"), os.O_WRONLY)
+holder.ftruncate(fdRemoved, 5)
+fdNew = holder.open(path("dir/sub/new"), os.O_WRONLY | os.O_CREAT, 0o644)
+fdAdded = holder.open(path("added"), os.O_WRONLY | os.O_CREAT, 0o644)
 
 # actions of another client
 t = int(time.time() * 1000000)
 addRemoteAction("edited", "editFile", t, [remoteBlock], len(remoteData), 1024)
+addRemoteAction("extended", "editFile", t, [remoteBlock], len(remoteData), 1024)
 addRemoteAction("removed", "removeFile", t + 1)
 addRemoteAction("dir/sub", "removeDirectory", t + 2)
 addRemoteAction("dir", "removeDirectory", t + 3)
@@ -95,11 +103,12 @@ addRemoteAction("added", "addFile", t + 5, [remoteBlock], len(remoteData), 1024)
 bucseTests.waitForActionsHandled()
 
 # closing flushes the files
-for fd in [fdEdited, fdRemoved, fdNew, fdAdded]:
-    os.close(fd)
+for fd in [fdEdited, fdExtended, fdRemoved, fdNew, fdAdded]:
+    holder.close(fd)
 
 expected = {
     "edited": b"S" * 10,
+    "extended": remoteData + bytes(3000 - len(remoteData)),
     "removed": b"C" * 5,
     "dir/sub/new": b"",
     "dirWithFile/file": b"G" * 10,

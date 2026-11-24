@@ -18,8 +18,6 @@
 
 static int bucse_truncate(const char *path, long int newSize, struct fuse_file_info *fi)
 {
-	(void) fi;
-
 	logPrintf(LOG_DEBUG, "truncate %s, size: %ld\n", path, newSize);
 
 	if (confIsReadOnly()) {
@@ -29,6 +27,9 @@ static int bucse_truncate(const char *path, long int newSize, struct fuse_file_i
 
 	if (path == NULL) {
 		return -EIO;
+	}
+	if (newSize < 0) {
+		return -EINVAL;
 	}
 
 	FilesystemFile *file = NULL;
@@ -73,41 +74,32 @@ static int bucse_truncate(const char *path, long int newSize, struct fuse_file_i
 		}
 	}
 
-	off_t size = (off_t)file->size;
-	for (int i=0; i<file->pendingWrites.len; i++) {
-		PendingWrite* pw = file->pendingWrites.objects[i];
-		if (size < pw->offset + (off_t)pw->size) {
-			size = pw->offset + (off_t)pw->size;
-		}
-	}
-
-	if (newSize == size) {
-		return 0;
-	} else if (newSize > size) {
-		PendingWrite* newPendingWrite = malloc(sizeof(PendingWrite));
-		if (newPendingWrite == NULL) {
-			logPrintf(LOG_ERROR, "bucse_truncate: malloc(): %s\n", strerror(errno));
-			return -ENOMEM;
-		}
-		newPendingWrite->size = newSize - size;
-		newPendingWrite->buf = malloc(newSize - size);
-		if (newPendingWrite->buf == NULL) {
-			logPrintf(LOG_ERROR, "bucse_truncate: malloc(): %s\n", strerror(errno));
-			free(newPendingWrite);
-			return -ENOMEM;
-		}
-		memset(newPendingWrite->buf, 0, newSize - size);
-		newPendingWrite->offset = size;
-		addToDynArray(&file->pendingWrites, newPendingWrite);
-		file->pendingWritesSize += newPendingWrite->size;
-		file->dirtyFlags |= DirtyFlagPendingWrite;
+	// the file isn't dirty any more (see above), so file->size is its size;
+	// the flush also makes a shrink followed by an extend zero the bytes in
+	// between (flushFile() keeps the old data only up to the last truncSize)
+	if ((size_t)newSize == file->size) {
 		return 0;
 	}
 
-	// (newSize < size), so
-	
+	// an extending truncate is pending too, without a buffer: flushFile()
+	// writes the blocks past the old size as zeroes, one block at a time
+	size_t oldTruncSize = file->truncSize;
+	DirtyFlags oldDirtyFlags = file->dirtyFlags;
 	file->truncSize = newSize;
 	file->dirtyFlags |= DirtyFlagPendingTrunc;
+
+	// a truncate by path (truncate(2), no open handle) is flushed right away:
+	// no release of a handle would flush it, so it would stay pending until
+	// the file is flushed for another reason, or the unmount. If the flush
+	// fails, the truncate is undone, so that it isn't applied later after
+	// the error was returned.
+	if (fi == NULL) {
+		if (flushFile(file) != 0) {
+			file->truncSize = oldTruncSize;
+			file->dirtyFlags = oldDirtyFlags;
+			return -EIO;
+		}
+	}
 
 	return 0;
 }

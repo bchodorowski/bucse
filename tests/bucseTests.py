@@ -104,13 +104,22 @@ def unmount(mountDir = None):
     p.check_returncode()
 
 
-def waitForRepoToBeMounted(mountDir):
+# Fails if the mount doesn't appear in time, or if mountProc (bucse-mount
+# running in the foreground) exits without mounting, e.g. when it can't
+# connect to the destination; it used to wait forever then.
+def waitForRepoToBeMounted(mountDir, mountProc = None, timeout = 60):
+    deadline = time.time() + timeout
     while True:
         mountProcess = subprocess.run(['mount'], check=True, capture_output=True)
         grepProcess = subprocess.run(['grep', os.path.realpath(mountDir)],
                               input=mountProcess.stdout, capture_output=True)
         if grepProcess.returncode == 0:
             return
+        if mountProc is not None and mountProc.poll() is not None:
+            raise Exception("bucse-mount exited (%d) without mounting %s"
+                            % (mountProc.returncode, mountDir))
+        if time.time() > deadline:
+            raise Exception("%s not mounted after %d s" % (mountDir, timeout))
         time.sleep(0.2)
 
 
@@ -169,7 +178,7 @@ def mountDirs(extraArgs = []):
         p = subprocess.run(argsList)
         p.check_returncode()
     
-    waitForRepoToBeMounted("test_%d" % pid)
+    waitForRepoToBeMounted("test_%d" % pid, valgrindProc)
 
 
 def mirrorCommand(args):
@@ -691,3 +700,53 @@ def waitForActionsHandled(timeout = 30):
     actionName, data = makeAddDirectoryAction(name)
     writeRepoFile("actions/%s" % actionName, data)
     waitForFiles([name], timeout)
+
+
+# Keeps files open in a separate process, so that their local changes stay
+# unflushed while the test runs subprocesses (openssl, ssh). FUSE flushes a
+# file whenever a descriptor of it is closed, also a forked child's copy (they
+# are closed when the child runs another program), and bucse-mount writes all
+# of a file's local changes then. The holder process doesn't fork, so only its
+# own calls close the files.
+# The methods take the same arguments as the os functions and raise OSError
+# the same way.
+fileHolderScript = """
+import json, os, sys
+for line in sys.stdin:
+    call = json.loads(line)
+    try:
+        result = getattr(os, call[0])(*call[1:])
+        print(json.dumps(["ok", result]), flush=True)
+    except OSError as e:
+        print(json.dumps(["error", e.errno, e.strerror]), flush=True)
+"""
+
+
+class FileHolder:
+    def __init__(self):
+        self.proc = subprocess.Popen([sys.executable, "-I", "-c", fileHolderScript],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+        atexit.register(self.stop)
+
+    def call(self, *args):
+        self.proc.stdin.write(json.dumps(args) + "\n")
+        self.proc.stdin.flush()
+        reply = json.loads(self.proc.stdout.readline())
+        if reply[0] != "ok":
+            raise OSError(reply[1], reply[2])
+        return reply[1]
+
+    def open(self, path, flags, mode = 0o777):
+        return self.call("open", path, flags, mode)
+
+    def ftruncate(self, fd, size):
+        self.call("ftruncate", fd, size)
+
+    def close(self, fd):
+        self.call("close", fd)
+
+    # closes the files that are still open (by exiting)
+    def stop(self):
+        if self.proc.poll() is None:
+            self.proc.stdin.close()
+            self.proc.wait()

@@ -24,6 +24,11 @@ explains the core concepts and the invariants that every change must keep.
   with fixed sleeps. The tests mount with `-i 1`, so bucse-mount checks for
   new action files every second instead of every 10 seconds; still, write
   everything a test step needs first and wait once, not after every file.
+- A test that needs local changes to stay unflushed while a file is open
+  must keep it open with `bucseTests.FileHolder`, not `os.open()`: FUSE
+  flushes a file whenever any descriptor of it is closed, also a forked
+  child's copy, and the tests fork (openssl for `aes`, ssh for the ssh
+  destination).
 - Stress tests: `tests/stressTests.sh` runs `tests/stressTest*.py` (bigger
   versions of some regular tests, e.g. with multi-gigabyte files, or with a
   file downloaded from the internet). They need a lot of time, RAM and about

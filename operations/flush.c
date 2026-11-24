@@ -127,8 +127,9 @@ int flushFile(FilesystemFile* file)
 	int lastBlockShrinks = newBlockSize > 0 && newSize < file->size
 		&& newSize % newBlockSize != 0;
 
-	// if no block needs to be written
-	if (file->pendingWrites.len == 0 && !lastBlockShrinks) {
+	// if no block needs to be written (an extending truncate needs new
+	// zeroed blocks, see validSize below)
+	if (file->pendingWrites.len == 0 && !lastBlockShrinks && newSize <= file->size) {
 		if (newContentLen > 0) {
 			newContent = malloc(newContentLen * MAX_STORAGE_NAME_LEN);
 			if (newContent == NULL) {
@@ -516,10 +517,11 @@ static int bucse_flush(const char *path, struct fuse_file_info *fi)
 		return -ENOENT;
 	}
 
-	if (file->dirtyFlags & DirtyFlagPendingWrite) {
-		if (flushFile(file) != 0) {
-			return -EIO;
-		}
+	// every local change is written before close() returns: a pending
+	// truncate or create too (not only writes), so that it isn't left to
+	// the release, which the kernel sends after close() returns
+	if (flushFile(file) != 0) {
+		return -EIO;
 	}
 
 	return 0;
