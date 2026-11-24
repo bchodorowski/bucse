@@ -30,7 +30,7 @@ try:
     assert "No repository given" in out, out
 
     # an option without its argument
-    for option in ["-p", "-e", "-n", "-c"]:
+    for option in ["-p", "-P", "-e", "-n", "-c"]:
         code, out = init([option])
         assert code != 0, (option, out)
         assert "Option %s requires an argument" % option in out, (option, out)
@@ -41,13 +41,13 @@ try:
     assert "Unknown option `-x'" in out, out
 
     # a repository that can be created
-    code, out = init(["-e", bucseTests.argEncryption,
-        "-p", bucseTests.argPassphrase, repo])
+    code, out = init(["-e", bucseTests.argEncryption]
+        + bucseTests.passphraseArgs() + [repo])
     assert code == 0, out
 
     # the same repository again: it already exists
-    code, out = init(["-e", bucseTests.argEncryption,
-        "-p", bucseTests.argPassphrase, repo])
+    code, out = init(["-e", bucseTests.argEncryption]
+        + bucseTests.passphraseArgs() + [repo])
     assert code != 0, out
 finally:
     bucseTests.removeRepo()

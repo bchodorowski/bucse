@@ -16,6 +16,7 @@ bucse-mount: bucse-mount.o \
 	actions.o \
 	time.o \
 	conf.o \
+	passphrase.o \
 	log.o \
 	cache.o \
 	tar.o \
@@ -46,6 +47,7 @@ bucse-mount: bucse-mount.o \
 		actions.o \
 		time.o \
 		conf.o \
+		passphrase.o \
 		log.o \
 		cache.o \
 		tar.o \
@@ -73,6 +75,7 @@ bucse-mount.o: bucse-mount.c \
 	filesystem.h \
 	actions.h \
 	conf.h \
+	passphrase.h \
 	log.h \
 	cache.h \
 	tar.h \
@@ -149,6 +152,12 @@ time.o: time.c
 conf.o: conf.c \
 	conf.h
 	$(CC) -c conf.c -o conf.o $(CFLAGS)
+
+passphrase.o: passphrase.c \
+	conf.h \
+	log.h \
+	passphrase.h
+	$(CC) -c passphrase.c -o passphrase.o $(CFLAGS)
 
 log.o: log.c \
 	conf.h \
@@ -337,6 +346,7 @@ operations/init.o: operations/init.c \
 
 bucse-init: bucse-init.o \
 	conf.o \
+	passphrase.o \
 	log.o \
 	time.o \
 	destinations/dest.o \
@@ -347,6 +357,7 @@ bucse-init: bucse-init.o \
 	encryption/encr_aes.o
 	$(CC) -o bucse-init $(CFLAGS) bucse-init.o \
 		conf.o \
+		passphrase.o \
 		log.o \
 		time.o \
 		destinations/dest.o \
@@ -359,6 +370,7 @@ bucse-init: bucse-init.o \
 
 bucse-init.o: bucse-init.c \
 	conf.h \
+	passphrase.h \
 	log.h \
 	time.h \
 	destinations/dest.h \
@@ -378,6 +390,7 @@ clean:
 		actions.o \
 		time.o \
 		conf.o \
+		passphrase.o \
 		log.o \
 		cache.o \
 		tar.o \

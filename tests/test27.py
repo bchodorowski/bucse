@@ -30,13 +30,13 @@ if ssh:
 
 master, slave = pty.openpty()
 try:
-    subprocess.run(["../bucse-init", "-e", bucseTests.argEncryption,
-        "-p", bucseTests.argPassphrase, repo], check=True)
+    subprocess.run(["../bucse-init", "-e", bucseTests.argEncryption]
+        + bucseTests.passphraseArgs() + [repo], check=True)
     os.mkdir(mountpoint)
 
     assert termios.tcgetattr(slave)[3] & termios.ECHO
 
-    # no -p: bucse-mount asks for the passphrase
+    # no passphrase option: bucse-mount asks for the passphrase
     argsList = ["../bucse-mount", "-r", repo, "-f", mountpoint]
     if bucseTests.argValgrind:
         # only memory errors, a failed mount may leave things allocated
@@ -57,7 +57,7 @@ try:
         assert time.time() < deadline, output
         time.sleep(0.1)
 
-    # EOF at the start of a line: fgets() fails
+    # EOF at the start of a line: no passphrase
     os.write(master, b"\x04")
     p.wait(timeout=60)
 
@@ -70,7 +70,7 @@ try:
 
     assert p.returncode > 0 and p.returncode != 99, \
         "bucse-mount returned %d: %s" % (p.returncode, output)
-    assert "fgets() failed" in output, output
+    assert "Encryption needs a passphrase" in output, output
     assert termios.tcgetattr(slave)[3] & termios.ECHO, output
 finally:
     os.close(master)

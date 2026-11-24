@@ -79,6 +79,20 @@ def parseArgs():
         argPassphrase = args.passphrase
 
 
+# bucse-init / bucse-mount arguments that give them the passphrase: a file
+# (in tmp/, readable only by us, removed when the test exits), not -p, which
+# puts it on the command line
+def passphraseArgs():
+    filename = "passphrase_%d.txt" % pid
+    path = "tmp/%s" % filename
+    if filename not in tmpFiles:
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as f:
+            f.write(argPassphrase + "\n")
+        tmpFiles.append(filename)
+    return ["-P", path]
+
+
 def downloadTmp(url, filename, shasum):
     p = subprocess.run(["wget", "-O", "tmp/%s"%filename, url])
     p.check_returncode()
@@ -145,12 +159,12 @@ def mountDirs(extraArgs = []):
         sshArgs, repoPath = ssh
         subprocess.run(sshArgs + ["mkdir -p %s" % remoteShellPath(repoPath)], check=True)
 
-    p = subprocess.run(["../bucse-init", "-e", argEncryption, "-p", argPassphrase, "%s/test_%d_repo" % (argRepoPath, pid)])
+    p = subprocess.run(["../bucse-init", "-e", argEncryption] + passphraseArgs() + ["%s/test_%d_repo" % (argRepoPath, pid)])
     p.check_returncode()
 
     # check for new action files every second (the default is 10), so that
     # waitForActionsHandled() and waitForFiles() don't wait long
-    argsList = ["../bucse-mount", "-p", argPassphrase, "-i", "1", "-r", "%s/test_%d_repo" % (argRepoPath, pid), "test_%d" % pid] + extraArgs
+    argsList = ["../bucse-mount"] + passphraseArgs() + ["-i", "1", "-r", "%s/test_%d_repo" % (argRepoPath, pid), "test_%d" % pid] + extraArgs
 
     if failOnError:
         argsList += ["-f", "-v 4"]
@@ -249,7 +263,7 @@ def remount(extraArgs = []):
     if argValgrind or failOnError:
         checkMountExit()
 
-    p = subprocess.run(["../bucse-mount", "-p", argPassphrase, "-r", "%s/test_%d_repo" % (argRepoPath, pid), "test_%d" % pid] + extraArgs)
+    p = subprocess.run(["../bucse-mount"] + passphraseArgs() + ["-r", "%s/test_%d_repo" % (argRepoPath, pid), "test_%d" % pid] + extraArgs)
     p.check_returncode()
 
     waitForRepoToBeMounted("test_%d" % pid)
@@ -276,7 +290,7 @@ def verifyFailOnError(printDebug = False, allowedErrors = []):
 
     # check for new action files every second (the default is 10), so that
     # waitForActionsHandled() and waitForFiles() don't wait long
-    argsList = ["../bucse-mount", "-p", argPassphrase, "-i", "1", "-r", "%s/test_%d_repo" % (argRepoPath, pid), "test_%d" % pid]
+    argsList = ["../bucse-mount"] + passphraseArgs() + ["-i", "1", "-r", "%s/test_%d_repo" % (argRepoPath, pid), "test_%d" % pid]
     if printDebug:
         argsList = argsList + ["-v", "4"]
     p = subprocess.run(argsList)

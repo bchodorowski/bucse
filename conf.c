@@ -28,6 +28,10 @@ void confCleanup()
 		free(conf.passphrase);
 		conf.passphrase = NULL;
 	}
+	if (conf.passphraseFile) {
+		free(conf.passphraseFile);
+		conf.passphraseFile = NULL;
+	}
 }
 
 int confIsReadOnly()

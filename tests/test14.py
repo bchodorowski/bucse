@@ -22,7 +22,7 @@ mountpoint = "tmp/test14_mount_%d" % bucseTests.pid
 os.mkdir(mountpoint)
 try:
     for option in [["-i", "0"], ["-i", "-5"], ["-o", "check_interval=0"]]:
-        p = subprocess.run(["../bucse-mount", "-p", bucseTests.argPassphrase, "-r", repo, "-f"]
+        p = subprocess.run(["../bucse-mount"] + bucseTests.passphraseArgs() + ["-r", repo, "-f"]
                            + option + [mountpoint],
                            capture_output=True, timeout=30)
         assert p.returncode != 0, "%s accepted" % option

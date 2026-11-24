@@ -134,7 +134,7 @@ Medium:
       unflushed while running openssl/ssh, now keep the files open in a separate process:
       bucseTests.FileHolder. test35.py (ftruncate, O_TRUNC and a create without writes are
       written before close() returns)
-- [ ] 31. a passphrase given on the command line (bucse-mount -p / -o passphrase=, bucse-init -p)
+- [x] 31. a passphrase given on the command line (bucse-mount -p / -o passphrase=, bucse-init -p)
       is visible to every local user in /proc/<pid>/cmdline and ps for as long as the process
       runs, and ends up in the shell history; bucse-init has no prompt yet (TODO at
       bucse-init.c:195), so -p is the only way to give it one. Options: wipe the argv copy after
@@ -142,6 +142,13 @@ Medium:
       can be overwritten, but it's visible until then), read it from a file or an environment
       variable instead, and a prompt for bucse-init. The tests pass -p everywhere, so they
       would need another way -- secret handling, discuss first
+      -- fixed: -P FILE / --passphrase-file=FILE (bucse-mount also -o passphrase_file=FILE)
+      reads the first line of a file, '-' for stdin (passphrase.c, shared by both programs, with
+      the terminal prompt moved there from bucse-mount.c); bucse-init asks on a terminal too,
+      twice. -p / -o passphrase= still work, with a warning, and the passphrase is zeroed in
+      the original argv right after parsing (bucse-mount: hideCommandLinePassphrase(), also in
+      -o groups). Stdin is read only with -P -. The tests use -P (bucseTests.passphraseArgs());
+      test36.py; docs/design.md (Passphrase)
 - [ ] 32. the AES key material isn't wiped: encrAesEncrypt()/encrAesDecrypt()
       (encryption/encr_aes.c) leave keyiv[64], key[32] and iv[32] (derived from the passphrase
       with PBKDF2) on the stack after every call, on the error paths too; wipe them with

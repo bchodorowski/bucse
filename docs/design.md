@@ -93,6 +93,26 @@ These must ALWAYS hold. Breaking any of them is a bug.
 - **Compatibility:** the repository format must always stay backwards
   compatible.
 
+## Passphrase
+
+The passphrase is given to `bucse-init` and `bucse-mount` in a way that
+other local users can't see:
+
+- typed on the terminal, with echo off (the default when stdin and stdout
+  are a terminal and no passphrase option is given; `bucse-init` asks twice,
+  since a typo would make the repository unreadable), or
+- read from a file with `-P FILE` (`--passphrase-file=FILE`, and
+  `-o passphrase_file=FILE` for `bucse-mount`): its first line, without the
+  newline; `-` is stdin. It's read with `read()`, not stdio, so no copy is
+  left in a buffer that can't be wiped.
+
+Stdin is read only when asked for with `-P -`, never just because it isn't a
+terminal. `-p` (`-o passphrase=`) still works for compatibility, with a
+warning: a command line can be read by every local user from
+`/proc/<pid>/cmdline` and `ps`, and stays in the shell history. Right after
+parsing, both programs zero the passphrase in their original argv, so it's
+visible only until then (on Linux; other systems may keep their own copy).
+
 ## Durability
 
 A crash or a network failure must not leave the repository in an

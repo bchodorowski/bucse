@@ -18,7 +18,7 @@ bucseTests.mountDirs()
 
 repo = "%s/test_%d_repo" % (bucseTests.argRepoPath, bucseTests.pid)
 mountpoint = "tmp/test18_nonexistent_%d" % bucseTests.pid
-argsList = ["../bucse-mount", "-p", bucseTests.argPassphrase, "-r", repo, "-f", mountpoint]
+argsList = ["../bucse-mount"] + bucseTests.passphraseArgs() + ["-r", repo, "-f", mountpoint]
 if bucseTests.argValgrind:
     # only memory errors, a failed mount may leave things allocated
     argsList = ["valgrind", "--error-exitcode=99", "--leak-check=no"] + argsList

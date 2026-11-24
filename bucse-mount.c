@@ -10,7 +10,6 @@
 #include <errno.h>
 #include <unistd.h>
 #include <sys/time.h>
-#include <termios.h>
 
 #include <fuse_lowlevel.h>
 #include <fuse.h>
@@ -24,6 +23,7 @@
 #include "actions.h"
 
 #include "conf.h"
+#include "passphrase.h"
 #include "log.h"
 #include "cache.h"
 #include "tar.h"
@@ -156,6 +156,12 @@ static struct fuse_opt bucse_opts[] = {
 	BUCSE_OPT("-v %d", verbose, 0),
 	BUCSE_OPT("passphrase=%s", passphrase, 0),
 	BUCSE_OPT("-p %s", passphrase, 0),
+	BUCSE_OPT("passphrase_file=%s", passphraseFile, 0),
+	BUCSE_OPT("-P %s", passphraseFile, 0),
+	// not also "--passphrase-file %s": fuse_opt_parse() applies every
+	// template that matches, and that one would take
+	// "--passphrase-file=FILE" too, with "=FILE" as the value
+	BUCSE_OPT("--passphrase-file=%s", passphraseFile, 0),
 	BUCSE_OPT("ro", readOnly, 1),
 	BUCSE_OPT("-R", readOnly, 1),
 	BUCSE_OPT("--read_only", readOnly, 1),
@@ -189,7 +195,15 @@ static int bucse_opt_proc(void *data, const char *arg, int key, struct fuse_args
 				"                           3 -- all the above + debug messages\n"
 				"                           4 -- all the above + verbose debug messages\n"
 				"    -v INTEGER             same as '-overbose=INTEGER'\n"
-				"    -o passphrase=STRING   target repository passphrase\n"
+				"    -o passphrase_file=FILE\n"
+				"                           read the passphrase from the first line of FILE\n"
+				"                           ('-' for stdin); without a passphrase option it's\n"
+				"                           asked for on the terminal\n"
+				"    -P FILE                same as '-opassphrase_file=FILE'\n"
+				"    --passphrase-file=FILE same as '-opassphrase_file=FILE'\n"
+				"    -o passphrase=STRING   target repository passphrase; insecure: other\n"
+				"                           local users can see it, and it stays in the\n"
+				"                           shell history\n"
 				"    -p STRING              same as '-opassphrase=STRING'\n"
 				"    -o ro                  read only mode\n"
 				"    -R                     same as '-oro'\n"
@@ -448,6 +462,70 @@ int parseRepositoryFile() {
 	return 0;
 }
 
+// Zeroes the values of passphrase= in a -o option group, e.g.
+// "ro,passphrase=secret". Like fuse_opt_parse(), takes "\," as an escaped
+// comma, not as the end of an option.
+static void hideOptionGroupPassphrase(char* p)
+{
+	while (*p) {
+		int secret = (strncmp(p, "passphrase=", strlen("passphrase=")) == 0);
+		if (secret) {
+			p += strlen("passphrase=");
+		}
+		while (*p && *p != ',') {
+			if (*p == '\\' && p[1] != '\0') {
+				if (secret) {
+					*p = 0;
+				}
+				p++;
+			}
+			if (secret) {
+				*p = 0;
+			}
+			p++;
+		}
+		if (*p == ',') {
+			p++;
+		}
+	}
+}
+
+// Zeroes a passphrase given with -p or -o passphrase= in the original argv
+// strings, which /proc/<pid>/cmdline (and ps) shows to every local user for
+// as long as the process runs. fuse_opt_parse() has already copied the
+// passphrase. It's visible until this runs, and stays in the shell history,
+// so this only limits the damage.
+static void hideCommandLinePassphrase(int argc, char** argv)
+{
+	int i;
+	for (i = 1; i < argc; i++) {
+		char* arg = argv[i];
+		if (strcmp(arg, "--") == 0) {
+			// the rest aren't options
+			return;
+		}
+		if (strcmp(arg, "-p") == 0) {
+			if (i + 1 < argc) {
+				wipeMemory(argv[i + 1], strlen(argv[i + 1]));
+				i++;
+			}
+		} else if (strncmp(arg, "-p", 2) == 0) {
+			wipeMemory(arg + 2, strlen(arg + 2));
+		} else if (strcmp(arg, "-o") == 0) {
+			if (i + 1 < argc) {
+				hideOptionGroupPassphrase(argv[i + 1]);
+				i++;
+			}
+		} else if (strncmp(arg, "-o", 2) == 0) {
+			hideOptionGroupPassphrase(arg + 2);
+		} else if (strcmp(arg, "-r") == 0 || strcmp(arg, "-v") == 0
+				|| strcmp(arg, "-i") == 0 || strcmp(arg, "-P") == 0) {
+			// the next argument is this option's value, not an option
+			i++;
+		}
+	}
+}
+
 int main(int argc, char** argv)
 {
 	cachedUid = geteuid();
@@ -465,6 +543,23 @@ int main(int argc, char** argv)
 	confInit();
 
 	fuse_opt_parse(&args, &conf, bucse_opts, bucse_opt_proc);
+
+	// fuse_opt_parse() copied every argument it keeps, so the originals
+	// can be overwritten
+	hideCommandLinePassphrase(argc, argv);
+
+	if (conf.passphrase != NULL && conf.passphraseFile != NULL) {
+		logPrintf(LOG_ERROR, "give either a passphrase or a passphrase file, not both\n");
+		recursivelyFreeFilesystem(root);
+		fuse_opt_free_args(&args);
+		confCleanup();
+		return 2;
+	}
+	if (conf.passphrase != NULL) {
+		logPrintf(LOG_WARNING, "a passphrase given on the command line can be seen "
+			"by other local users, and stays in the shell history; leave it out to "
+			"be asked for it, or use -P FILE\n");
+	}
 
 	if (conf.repository == NULL) {
 		logPrintf(LOG_ERROR, "no repository specified\n");
@@ -517,65 +612,13 @@ int main(int argc, char** argv)
 	}
 
 	if (encryption->needsPassphrase() && conf.passphrase == NULL) {
-		int gotPass = 0;
-
-		if (isatty(fileno(stdin)) && isatty(fileno(stdout))) {
-			fprintf(stdout, "Passphrase: ");
-			fflush(stdout);
-
-			// turn off echo, and restore the original settings right
-			// after reading, also when reading fails
-			struct termios termOrig;
-			int termSaved = (tcgetattr(fileno(stdin), &termOrig) == 0);
-			if (termSaved) {
-				struct termios term = termOrig;
-				term.c_lflag &= ~ECHO;
-				tcsetattr(fileno(stdin), TCSANOW, &term);
-			}
-
-			// no stdio buffer for stdin: fgets() would leave a copy of
-			// the passphrase in it, which can't be wiped
-			setvbuf(stdin, NULL, _IONBF, 0);
-
-			char passwd[1024];
-			memset(passwd, 0, 1024);
-			char* fgetsResult = fgets(passwd, sizeof(passwd), stdin);
-
-			if (termSaved) {
-				tcsetattr(fileno(stdin), TCSANOW, &termOrig);
-			}
-			fprintf(stdout, "\n");
-
-			if (fgetsResult == NULL) {
-				logPrintf(LOG_ERROR, "fgets() failed\n");
-				wipeMemory(passwd, sizeof(passwd));
-
-				cacheCleanup();
-				recursivelyFreeFilesystem(root);
-				destination->shutdown();
-				actionsCleanup();
-				fuse_opt_free_args(&args);
-				confCleanup();
-				return 6;
-			}
-
-			passwd[1024 - 1] = 0;
-			if (strlen(passwd) > 0 && passwd[strlen(passwd)-1] == '\n') {
-				passwd[strlen(passwd)-1] = 0;
-			}
-			if (strlen(passwd) > 0) {
-				conf.passphrase = malloc(strlen(passwd) + 1);
-				if (conf.passphrase == NULL) {
-					logPrintf(LOG_ERROR, "malloc() failed\n");
-				} else {
-					memcpy(conf.passphrase, passwd, strlen(passwd)+1);
-					gotPass = 1;
-				}
-			}
-			wipeMemory(passwd, sizeof(passwd));
+		if (conf.passphraseFile != NULL) {
+			conf.passphrase = readPassphraseFile(conf.passphraseFile);
+		} else if (passphraseTerminalAvailable()) {
+			conf.passphrase = readPassphraseTerminal(0);
 		}
 
-		if (gotPass == 0) {
+		if (conf.passphrase == NULL) {
 			logPrintf(LOG_ERROR, "Encryption needs a passphrase\n");
 
 			cacheCleanup();

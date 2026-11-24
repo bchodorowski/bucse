@@ -4,6 +4,7 @@ struct bucse_config {
 	char *repository;
 	int verbose;
 	char *passphrase;
+	char *passphraseFile;
 	char *repositoryRealPath;
 	int readOnly;
 	int checkInterval;

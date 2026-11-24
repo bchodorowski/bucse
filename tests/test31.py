@@ -1,10 +1,10 @@
 #!/bin/python3
 
-# Without -p, bucse-mount asks for the passphrase on the terminal (with echo
-# off) when the encryption backend needs one. The test runs it on a pty and
-# checks: the correct passphrase mounts the repository, a wrong one is
-# rejected, an empty one and end of input (Ctrl+D) fail cleanly. With the
-# `none` backend there is no prompt.
+# Without a passphrase option, bucse-mount asks for the passphrase on the
+# terminal (with echo off) when the encryption backend needs one. The test
+# runs it on a pty and checks: the correct passphrase mounts the repository,
+# a wrong one is rejected, an empty one and end of input (Ctrl+D) fail
+# cleanly. With the `none` backend there is no prompt.
 
 import bucseTests
 import os
@@ -90,7 +90,7 @@ try:
         for typed, expectedError in [
                 (bucseTests.argPassphrase + "wrong\n", "Is the passphrase correct?"),
                 ("\n", "Encryption needs a passphrase"),
-                ("\x04", "fgets() failed")]:
+                ("\x04", "Encryption needs a passphrase")]:
             p, master, output = startOnPty()
             waitForOutput(output, "Passphrase: ")
             os.write(master, typed.encode())
