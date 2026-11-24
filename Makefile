@@ -124,6 +124,7 @@ encryption/encr_none.o: encryption/encr_none.c \
 
 encryption/encr_aes.o: encryption/encr_aes.c \
 	log.h \
+	conf.h \
 	encryption/encr.h
 	$(CC) -c encryption/encr_aes.c -o encryption/encr_aes.o $(CFLAGS)
 

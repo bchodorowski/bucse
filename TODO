@@ -149,11 +149,14 @@ Medium:
       the original argv right after parsing (bucse-mount: hideCommandLinePassphrase(), also in
       -o groups). Stdin is read only with -P -. The tests use -P (bucseTests.passphraseArgs());
       test36.py; docs/design.md (Passphrase)
-- [ ] 32. the AES key material isn't wiped: encrAesEncrypt()/encrAesDecrypt()
+- [x] 32. the AES key material isn't wiped: encrAesEncrypt()/encrAesDecrypt()
       (encryption/encr_aes.c) leave keyiv[64], key[32] and iv[32] (derived from the passphrase
       with PBKDF2) on the stack after every call, on the error paths too; wipe them with
       wipeMemory() before returning (EVP_CIPHER_CTX_free() already clears the context's own
       copy) -- crypto-related, discuss first
+      -- fixed: the PBKDF2 derivation moved to deriveKeyIv(), which wipes keyiv[64]; both
+      functions leave through one exit path (goto out) after the key is derived, which frees
+      the context and wipes key[32] and iv[32]. No format change
 
 Typos and misleading messages:
 - [x] 23. log message typos/copy-paste errors (dest_ssh.c, unlink.c, rmdir.c, actions.c, bucse-mount.c,
