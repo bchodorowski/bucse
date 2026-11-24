@@ -20,9 +20,6 @@
 
 #include "flush.h"
 
-#define MIN_BLOCK_SIZE 512
-#define MAX_BLOCK_SIZE (128 * 1024 * 1024)
-
 #define RESIZE_AT_BLOCKS_COUNT 32
 
 extern Destination *destination;
@@ -232,7 +229,6 @@ int flushFile(FilesystemFile* file)
 
 		memset(decryptedBlockBuf, 0, maxDecryptedBlockSize + DECRYPTED_BUFFER_MARGIN);
 		size_t encryptedBlockBufSize = maxEncryptedBlockSize;
-		size_t decryptedBlockBufSize = maxDecryptedBlockSize + DECRYPTED_BUFFER_MARGIN;
 
 		// special case when we need to resize blocks
 		if (resizeContent) {
@@ -263,18 +259,20 @@ int flushFile(FilesystemFile* file)
 				logPrintf(LOG_VERBOSE_DEBUG, "sourceBlockIndex: %d\n", sourceBlockIndex);
 				logPrintf(LOG_VERBOSE_DEBUG, "block: %s\n", block);
 
-				// a longer block is fine (see below), the bytes past
-				// expectedReadSize are overwritten by the next block or
-				// zero-filled
-				size_t bufSizeCopy = bufSize + DECRYPTED_BUFFER_MARGIN;
-				size_t encryptedBlockBufSizeCopy = encryptedBlockBufSize;
-				if (decryptBlock(block,
-					bufPtr, &bufSizeCopy,
-					encryptedBlockBuf, &encryptedBlockBufSizeCopy,
-					expectedReadSize) != 0) {
+				// a longer block is fine (see below): only
+				// expectedReadSize bytes of it are copied, the rest of
+				// the new block is filled by the next block or zeroed.
+				// It can't be longer than bufSize, so expectedReadSize
+				// bytes fit.
+				size_t maxBlockSize = file->blockSize < bufSize ? file->blockSize : bufSize;
+				const char* blockData;
+				size_t blockDataSize;
+				if (decryptBlock(block, maxBlockSize, expectedReadSize,
+					&blockData, &blockDataSize) != 0) {
 					ioerror = 1;
 					break;
 				}
+				memcpy(bufPtr, blockData, expectedReadSize);
 				bufPtr += expectedReadSize;
 				bufSize -= expectedReadSize;
 				toRead -= expectedReadSize;
@@ -296,13 +294,14 @@ int flushFile(FilesystemFile* file)
 			// when truncating, so it may be longer than expected. Accept
 			// it and zero everything after the file's end, which must
 			// read as zeroes if the file gets extended.
-			if (decryptBlock(block,
-				decryptedBlockBuf, &decryptedBlockBufSize,
-				encryptedBlockBuf, &encryptedBlockBufSize,
-				expectedReadSize) != 0) {
+			const char* blockData;
+			size_t blockDataSize;
+			if (decryptBlock(block, maxDecryptedBlockSize, expectedReadSize,
+				&blockData, &blockDataSize) != 0) {
 				ioerror = 1;
 				break;
 			}
+			memcpy(decryptedBlockBuf, blockData, blockDataSize);
 		}
 
 		// zero everything past the kept data (validSize): the rest of a

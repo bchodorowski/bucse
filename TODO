@@ -100,9 +100,17 @@ Medium:
       -- fixed: wipeMemory() (conf.c, a volatile loop) wipes passwd on every path and
       conf.passphrase in confCleanup(); stdin is unbuffered while reading, so no copy stays in
       the stdio buffer; test31.py (the passphrase prompt on a pty)
-- [ ] 29. reading a big file is very slow: every bucse_read() mallocs two block-sized buffers (up to
+- [x] 29. reading a big file is very slow: every bucse_read() mallocs two block-sized buffers (up to
       128 MB each) and decrypts or copies the whole block from the cache, even for a 128 KB read
       (operations/read.c); diff of a 129 MB file took ~2 min without valgrind (blocks of 32 MB)
+      -- fixed: cacheGet() returns a pointer to the cached data and cachePut() takes the buffer
+      over, decryptBlock() (operations/operations.c) returns that pointer and allocates buffers
+      only on a cache miss, bucse_read() copies only the requested bytes; cat of a 129 MB file:
+      27 s -> 0.45 s. A cache hit now also checks the block's size (a short block used to return
+      stale buffer bytes); test32.py, test29.py compares the whole file now. Also: parseAction()
+      (actions.c) rejects an addFile/editFile with a block size that isn't 0 or a power of 2
+      from 512 B to 128 MB, a negative size, or too few blocks in content (a zero block size
+      divided by zero in bucse_read(), a short content was read past its end); test33.py
 - [ ] 30. an extending truncate mallocs the whole gap as one zero-filled pending write
       (operations/truncate.c): truncate -s 5G of an empty file needs 5 GB of RAM
 - [ ] 31. a passphrase given on the command line (bucse-mount -p / -o passphrase=, bucse-init -p)

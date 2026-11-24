@@ -11,16 +11,10 @@
 #include "../time.h"
 #include "../log.h"
 
-#include "../destinations/dest.h"
-#include "../encryption/encr.h"
-
 #include "operations.h"
 #include "flush.h"
 
 #include "read.h"
-
-extern Destination *destination;
-extern Encryption *encryption;
 
 typedef struct {
 	const char* block;
@@ -127,42 +121,25 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 		return -ENOMEM;
 	}
 
-	size_t maxEncryptedBlockSize = getMaxEncryptedBlockSize(file->blockSize);
-	char* encryptedBlockBuf = malloc(maxEncryptedBlockSize);
-	if (encryptedBlockBuf == NULL) {
-		logPrintf(LOG_ERROR, "bucse_read: malloc(): %s\n", strerror(errno));
-		return -ENOMEM;
-	}
-
-	size_t maxDecryptedBlockSize = file->blockSize;
-	char* decryptedBlockBuf = malloc(maxDecryptedBlockSize + DECRYPTED_BUFFER_MARGIN);
-	if (decryptedBlockBuf == NULL) {
-		logPrintf(LOG_ERROR, "bucse_read: malloc(): %s\n", strerror(errno));
-		free(encryptedBlockBuf);
-		return -ENOMEM;
-	}
-
+	// only the requested bytes are copied from the (cached) block: FUSE
+	// reads in pieces of at most 128 KB, and a block can be up to 128 MB
 	size_t copiedBytes = 0;
 	int ioerror = 0;
 	for (int i=0; i<blocksToRead.len; i++) {
 		BlockOffsetLen* block = blocksToRead.objects[i];
-		size_t encryptedBlockBufSize = maxEncryptedBlockSize;
-		size_t decryptedBlockBufSize = maxDecryptedBlockSize + DECRYPTED_BUFFER_MARGIN;
+		const char* blockData;
+		size_t blockDataSize;
 
-		if (decryptBlock(block->block,
-			decryptedBlockBuf, &decryptedBlockBufSize,
-			encryptedBlockBuf, &encryptedBlockBufSize,
-			block->offset + block->len) != 0) {
+		if (decryptBlock(block->block, file->blockSize,
+			block->offset + block->len,
+			&blockData, &blockDataSize) != 0) {
 			ioerror = 1;
 			break;
 		}
 
-		memcpy(buf + copiedBytes, decryptedBlockBuf + block->offset, block->len);
+		memcpy(buf + copiedBytes, blockData + block->offset, block->len);
 		copiedBytes += block->len;
 	}
-
-	free(encryptedBlockBuf);
-	free(decryptedBlockBuf);
 
 	for (int i=0; i<blocksToRead.len; i++) {
 		free(blocksToRead.objects[i]);

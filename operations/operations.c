@@ -108,46 +108,79 @@ int recreatePendingDirs(FilesystemDir* dir)
 	return 0;
 }
 
-int decryptBlock(const char* block,
-	char* decryptedBlockBuf, size_t* decryptedBlockBufSize,
-	char* encryptedBlockBuf, size_t* encryptedBlockBufSize,
-	size_t expectedReadSize)
+int decryptBlock(const char* block, size_t maxBlockSize, size_t expectedReadSize,
+	const char** data, size_t* dataSize)
 {
-	if (*decryptedBlockBufSize < DECRYPTED_BUFFER_MARGIN) {
-		logPrintf(LOG_ERROR, "decryptBlock: buffer too small\n");
-		return 4;
-	}
-	size_t maxBlockSize = *decryptedBlockBufSize - DECRYPTED_BUFFER_MARGIN;
-
-	if (cacheGet(block, decryptedBlockBuf, decryptedBlockBufSize) != 0) {
-		int res = destination->getStorageFile(block, encryptedBlockBuf, encryptedBlockBufSize);
+	const char* cachedData;
+	size_t cachedSize;
+	if (cacheGet(block, &cachedData, &cachedSize) != 0) {
+		size_t encryptedBufSize = getMaxEncryptedBlockSize(maxBlockSize);
+		char* encryptedBuf = malloc(encryptedBufSize);
+		if (encryptedBuf == NULL) {
+			logPrintf(LOG_ERROR, "decryptBlock: malloc(): %s\n", strerror(errno));
+			return 6;
+		}
+		int res = destination->getStorageFile(block, encryptedBuf, &encryptedBufSize);
 		if (res != 0) {
 			logPrintf(LOG_ERROR, "decryptBlock: getStorageFile failed for %s: %d\n",
 					block, res);
+			free(encryptedBuf);
 			return 1;
 		}
 
-		res = encryption->decrypt(encryptedBlockBuf, *encryptedBlockBufSize,
-				decryptedBlockBuf, decryptedBlockBufSize,
+		size_t decryptedBufSize = maxBlockSize + DECRYPTED_BUFFER_MARGIN;
+		char* decryptedBuf = malloc(decryptedBufSize);
+		if (decryptedBuf == NULL) {
+			logPrintf(LOG_ERROR, "decryptBlock: malloc(): %s\n", strerror(errno));
+			free(encryptedBuf);
+			return 6;
+		}
+		res = encryption->decrypt(encryptedBuf, encryptedBufSize,
+				decryptedBuf, &decryptedBufSize,
 				conf.passphrase);
+		free(encryptedBuf);
 		if (res != 0) {
 			logPrintf(LOG_ERROR, "decryptBlock: decrypt failed: %d\n", res);
+			free(decryptedBuf);
 			return 2;
 		}
 
-		if (*decryptedBlockBufSize > maxBlockSize) {
+		if (decryptedBufSize > maxBlockSize) {
 			logPrintf(LOG_ERROR, "decryptBlock: decrypted block too large: %zu, at most %zu expected\n",
-					*decryptedBlockBufSize, maxBlockSize);
+					decryptedBufSize, maxBlockSize);
+			free(decryptedBuf);
 			return 5;
 		}
 
-		if (*decryptedBlockBufSize < expectedReadSize) {
-			logPrintf(LOG_ERROR, "decryptBlock: expected decrypted block size at least %zu, got %zu\n",
-					expectedReadSize, *decryptedBlockBufSize);
-			return 3;
+		// the cache takes the buffer: give back what the margin and
+		// a shorter (last) block don't use
+		char* shrunk = realloc(decryptedBuf, decryptedBufSize > 0 ? decryptedBufSize : 1);
+		if (shrunk != NULL) {
+			decryptedBuf = shrunk;
 		}
-
-		cachePut(block, decryptedBlockBuf, *decryptedBlockBufSize);
+		if (cachePut(block, decryptedBuf, decryptedBufSize) != 0) {
+			logPrintf(LOG_ERROR, "decryptBlock: cachePut failed\n");
+			free(decryptedBuf);
+			return 7;
+		}
+		cachedData = decryptedBuf;
+		cachedSize = decryptedBufSize;
 	}
+
+	// checked on every call, not only when the block is fetched: a cached
+	// block may be needed by a call that expects more of it, or allows less
+	if (cachedSize > maxBlockSize) {
+		logPrintf(LOG_ERROR, "decryptBlock: decrypted block too large: %zu, at most %zu expected\n",
+				cachedSize, maxBlockSize);
+		return 5;
+	}
+	if (cachedSize < expectedReadSize) {
+		logPrintf(LOG_ERROR, "decryptBlock: expected decrypted block size at least %zu, got %zu\n",
+				expectedReadSize, cachedSize);
+		return 3;
+	}
+
+	*data = cachedData;
+	*dataSize = cachedSize;
 	return 0;
 }

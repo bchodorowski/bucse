@@ -253,8 +253,6 @@ operations/read.o: operations/read.c \
 	actions.h \
 	time.h \
 	log.h \
-	destinations/dest.h \
-	encryption/encr.h \
 	operations/operations.h \
 	operations/flush.h
 	$(CC) -c operations/read.c -o operations/read.o $(CFLAGS)

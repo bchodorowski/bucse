@@ -32,14 +32,9 @@ assert actionsAfter > actionsBefore, "no action file written before close"
 
 os.close(fd)
 
-# reading the whole file back is slow (every read copies a whole block), so
-# only parts of it are compared: the start, around the 128 MB flush, the end
 def verify():
-    assert os.stat(path).st_size == size
-    fd = os.open(path, os.O_RDONLY)
-    for offset in [0, 64 * MB, 128 * MB - 4096, size - 4096]:
-        assert os.pread(fd, 8192, offset) == data[offset:offset + 8192], offset
-    os.close(fd)
+    with open(path, "rb") as f:
+        assert f.read() == data
 
 verify()
 bucseTests.remount()

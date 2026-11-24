@@ -1,5 +1,10 @@
 #define MAX_STORAGE_NAME_LEN 64
 
+// a file's block size is a power of 2 in this range (0 for a file that never
+// had any data); an addFile or editFile action with another one is rejected
+#define MIN_BLOCK_SIZE 512
+#define MAX_BLOCK_SIZE (128 * 1024 * 1024)
+
 typedef enum {
 	ActionTypeAddFile,
 	ActionTypeRemoveFile,

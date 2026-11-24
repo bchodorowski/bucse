@@ -557,6 +557,27 @@ static int parseAction(char* buf, size_t size)
 			continue;
 		}
 
+		// size, blockSize and content come from the (untrusted) server:
+		// every block of the file's data must be in content, and a block
+		// can't be larger than bucse-mount ever makes it. Every version
+		// writes a power of 2 from MIN_BLOCK_SIZE to MAX_BLOCK_SIZE.
+		if (actionType == ActionTypeAddFile || actionType == ActionTypeEditFile) {
+			int validBlockSize = blockSize == 0 || (blockSize >= MIN_BLOCK_SIZE
+				&& blockSize <= MAX_BLOCK_SIZE && (blockSize & (blockSize - 1)) == 0);
+			if (size < 0 || !validBlockSize || (size > 0 && blockSize == 0)) {
+				logPrintf(LOG_ERROR, "parseAction: invalid size %" PRId64 " or blockSize %" PRId64 "\n",
+					size, blockSize);
+				free(content);
+				continue;
+			}
+			if (size > 0 && (uint64_t)((size - 1) / blockSize) >= contentLen) {
+				logPrintf(LOG_ERROR, "parseAction: content has %zu blocks, too few for size %" PRId64 " and blockSize %" PRId64 "\n",
+					contentLen, size, blockSize);
+				free(content);
+				continue;
+			}
+		}
+
 		// create new action object
 		Action* newAction = malloc(sizeof(Action));
 		if (newAction == NULL) {

@@ -73,7 +73,7 @@ int cacheInit()
 	return 0;
 }
 
-int cacheGet(const char* block, char* buf, size_t *size)
+int cacheGet(const char* block, const char** data, size_t *size)
 {
 	int index = hexStringToHashIndex(block);
 
@@ -86,11 +86,7 @@ int cacheGet(const char* block, char* buf, size_t *size)
 
 		// item is found in the hashtable
 
-		if (item->size > *size) {
-			logPrintf(LOG_ERROR, "cacheGet: cached block too large for the buffer: %s\n", block);
-			return -2;
-		}
-		memcpy(buf, item->data, item->size);
+		*data = item->data;
 		*size = item->size;
 
 		// move item in the blockslist to the front
@@ -116,7 +112,7 @@ int cacheGet(const char* block, char* buf, size_t *size)
 	return -1;
 }
 
-int cachePut(const char* block, char* buf, size_t size)
+int cachePut(const char* block, char* data, size_t size)
 {
 	int index = hexStringToHashIndex(block);
 	Block* newItem = (Block*)malloc(sizeof(Block));
@@ -134,15 +130,13 @@ int cachePut(const char* block, char* buf, size_t size)
 
 	newItem->key = block;
 	newItem->size = size;
-	newItem->data = malloc(size);
-	if (!newItem->data) {
-		logPrintf(LOG_ERROR, "cachePut: malloc(): %s\n", strerror(errno));
+	newItem->data = data;
+	if (addToDynArray(&hashTableBuckets[index], newItem) != 0) {
+		logPrintf(LOG_ERROR, "cachePut: addToDynArray failed\n");
 		free(newItem);
 		free(newBlockslistItem);
 		return 3;
 	}
-	memcpy(newItem->data, buf, size);
-	addToDynArray(&hashTableBuckets[index], newItem);
 
 	// add item to the front blockslist
 	newBlockslistItem->prev = NULL;
@@ -162,8 +156,10 @@ int cachePut(const char* block, char* buf, size_t size)
 
 	logPrintf(LOG_VERBOSE_DEBUG, "cachePut: cache item saved: %s\n", block);
 
-	// check blockslist count and bytes size and delete oldest entries if needed
-	while (blockslistCount > HASH_TABLE_SIZE_COUNT || blockslistBytes > HASH_TABLE_SIZE_BYTES) {
+	// check blockslist count and bytes size and delete oldest entries if
+	// needed, but never the new one: the caller may still be using its data
+	while ((blockslistCount > HASH_TABLE_SIZE_COUNT || blockslistBytes > HASH_TABLE_SIZE_BYTES)
+			&& blockslist.last != newBlockslistItem) {
 		int indexToDelete = hexStringToHashIndex(blockslist.last->key);
 		Block* foundItemToDelete = NULL;
 		int foundItemToDeleteIndex = -1;
