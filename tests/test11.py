@@ -61,8 +61,5 @@ bucseTests.verifyFailOnError(True, allowedErrors = [
     # the unreadable file
     "fopen(): Permission denied",
     "sftp_open(): SFTP server: Permission denied",
-    # the completed action file is older than the actions after it: they are
-    # applied again, as undoAction() is not implemented yet
-    "doAction: file already exists",
 ])
 bucseTests.testCleanup()

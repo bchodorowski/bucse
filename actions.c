@@ -105,9 +105,10 @@ static int hasEntriesInRepository(FilesystemDir* dir)
 	return 0;
 }
 
-// names of the directories renamed by renameConflict(), freed in
-// actionsCleanup() (a directory doesn't own its name)
-static DynArray conflictDirNames;
+// names of the directories renamed by renameLocalDir() or created by
+// restoreStashedFiles(), freed in actionsCleanup() (a directory doesn't own
+// its name)
+static DynArray localDirNames;
 
 // Returns a new name for a local entry called name in dir that clashes with
 // an entry of the other type added by another client: "name.conflict", or
@@ -127,11 +128,78 @@ static char* conflictName(FilesystemDir* dir, const char* name)
 	return result;
 }
 
+// Renames a directory that holds only local data (dir->pendingCreate), whose
+// name is taken by an entry of the other type in the repository.
+static int renameLocalDir(FilesystemDir* containingDir, FilesystemDir* dir, const char* name)
+{
+	char* newName = conflictName(containingDir, name);
+	if (newName == NULL) {
+		return 1;
+	}
+	if (addToDynArray(&localDirNames, newName) != 0) {
+		free(newName);
+		return 2;
+	}
+	logPrintf(LOG_WARNING, "%s added by another client, renamed the local unwritten directory to %s\n", name, newName);
+	dir->name = newName;
+	return 0;
+}
+
+// Returns the directory that contains path, and in *name the last part of
+// path (a pointer into it); NULL if a directory on the way doesn't exist.
+static FilesystemDir* findParent(const char* path, const char** name)
+{
+	DynArray pathArray;
+	memset(&pathArray, 0, sizeof(DynArray));
+	*name = path_split(path, &pathArray);
+	if (*name == NULL) {
+		logPrintf(LOG_ERROR, "findParent: path_split() failed\n");
+		return NULL;
+	}
+	FilesystemDir* dir = findContainingDir(&pathArray);
+	path_free(&pathArray);
+	return dir;
+}
+
+// Keeps a file that is in the repository as a local one, created but not
+// flushed yet: its flush adds it again. A no-op for such a file.
+static int markFilePendingCreate(FilesystemFile* file)
+{
+	if (file->dirtyFlags & DirtyFlagPendingCreate) {
+		return 0;
+	}
+	// the name of a pending create is owned by the file (see open.c)
+	char* name = strdup(file->name);
+	if (name == NULL) {
+		logPrintf(LOG_ERROR, "markFilePendingCreate: strdup(): %s\n", strerror(errno));
+		return 1;
+	}
+	file->name = name;
+	file->dirtyFlags |= DirtyFlagPendingCreate;
+	return 0;
+}
+
+// Saves the state of file that an action replaces, see Action.
+static void savePrevFile(Action* action, FilesystemFile* file)
+{
+	action->prevAtime = file->atime;
+	action->prevMtime = file->mtime;
+	action->prevContent = file->content;
+	action->prevContentLen = file->contentLen;
+	action->prevSize = file->size;
+	action->prevBlockSize = file->blockSize;
+}
+
 // Remote actions never drop local changes that haven't been flushed yet,
-// see "Concurrent changes" in docs/design.md and recreatePendingDirs().
+// see "Concurrent changes" in docs/design.md and recreatePendingDirs(). A
+// directory that is kept only for local data (pendingCreate) is not in the
+// repository, so an action inside it is rejected, as on every other client.
 static int doAction(Action* action)
 {
-	logPrintf(LOG_VERBOSE_DEBUG, "do action\n");
+	logPrintf(LOG_VERBOSE_DEBUG, "do action %d %s\n", action->actionType, action->path);
+
+	// set below when the action changes the tree
+	action->outcome = OutcomeNotApplied;
 
 	if (action->actionType == ActionTypeAddFile) {
 		DynArray pathArray;
@@ -145,7 +213,7 @@ static int doAction(Action* action)
 		FilesystemDir *containingDir = findContainingDir(&pathArray);
 		path_free(&pathArray);
 
-		if (containingDir == NULL) {
+		if (containingDir == NULL || containingDir->pendingCreate) {
 			logPrintf(LOG_ERROR, "doAction: path not found when adding file %s\n", action->path);
 			return 2;
 		}
@@ -154,17 +222,10 @@ static int doAction(Action* action)
 		if (dir != NULL && dir->pendingCreate) {
 			// a directory kept after another client removed it, it holds
 			// only local data: rename it, its addDirectory is written
-			// with the new name
-			char* newName = conflictName(containingDir, fileName);
-			if (newName == NULL) {
+			// with the new name (undoAction() doesn't rename it back)
+			if (renameLocalDir(containingDir, dir, fileName) != 0) {
 				return 19;
 			}
-			if (addToDynArray(&conflictDirNames, newName) != 0) {
-				free(newName);
-				return 20;
-			}
-			logPrintf(LOG_WARNING, "doAction: file %s added by another client, renamed the local unwritten directory to %s\n", action->path, newName);
-			dir->name = newName;
 		} else if (dir != NULL) {
 			logPrintf(LOG_ERROR, "doAction: a directory with that name already exists, not adding file %s\n", action->path);
 			return 21;
@@ -172,6 +233,8 @@ static int doAction(Action* action)
 
 		FilesystemFile* file = findFile(containingDir, fileName);
 		if (file != NULL && (file->dirtyFlags & DirtyFlagPendingCreate)) {
+			savePrevFile(action, file);
+			action->outcome = OutcomeLocalData;
 			// file->name was allocated for the pending create (see
 			// open.c), point it to the action's path instead
 			free((char*)file->name);
@@ -212,6 +275,7 @@ static int doAction(Action* action)
 		newFile->parentDir = containingDir;
 
 		addToDynArray(&containingDir->files, newFile);
+		action->outcome = OutcomeApplied;
 		return 0;
 
 	} else if (action->actionType == ActionTypeEditFile) {
@@ -226,7 +290,7 @@ static int doAction(Action* action)
 		FilesystemDir *containingDir = findContainingDir(&pathArray);
 		path_free(&pathArray);
 
-		if (containingDir == NULL) {
+		if (containingDir == NULL || containingDir->pendingCreate) {
 			logPrintf(LOG_ERROR, "doAction: path not found when editing file %s\n", action->path);
 			return 5;
 		}
@@ -242,6 +306,8 @@ static int doAction(Action* action)
 		if (file->dirtyFlags != DirtyFlagNotDirty) {
 			logPrintf(LOG_WARNING, "doAction: file %s edited by another client, keeping the local unflushed changes\n", action->path);
 		}
+		savePrevFile(action, file);
+		action->outcome = OutcomeApplied;
 		file->mtime = action->time;
 		file->content = action->content;
 		file->contentLen = action->contentLen;
@@ -264,7 +330,7 @@ static int doAction(Action* action)
 		FilesystemDir *containingDir = findContainingDir(&pathArray);
 		path_free(&pathArray);
 
-		if (containingDir == NULL) {
+		if (containingDir == NULL || containingDir->pendingCreate) {
 			logPrintf(LOG_ERROR, "doAction: path not found when removing file %s\n", action->path);
 			return 8;
 		}
@@ -278,14 +344,11 @@ static int doAction(Action* action)
 		if (file->dirtyFlags != DirtyFlagNotDirty) {
 			// keep the file, its flush adds it again
 			if (!(file->dirtyFlags & DirtyFlagPendingCreate)) {
-				// flushFile() frees the name of a pending create
-				char* name = strdup(file->name);
-				if (name == NULL) {
-					logPrintf(LOG_ERROR, "doAction: strdup(): %s\n", strerror(errno));
+				savePrevFile(action, file);
+				if (markFilePendingCreate(file) != 0) {
 					return 18;
 				}
-				file->name = name;
-				file->dirtyFlags |= DirtyFlagPendingCreate;
+				action->outcome = OutcomeLocalData;
 			}
 			logPrintf(LOG_WARNING, "doAction: file %s removed by another client, keeping it for the local unflushed changes\n", action->path);
 			return 0;
@@ -295,6 +358,8 @@ static int doAction(Action* action)
 			logPrintf(LOG_ERROR, "doAction: removeFromDynArrayUnordered() failed\n");
 			return 10;
 		}
+		savePrevFile(action, file);
+		action->outcome = OutcomeApplied;
 		free(file);
 		return 0;
 
@@ -310,7 +375,7 @@ static int doAction(Action* action)
 		FilesystemDir *containingDir = findContainingDir(&pathArray);
 		path_free(&pathArray);
 
-		if (containingDir == NULL) {
+		if (containingDir == NULL || containingDir->pendingCreate) {
 			logPrintf(LOG_ERROR, "doAction: path not found when adding directory %s\n", action->path);
 			return 12;
 		}
@@ -320,11 +385,11 @@ static int doAction(Action* action)
 		FilesystemDir* dir = findDir(containingDir, dirName);
 		if (dir != NULL && dir->pendingCreate) {
 			dir->pendingCreate = 0;
+			action->outcome = OutcomeLocalData;
 			return 0;
 		}
-		// already there: two clients created the same directory, or an
-		// out-of-order action made the later ones be applied again (see
-		// undoAction()); keep the existing one and its contents
+		// already there: two clients created the same directory; keep the
+		// existing one and its contents
 		if (dir != NULL) {
 			logPrintf(LOG_WARNING, "doAction: directory already exists: %s\n", action->path);
 			return 0;
@@ -359,6 +424,7 @@ static int doAction(Action* action)
 		newDir->parentDir = containingDir;
 
 		addToDynArray(&containingDir->dirs, newDir);
+		action->outcome = OutcomeApplied;
 		return 0;
 
 	} else if (action->actionType == ActionTypeRemoveDirectory) {
@@ -373,7 +439,7 @@ static int doAction(Action* action)
 		FilesystemDir *containingDir = findContainingDir(&pathArray);
 		path_free(&pathArray);
 
-		if (containingDir == NULL) {
+		if (containingDir == NULL || containingDir->pendingCreate) {
 			logPrintf(LOG_ERROR, "doAction: path not found when removing directory %s\n", action->path);
 			return 15;
 		}
@@ -384,9 +450,13 @@ static int doAction(Action* action)
 			return 16;
 		}
 
+		action->prevAtime = dir->atime;
+		action->prevMtime = dir->mtime;
+		action->prevPendingCreate = dir->pendingCreate;
 		if (dir->files.len > 0 || dir->dirs.len > 0) {
-			if (!hasEntriesInRepository(dir)) {
+			if (!hasEntriesInRepository(dir) && !dir->pendingCreate) {
 				dir->pendingCreate = 1;
+				action->outcome = OutcomeLocalData;
 			}
 			logPrintf(LOG_WARNING, "doAction: directory %s removed by another client is not empty, keeping it\n", action->path);
 			return 0;
@@ -399,6 +469,7 @@ static int doAction(Action* action)
 		freeDynArray(&dir->dirs);
 		freeDynArray(&dir->files);
 		free(dir);
+		action->outcome = OutcomeApplied;
 		return 0;
 
 	} else {
@@ -409,12 +480,328 @@ static int doAction(Action* action)
 	return -1;
 }
 
+// A file created locally (not flushed yet) that undoAction() took out of the
+// tree, because the entry that an undone action replaced is put back at its
+// path. restoreStashedFiles() puts it back once the actions have been applied
+// again.
+typedef struct {
+	char* path;
+	FilesystemFile* file;
+} StashedFile;
+
+static DynArray stashedFiles;
+
+static int stashFile(FilesystemFile* file)
+{
+	StashedFile* stashed = malloc(sizeof(StashedFile));
+	if (stashed == NULL) {
+		logPrintf(LOG_ERROR, "stashFile: malloc(): %s\n", strerror(errno));
+		return 1;
+	}
+	stashed->path = getFullFilePath(file);
+	if (stashed->path == NULL) {
+		free(stashed);
+		return 2;
+	}
+	stashed->file = file;
+	if (addToDynArray(&stashedFiles, stashed) != 0) {
+		free(stashed->path);
+		free(stashed);
+		return 3;
+	}
+	if (removeFromDynArrayUnordered(&file->parentDir->files, file) != 0) {
+		logPrintf(LOG_ERROR, "stashFile: removeFromDynArrayUnordered() failed\n");
+		// it stays in the tree, nothing to put back
+		stashedFiles.len--;
+		free(stashed->path);
+		free(stashed);
+		return 4;
+	}
+	// the directory may be removed before the file is put back
+	file->parentDir = NULL;
+	return 0;
+}
+
+static void freeFile(FilesystemFile* file)
+{
+	for (int i=0; i<file->pendingWrites.len; i++) {
+		PendingWrite* pw = file->pendingWrites.objects[i];
+		free(pw->buf);
+		free(pw);
+	}
+	freeDynArray(&file->pendingWrites);
+	if (file->dirtyFlags & DirtyFlagPendingCreate) {
+		free((char*)file->name);
+	}
+	free(file);
+}
+
+// Puts a stashed file back at its path, following the rules for a local
+// change that meets another client's action (see "Concurrent changes" in
+// docs/design.md): a missing directory on the way is created as one that
+// holds only local data, a directory at the path makes the file be renamed,
+// and a file at the path is taken unless the stashed one has local data.
+static void restoreStashedFile(StashedFile* stashed)
+{
+	FilesystemFile* file = stashed->file;
+	DynArray pathArray;
+	memset(&pathArray, 0, sizeof(DynArray));
+	if (path_split(stashed->path, &pathArray) == NULL) {
+		logPrintf(LOG_ERROR, "restoreStashedFile: path_split() failed, %s is lost\n", stashed->path);
+		freeFile(file);
+		return;
+	}
+	FilesystemDir* dir = root;
+	for (int i=0; i<pathArray.len-1; i++) {
+		const char* dirName = pathArray.objects[i];
+		FilesystemDir* next = findDir(dir, dirName);
+		if (next == NULL) {
+			char* name = findFile(dir, dirName) != NULL
+				? conflictName(dir, dirName) : strdup(dirName);
+			next = malloc(sizeof(FilesystemDir));
+			if (name == NULL || next == NULL || addToDynArray(&localDirNames, name) != 0) {
+				logPrintf(LOG_ERROR, "restoreStashedFile: out of memory, %s is lost\n", stashed->path);
+				free(name);
+				free(next);
+				path_free(&pathArray);
+				freeFile(file);
+				return;
+			}
+			memset(next, 0, sizeof(FilesystemDir));
+			next->name = name;
+			next->atime = next->mtime = file->mtime;
+			next->parentDir = dir;
+			next->pendingCreate = 1;
+			addToDynArray(&dir->dirs, next);
+			logPrintf(LOG_WARNING, "restoreStashedFile: directory %s was removed, keeping it for %s\n", name, stashed->path);
+		}
+		dir = next;
+	}
+	path_free(&pathArray);
+
+	FilesystemFile* existing = findFile(dir, file->name);
+	if (existing != NULL && !(existing->dirtyFlags & DirtyFlagPendingCreate)) {
+		if (file->dirtyFlags == DirtyFlagPendingCreate) {
+			// nothing written locally, take the file in the repository
+			freeFile(file);
+			return;
+		}
+		// keep the local one, its flush writes an editFile
+		logPrintf(LOG_WARNING, "restoreStashedFile: file %s added by another client, keeping the local unflushed one\n", stashed->path);
+		existing->atime = file->atime;
+		existing->mtime = file->mtime;
+		existing->content = file->content;
+		existing->contentLen = file->contentLen;
+		existing->size = file->size;
+		existing->blockSize = file->blockSize;
+		existing->dirtyFlags = file->dirtyFlags & ~DirtyFlagPendingCreate;
+		existing->pendingWrites = file->pendingWrites;
+		existing->pendingWritesSize = file->pendingWritesSize;
+		existing->truncSize = file->truncSize;
+		free((char*)file->name);
+		free(file);
+		return;
+	}
+	if (existing != NULL || findDir(dir, file->name) != NULL) {
+		char* newName = conflictName(dir, file->name);
+		if (newName == NULL) {
+			logPrintf(LOG_ERROR, "restoreStashedFile: conflictName() failed, %s is lost\n", stashed->path);
+			freeFile(file);
+			return;
+		}
+		logPrintf(LOG_WARNING, "restoreStashedFile: %s exists, renamed the local unflushed file to %s\n", stashed->path, newName);
+		free((char*)file->name);
+		file->name = newName;
+	}
+	file->parentDir = dir;
+	addToDynArray(&dir->files, file);
+}
+
+static void restoreStashedFiles()
+{
+	for (int i=0; i<stashedFiles.len; i++) {
+		StashedFile* stashed = stashedFiles.objects[i];
+		restoreStashedFile(stashed);
+		free(stashed->path);
+		free(stashed);
+	}
+	freeDynArray(&stashedFiles);
+}
+
+// Reverts what doAction() (or the operation, for a local action) did, see
+// Action.outcome. Actions are undone from the last one, so the tree is as
+// the action left it, except for local changes that haven't been written yet:
+// they are kept, by the same rules as for a remote action.
 static int undoAction(Action* action)
 {
-	// TODO
-	logPrintf(LOG_VERBOSE_DEBUG, "undo action\n");
+	ActionOutcome outcome = action->outcome;
+	logPrintf(LOG_VERBOSE_DEBUG, "undo action %d %s, outcome %d\n", action->actionType, action->path, outcome);
 
-	return 0;
+	action->outcome = OutcomeNotApplied;
+	if (outcome == OutcomeNotApplied) {
+		return 0;
+	}
+
+	const char* name;
+	FilesystemDir* containingDir = findParent(action->path, &name);
+	if (containingDir == NULL) {
+		logPrintf(LOG_ERROR, "undoAction: path not found: %s\n", action->path);
+		return 1;
+	}
+	FilesystemFile* file = findFile(containingDir, name);
+	FilesystemDir* dir = findDir(containingDir, name);
+
+	if (action->actionType == ActionTypeAddFile) {
+		if (file == NULL) {
+			logPrintf(LOG_ERROR, "undoAction: file not found: %s\n", action->path);
+			return 2;
+		}
+		if (file->dirtyFlags == DirtyFlagNotDirty) {
+			if (outcome == OutcomeApplied) {
+				if (removeFromDynArrayUnordered(&containingDir->files, file) != 0) {
+					logPrintf(LOG_ERROR, "undoAction: removeFromDynArrayUnordered() failed\n");
+					return 3;
+				}
+				free(file);
+				return 0;
+			}
+			// nothing written since: the file created locally as it was
+			file->atime = action->prevAtime;
+			file->mtime = action->prevMtime;
+			file->content = action->prevContent;
+			file->contentLen = action->prevContentLen;
+			file->size = action->prevSize;
+			file->blockSize = action->prevBlockSize;
+		}
+		// local changes on top of the added content: kept as a file that
+		// isn't in the repository, applying the action again takes them
+		return markFilePendingCreate(file) == 0 ? 0 : 4;
+
+	} else if (action->actionType == ActionTypeEditFile) {
+		if (file == NULL) {
+			logPrintf(LOG_ERROR, "undoAction: file not found: %s\n", action->path);
+			return 5;
+		}
+		// unflushed local changes stay on top of the old content
+		file->mtime = action->prevMtime;
+		file->content = action->prevContent;
+		file->contentLen = action->prevContentLen;
+		file->size = action->prevSize;
+		file->blockSize = action->prevBlockSize;
+		return 0;
+
+	} else if (action->actionType == ActionTypeRemoveFile) {
+		if (outcome == OutcomeLocalData && file != NULL) {
+			// back in the repository; its content is still the base of
+			// its local changes
+			if (file->dirtyFlags & DirtyFlagPendingCreate) {
+				free((char*)file->name);
+				file->name = name;
+				file->dirtyFlags &= ~DirtyFlagPendingCreate;
+			}
+			return 0;
+		}
+		// the kept file was flushed and that action undone, or the file
+		// was removed: add it again
+		if (file != NULL) {
+			if (!(file->dirtyFlags & DirtyFlagPendingCreate)) {
+				logPrintf(LOG_ERROR, "undoAction: file already exists: %s\n", action->path);
+				return 6;
+			}
+			// created locally after the removal
+			if (stashFile(file) != 0) {
+				return 7;
+			}
+		}
+		if (dir != NULL) {
+			if (!dir->pendingCreate) {
+				logPrintf(LOG_ERROR, "undoAction: a directory with that name exists: %s\n", action->path);
+				return 8;
+			}
+			if (renameLocalDir(containingDir, dir, name) != 0) {
+				return 9;
+			}
+		}
+		FilesystemFile* newFile = malloc(sizeof(FilesystemFile));
+		if (newFile == NULL) {
+			logPrintf(LOG_ERROR, "undoAction: malloc(): %s\n", strerror(errno));
+			return 10;
+		}
+		memset(newFile, 0, sizeof(FilesystemFile));
+		newFile->name = name;
+		newFile->atime = action->prevAtime;
+		newFile->mtime = action->prevMtime;
+		newFile->content = action->prevContent;
+		newFile->contentLen = action->prevContentLen;
+		newFile->size = action->prevSize;
+		newFile->blockSize = action->prevBlockSize;
+		newFile->dirtyFlags = DirtyFlagNotDirty;
+		newFile->parentDir = containingDir;
+		addToDynArray(&containingDir->files, newFile);
+		return 0;
+
+	} else if (action->actionType == ActionTypeAddDirectory) {
+		if (dir == NULL) {
+			logPrintf(LOG_ERROR, "undoAction: dir not found: %s\n", action->path);
+			return 11;
+		}
+		if (outcome == OutcomeApplied && dir->files.len == 0 && dir->dirs.len == 0) {
+			if (removeFromDynArrayUnordered(&containingDir->dirs, dir) != 0) {
+				logPrintf(LOG_ERROR, "undoAction: removeFromDynArrayUnordered() failed\n");
+				return 12;
+			}
+			freeDynArray(&dir->dirs);
+			freeDynArray(&dir->files);
+			free(dir);
+			return 0;
+		}
+		// what is left in it is local data (what the actions after it
+		// added has been undone): keep it for that
+		if (hasEntriesInRepository(dir)) {
+			logPrintf(LOG_ERROR, "undoAction: directory %s still has entries in the repository\n", action->path);
+			return 13;
+		}
+		dir->pendingCreate = 1;
+		return 0;
+
+	} else if (action->actionType == ActionTypeRemoveDirectory) {
+		if (outcome == OutcomeLocalData && dir != NULL) {
+			dir->pendingCreate = 0;
+			return 0;
+		}
+		// removed, or kept and then removed locally (rmdir of a directory
+		// that holds only local data writes no action): add it again
+		if (dir != NULL) {
+			logPrintf(LOG_ERROR, "undoAction: directory already exists: %s\n", action->path);
+			return 14;
+		}
+		if (file != NULL) {
+			if (!(file->dirtyFlags & DirtyFlagPendingCreate)) {
+				logPrintf(LOG_ERROR, "undoAction: a file with that name exists: %s\n", action->path);
+				return 15;
+			}
+			// created locally after the removal
+			if (stashFile(file) != 0) {
+				return 16;
+			}
+		}
+		FilesystemDir* newDir = malloc(sizeof(FilesystemDir));
+		if (newDir == NULL) {
+			logPrintf(LOG_ERROR, "undoAction: malloc(): %s\n", strerror(errno));
+			return 17;
+		}
+		memset(newDir, 0, sizeof(FilesystemDir));
+		newDir->name = name;
+		newDir->atime = action->prevAtime;
+		newDir->mtime = action->prevMtime;
+		newDir->parentDir = containingDir;
+		newDir->pendingCreate = outcome == OutcomeApplied ? action->prevPendingCreate : 0;
+		addToDynArray(&containingDir->dirs, newDir);
+		return 0;
+	}
+
+	logPrintf(LOG_ERROR, "undoAction: unknown action type: %d\n", action->actionType);
+	return -1;
 }
 
 static DynArray actions;
@@ -596,6 +983,7 @@ static int parseAction(char* buf, size_t size)
 		newAction->contentLen = contentLen;
 		newAction->size = size;
 		newAction->blockSize = blockSize;
+		newAction->outcome = OutcomeNotApplied;
 
 		addToDynArray(&actionsPending, newAction);
 	}
@@ -679,7 +1067,10 @@ void flushActionsAdded()
 		qsort(actionsPending.objects, actionsPending.len, sizeof(void*), compareActionPtrs);
 	}
 
-	// handle out of order actions
+	// Handle out of order actions: undo the actions that are ordered after
+	// the first new one, from the last one, and apply them again together
+	// with the new ones. Everything happens with bucseMutex held, so no
+	// operation sees the tree in between.
 	int outOfOrderActions = 0;
 	while (actions.len > 0 && actionsPending.len > 0
 		&& ((Action*)actions.objects[actions.len - 1])->time >= // time of last action in actions
@@ -690,7 +1081,9 @@ void flushActionsAdded()
 		addToDynArray(&actionsPending, actions.objects[actions.len - 1]);
 		actions.len--;
 
-		undoAction(actions.objects[actions.len]);
+		if (undoAction(actions.objects[actions.len]) != 0) {
+			logPrintf(LOG_ERROR, "flushActionsAdded: undoAction() failed\n");
+		}
 
 		outOfOrderActions++;
 	}
@@ -705,6 +1098,9 @@ void flushActionsAdded()
 		doAction(actionsPending.objects[i]);
 	}
 	freeDynArray(&actionsPending);
+
+	// local files that undoAction() took out of the tree
+	restoreStashedFiles();
 }
 
 void actionsCleanup()
@@ -720,10 +1116,10 @@ void actionsCleanup()
 	}
 	freeDynArray(&actionsPending);
 
-	for (int i=0; i<conflictDirNames.len; i++) {
-		free(conflictDirNames.objects[i]);
+	for (int i=0; i<localDirNames.len; i++) {
+		free(localDirNames.objects[i]);
 	}
-	freeDynArray(&conflictDirNames);
+	freeDynArray(&localDirNames);
 }
 
 char* serializeAction(Action* action)
@@ -841,12 +1237,48 @@ int64_t getNewActionTime()
 	return t;
 }
 
+// Sets what undoAction() needs to revert a local action. It is called before
+// the operation changes the tree, so the entry at the action's path is still
+// the one that the action replaces.
+static void setLocalOutcome(Action* action)
+{
+	action->outcome = OutcomeNotApplied;
+	const char* name;
+	FilesystemDir* containingDir = findParent(action->path, &name);
+	FilesystemFile* file = containingDir ? findFile(containingDir, name) : NULL;
+	FilesystemDir* dir = containingDir ? findDir(containingDir, name) : NULL;
+
+	if (action->actionType == ActionTypeAddFile) {
+		// a file created locally is flushed, or a file renamed: what
+		// was local is in the action now
+		action->outcome = OutcomeApplied;
+	} else if (action->actionType == ActionTypeEditFile && file != NULL) {
+		savePrevFile(action, file);
+		action->outcome = OutcomeApplied;
+	} else if (action->actionType == ActionTypeRemoveFile && file != NULL) {
+		savePrevFile(action, file);
+		action->outcome = OutcomeApplied;
+	} else if (action->actionType == ActionTypeAddDirectory) {
+		// recreatePendingDirs() adds a directory that holds local data
+		action->outcome = (dir != NULL && dir->pendingCreate)
+			? OutcomeLocalData : OutcomeApplied;
+	} else if (action->actionType == ActionTypeRemoveDirectory && dir != NULL) {
+		action->prevAtime = dir->atime;
+		action->prevMtime = dir->mtime;
+		action->prevPendingCreate = dir->pendingCreate;
+		action->outcome = OutcomeApplied;
+	} else {
+		logPrintf(LOG_ERROR, "setLocalOutcome: %s not found, the action can't be undone\n", action->path);
+	}
+}
+
 // Adds a local action. An action with the same time as the last ones (the
 // second action of a rename) is put among them in the order of
 // compareActions(), so that actions stays sorted the way flushActionsAdded()
 // expects.
 void addAction(Action *newAction)
 {
+	setLocalOutcome(newAction);
 	if (addToDynArray(&actions, newAction) != 0) {
 		return;
 	}

@@ -622,8 +622,8 @@ def copyAction(actionFile):
 # Copies the action files in the order of their time, as clients write them.
 # Copying takes a while (especially to an ssh repository), so bucse-mount may
 # see only some of the files at first: copied in another order, an older
-# action could arrive after newer ones and need undoing (undoAction() is not
-# implemented yet).
+# action could arrive after newer ones, which would then be undone and applied
+# again (test39 tests that on purpose).
 def copyActions(actionsDir):
     def actionTime(name):
         with open(os.path.join(actionsDir, name), "rb") as f:
@@ -728,6 +728,8 @@ fileHolderScript = """
 import json, os, sys
 for line in sys.stdin:
     call = json.loads(line)
+    if call[0] == "write":
+        call[2] = call[2].encode("latin-1")
     try:
         result = getattr(os, call[0])(*call[1:])
         print(json.dumps(["ok", result]), flush=True)
@@ -755,6 +757,10 @@ class FileHolder:
 
     def ftruncate(self, fd, size):
         self.call("ftruncate", fd, size)
+
+    # data is bytes
+    def write(self, fd, data):
+        return self.call("write", fd, data.decode("latin-1"))
 
     def close(self, fd):
         self.call("close", fd)

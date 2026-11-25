@@ -32,7 +32,7 @@ Ranked: when goals conflict, the higher one wins.
   time (actions with the same time, e.g. the two actions of a rename, by
   their other fields, so every client applies them in the same order and
   identical ones are adjacent), deduplicated, executed (handling
-  out-of-order actions) and moved to the `actions` dynamic array.
+  out-of-order actions, see below) and moved to the `actions` dynamic array.
 - **Action time** — a new local action gets the current time, but always
   later than every action already applied (a Lamport clock), so it is
   ordered after everything the client has seen, even if the client's clock
@@ -201,6 +201,36 @@ yet (pending writes, a pending truncate, a file created but not flushed):
   handle any more; its data is kept under the new name.
 - An **addDirectory** of a directory that already exists keeps the existing
   one and its contents.
+- An action inside a directory that is kept only for local data (marked, as
+  above) is rejected, as on every other client, where the directory doesn't
+  exist. Local entries in it are kept, so a file whose addFile is rejected
+  stays unflushed, and its flush adds the directory and the file again.
+
+## Out-of-order actions
+
+An action file can arrive after actions with later times (a slow upload, a
+client whose clock is behind, a tar file of packed actions). bucse-mount
+then undoes every applied action ordered after the first new one, from the
+last one, and applies them again together with the new ones, in the order of
+their times. The result is the same as after a remount, which applies all the
+actions in that order. This happens with the mutex held, so no operation sees
+the tree in between.
+
+Each action remembers, in memory only (not in the action file), how it
+changed the tree and the state it replaced: e.g. an editFile the previous
+content, a removeFile the removed file, a removeDirectory whether the
+directory was removed or only kept for local data. A rejected action, or one
+that changed nothing, is not undone. Undoing a local action works the same
+way: the operation records it when it adds the action.
+
+Since actions are undone from the last one, the tree is exactly as the action
+left it, except for local changes that haven't been written yet. They are
+kept, by the same rules as in "Concurrent changes": e.g. a file added by the
+undone action that has unflushed changes is kept as a local file, which the
+action takes again when it's applied again. A file created locally (not
+flushed yet) where the undone action had removed a file or a directory is put
+aside, and put back once all actions are applied again (taking the file
+that is there then, if nothing was written to the local one).
 
 ## Non-goals
 

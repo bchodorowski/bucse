@@ -1,9 +1,8 @@
 #!/bin/python3
 
 # An addDirectory of a directory that already exists must not add a second
-# one: two clients can create the same directory, and an out-of-order action
-# makes the actions after it be applied again (undoAction() is not
-# implemented yet).
+# one: two clients can create the same directory. An out-of-order action
+# makes the actions after it be undone and applied again.
 
 import bucseTests
 import json

@@ -23,10 +23,9 @@ bucseTests.mountDirs()
 
 mountDir = "test_%d" % bucseTests.pid
 
-# One action file, so bucse-mount reads all three actions at once. Markers
-# (waitForActionsHandled()) would get earlier times than these actions, and
-# out-of-order actions can't be undone yet, so only waitForFiles() is used
-# after them.
+# One action file, so bucse-mount reads all three actions at once. Only
+# waitForFiles() is used after them: markers (waitForActionsHandled()) would
+# get earlier times than these actions.
 futureTime = int(time.time() * 1000000) + 3600 * 1000000
 actions = []
 for i, (path, actionType) in enumerate([("removed", "addFile"),
