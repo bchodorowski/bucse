@@ -47,7 +47,8 @@ assert os.fstat(fd).st_size == TRUNC_SIZE
 os.close(fd)
 
 bucseTests.verifyFailOnError(True, allowedErrors = [
-    "destLocalPutStorageFile: fopen(): Permission denied",
+    "writeWholeFile: fopen(): Permission denied",
+    "destLocalPutStorageFile: writeWholeFile() failed",
     "destSshPutStorageFile: sftp_open()",
     "flushFile: putStorageFile failed",
 ])
