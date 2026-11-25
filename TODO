@@ -1,4 +1,3 @@
-- strange error when using ssh destination with no proper entry in authorized_keys present
 - historic snapshot option
 - docs:
  - README:

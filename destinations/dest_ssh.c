@@ -401,10 +401,23 @@ int destSshInit(char* repository)
 	// Authenticate ourselves
 	rc = ssh_userauth_publickey_auto(bucseSshSession, NULL, NULL);
 
-	if (rc == SSH_AUTH_ERROR)
+	// SSH_AUTH_DENIED: no key was accepted; SSH_AUTH_PARTIAL: the server
+	// wants another method too (e.g. a password), which bucse doesn't do.
+	// Either way the session isn't authenticated, and sftp_new() would fail
+	// with a misleading error.
+	if (rc != SSH_AUTH_SUCCESS)
 	{
-		logPrintf(LOG_ERROR, "Authentication failed: %s\n",
-			ssh_get_error(bucseSshSession));
+		if (rc == SSH_AUTH_ERROR)
+			logPrintf(LOG_ERROR, "Authentication failed: %s\n",
+				ssh_get_error(bucseSshSession));
+		else if (rc == SSH_AUTH_PARTIAL)
+			logPrintf(LOG_ERROR, "Authentication failed: %s accepted the key, but "
+				"requires another authentication method too, which bucse "
+				"doesn't support\n", repositoryHost);
+		else
+			logPrintf(LOG_ERROR, "Authentication failed: %s accepted none of the "
+				"public keys (is the key in ~/.ssh/authorized_keys on the "
+				"host?)\n", repositoryHost);
 		ssh_disconnect(bucseSshSession);
 		ssh_free(bucseSshSession);
 		bucseSshSession = NULL;
