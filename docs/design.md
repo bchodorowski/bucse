@@ -52,6 +52,17 @@ Ranked: when goals conflict, the higher one wins.
 
 - `bucse-init` — the program that initialises a repository.
 - `bucse-mount` — the program that mounts a repository.
+- `bucse-archive REPOSITORY` — a maintenance tool that packs the action
+  files of a repository (a local path, `file://` or `ssh://`, as for
+  `bucse-mount -r`) into one tar file and removes them. Only files last
+  modified more than 5 minutes ago are packed, since a newer one may still be
+  being uploaded (action files are written under their final name). The tar
+  file is written under a name that starts with a dot (bucse-mount ignores
+  such files) and renamed when complete. A client that has the repository
+  mounted meanwhile already has the packed actions: when it reads the tar
+  file, they are dropped as duplicates (found by their contents, not by the
+  file name), and a file removed after it listed the directory is skipped.
+  For `ssh://` it runs itself on the remote host through ssh.
 - `operations/` — FUSE callbacks.
 - `destinations/` — storage backends. Each destination decides on its own
   how it finds new action files (its `tick()` is called about once a second),

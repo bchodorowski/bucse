@@ -529,7 +529,13 @@ int destLocalTick()
 
 		FILE* file = fopen(actionFilePath, "r");
 		if (file == NULL) {
-			logPrintf(LOG_ERROR, "destLocalTick: fopen(): %s\n", strerror(errno));
+			if (errno == ENOENT) {
+				// removed since the listing, e.g. packed into a tar
+				// file by bucse-archive
+				logPrintf(LOG_DEBUG, "action file %s removed, skipped\n", getAction(&newActions, i));
+			} else {
+				logPrintf(LOG_ERROR, "destLocalTick: fopen(): %s\n", strerror(errno));
+			}
 			continue;
 		}
 

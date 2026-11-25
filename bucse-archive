@@ -1,0 +1,108 @@
+#!/bin/sh
+#
+# Packs the action files of a bucse repository into one tar file in its
+# actions/ directory, and removes the packed files.
+#
+# Only files last modified more than 5 minutes ago are packed: bucse-mount
+# writes an action file under its final name, so a newer one may still be
+# being uploaded, and packing (and removing) it then would lose the action.
+#
+# Usage: bucse-archive REPOSITORY
+#   REPOSITORY is given the same way as to bucse-mount:
+#     PATH or file://PATH              a local repository
+#     ssh://[USER@]HOST[:PORT]/PATH    a repository on HOST, reached with ssh;
+#                                      /~/PATH is relative to the home
+#                                      directory
+#   For ssh, this script is sent to HOST and run there with sh, so HOST needs
+#   find, tar, xargs (with -print0 / --null / -0) and sync.
+
+usage() {
+	echo "Usage: $0 REPOSITORY" >&2
+	echo "  REPOSITORY: PATH, file://PATH or ssh://[USER@]HOST[:PORT]/PATH" >&2
+	echo "  (ssh://HOST/~/PATH for a path relative to the home directory)" >&2
+	exit 2
+}
+
+# Quotes $1 for a shell.
+quote() {
+	printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"
+}
+
+archiveSsh() {
+	rest="${1#ssh://}"
+	case "$rest" in
+		*/*) ;;
+		*) echo "Invalid repository: $1" >&2; usage ;;
+	esac
+	hostPort="${rest%%/*}"
+	path="/${rest#*/}"
+	host="$hostPort"
+	port=""
+	case "$hostPort" in
+		*:*)
+			host="${hostPort%:*}"
+			port="${hostPort##*:}"
+			;;
+	esac
+	case "$port" in
+		*[!0-9]*) echo "Invalid port: $port" >&2; usage ;;
+	esac
+	if [ -z "$host" ]; then
+		echo "Invalid repository: $1" >&2
+		usage
+	fi
+	# like bucse-mount: /~/PATH is relative to the home directory, where
+	# the remote shell starts
+	case "$path" in
+		'/~/'*) path="${path#???}" ;;
+	esac
+	[ -n "$path" ] || path="."
+
+	# file:// so that the remote side never takes the path for an ssh one
+	ssh ${port:+-p "$port"} -- "$host" sh -s -- "$(quote "file://$path")" < "$0"
+}
+
+archiveLocal() {
+	repo="${1#file://}"
+	if [ ! -f "$repo/repository.json" ] || [ ! -d "$repo/actions" ]; then
+		echo "Not a bucse repository: $repo" >&2
+		exit 1
+	fi
+	cd -- "$repo/actions" || exit 1
+
+	randhex() { head -c 20 /dev/urandom | od -An -tx1 | tr -d ' \n'; }
+	archive="$(randhex).tar"
+	# bucse-mount ignores files whose name starts with a dot, so it never
+	# reads the tar file before it is complete
+	tmpArchive=".$archive.tmp"
+
+	tmplist="$(mktemp)" || exit 1
+	trap 'rm -f "$tmplist" "$tmpArchive"' EXIT
+
+	# not the tar files, nor what bucse-mount ignores (e.g. a temporary tar
+	# file left by an interrupted run)
+	find . -maxdepth 1 -type f ! -name '*.tar' ! -name '.*' -mmin +5 -print0 \
+		> "$tmplist" || exit 1
+	if [ ! -s "$tmplist" ]; then
+		echo "No action files older than 5 minutes to pack"
+		exit 0
+	fi
+
+	# the tar file and its directory entry are on disk before the packed
+	# files are removed
+	tar --null -T "$tmplist" -cf "$tmpArchive" \
+		&& sync "$tmpArchive" \
+		&& mv -- "$tmpArchive" "$archive" \
+		&& sync . \
+		&& xargs -0 rm -- < "$tmplist" \
+		|| exit 1
+
+	echo "Created archive: $archive"
+}
+
+[ $# -eq 1 ] || usage
+
+case "$1" in
+	ssh://*) archiveSsh "$1" ;;
+	*) archiveLocal "$1" ;;
+esac

@@ -1,4 +1,3 @@
-- consider what happens when one packs actions into a tar file and deletes action files when bucse is running
 - strange error when using ssh destination with no proper entry in authorized_keys present
 - historic snapshot option
 - docs:

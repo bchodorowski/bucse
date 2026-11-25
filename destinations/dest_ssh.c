@@ -793,8 +793,14 @@ int destSshTick()
 
 		sftp_file file = sftp_open(bucseSftpSession, actionFilePath, O_RDONLY, 0);
 		if (file == NULL) {
-			logPrintf(LOG_ERROR, "destSshTick: sftp_open(): %s\n",
-				ssh_get_error(bucseSshSession));
+			if (sftp_get_error(bucseSftpSession) == SSH_FX_NO_SUCH_FILE) {
+				// removed since the listing, e.g. packed into a tar
+				// file by bucse-archive
+				logPrintf(LOG_DEBUG, "action file %s removed, skipped\n", getAction(&newActions, i));
+			} else {
+				logPrintf(LOG_ERROR, "destSshTick: sftp_open(): %s\n",
+					ssh_get_error(bucseSshSession));
+			}
 			continue;
 		}
 
