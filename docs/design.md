@@ -152,14 +152,26 @@ inconsistent state. This rests on two rules:
   flushed, all its new blocks are stored in `storage/` first. The action file
   is written only if every block was stored successfully, so a valid action
   never points to missing blocks. A failed flush can leave unused blocks in
-  `storage/`, but they don't affect the repository's contents.
+  `storage/`, but they don't affect the repository's contents. The blocks
+  are also on disk before the action file is written, so this holds after a
+  power loss too. They aren't synced one by one: the local destination calls
+  `syncfs()` on `storage/` once before the action file is written, and the
+  ssh destination fsyncs all the blocks written since the last action at
+  that point (`fsync@openssh.com`).
 
 As a result, an interrupted operation is either fully applied or not
 applied at all. The worst case is that the last action is lost.
 
 A file's local changes (writes, a truncate, a create) are written to the
 repository when the file is closed, before `close()` returns, and a truncate
-by path (`truncate()`, with no open file) before it returns.
+by path (`truncate()`, with no open file) before it returns. Every action
+file is fsynced (and, for the local destination, so is `actions/`) before
+the operation returns, so an operation that has returned survives a power
+loss. The same goes for `repository.json` and `repository` in `bucse-init`.
+SFTP can't sync a directory, so with the ssh destination the new files'
+directory entries depend on the server's filesystem (ext4, for example,
+commits them with the file's fsync). If the server doesn't support
+`fsync@openssh.com`, bucse-mount warns and nothing is synced.
 
 ## Concurrent changes
 

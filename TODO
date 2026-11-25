@@ -30,6 +30,5 @@
   - HTTP library (libcurl?) and AWS request signing (openssl) -- a new dependency
 - implement undo actions (undoAction() in actions.c is a stub, so out-of-order actions are
   applied again on top of the later ones, e.g. "doAction: file already exists" in test11)
-- no fsync() in the local destination: after a power loss an action file may be saved without its blocks
 - PBKDF2-SHA1 with 1 iteration -- crypto-related, discuss first
 - aes encryption backend (AES-256-CBC) has no integrity check (MAC); consider authenticated encryption, e.g. AES-GCM

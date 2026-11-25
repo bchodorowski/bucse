@@ -5,6 +5,9 @@
  * files in the filesystem.
  */
 
+// for syncfs()
+#define _GNU_SOURCE
+
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -14,6 +17,8 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include <json.h>
 
@@ -96,6 +101,95 @@ static int findAction(Actions *actions, char* actionNameToFound)
 }
 
 static Actions handledActions;
+
+// set when a storage file was written but storage/ hasn't been synced since
+static int storageUnsynced;
+
+// fsync()s a file or a directory, so that its contents (for a directory: its
+// entries) are on disk
+static int syncPath(const char* path)
+{
+	int fd = open(path, O_RDONLY);
+	if (fd < 0) {
+		logPrintf(LOG_ERROR, "syncPath: open(): %s\n", strerror(errno));
+		return 1;
+	}
+	if (fsync(fd) != 0) {
+		logPrintf(LOG_ERROR, "syncPath: fsync(): %s\n", strerror(errno));
+		close(fd);
+		return 2;
+	}
+	if (close(fd) != 0) {
+		logPrintf(LOG_ERROR, "syncPath: close(): %s\n", strerror(errno));
+		return 3;
+	}
+	return 0;
+}
+
+// Makes every storage file written so far durable, with one syncfs() instead
+// of an fsync() per file. It syncs the whole filesystem that holds storage/
+// (also data that isn't bucse's), but that's usually cheaper than an fsync()
+// of each of the several blocks a flush writes.
+static int syncStorage()
+{
+	if (!storageUnsynced) {
+		return 0;
+	}
+
+	int fd = open(repositoryStoragePath, O_RDONLY);
+	if (fd < 0) {
+		logPrintf(LOG_ERROR, "syncStorage: open(): %s\n", strerror(errno));
+		return 1;
+	}
+	if (syncfs(fd) != 0) {
+		logPrintf(LOG_ERROR, "syncStorage: syncfs(): %s\n", strerror(errno));
+		close(fd);
+		return 2;
+	}
+	close(fd);
+
+	storageUnsynced = 0;
+	return 0;
+}
+
+// Writes buf to a new file at path. With doSync, the file is fsync()ed before
+// it's closed.
+static int writeWholeFile(const char* path, char *buf, size_t size, int doSync)
+{
+	FILE* file = fopen(path, "wb");
+	if (file == NULL) {
+		logPrintf(LOG_ERROR, "writeWholeFile: fopen(): %s\n", strerror(errno));
+		return 1;
+	}
+
+	size_t bytesWritten = 0;
+	while (!ferror(file) && bytesWritten < size) {
+		bytesWritten += fwrite(buf + bytesWritten, 1, size - bytesWritten, file);
+	}
+	if (ferror(file)) {
+		logPrintf(LOG_ERROR, "writeWholeFile: ferror() returned a non-zero value\n");
+		fclose(file);
+		return 2;
+	}
+	if (doSync) {
+		if (fflush(file) != 0) {
+			logPrintf(LOG_ERROR, "writeWholeFile: fflush(): %s\n", strerror(errno));
+			fclose(file);
+			return 3;
+		}
+		if (fsync(fileno(file)) != 0) {
+			logPrintf(LOG_ERROR, "writeWholeFile: fsync(): %s\n", strerror(errno));
+			fclose(file);
+			return 4;
+		}
+	}
+	if (fclose(file) != 0) {
+		logPrintf(LOG_ERROR, "writeWholeFile: fclose(): %s\n", strerror(errno));
+		return 5;
+	}
+
+	return 0;
+}
 
 int destLocalInit(char* repository)
 {
@@ -240,25 +334,14 @@ int destLocalPutStorageFile(const char* filename, char *buf, size_t size)
 
 	snprintf(storageFilePath, MAX_FILEPATH_LEN, "%s/%s", repositoryStoragePath, filename);
 
-	FILE* file = fopen(storageFilePath, "wb");
+	// not synced here: syncStorage() syncs all the blocks of a flush at once,
+	// before the action that uses them is written
+	storageUnsynced = 1;
+	int res = writeWholeFile(storageFilePath, buf, size, 0);
 	free(storageFilePath);
-	if (file == NULL) {
-		logPrintf(LOG_ERROR, "destLocalPutStorageFile: fopen(): %s\n", strerror(errno));
+	if (res != 0) {
+		logPrintf(LOG_ERROR, "destLocalPutStorageFile: writeWholeFile() failed: %d\n", res);
 		return 2;
-	}
-
-	size_t bytesWritten = 0;
-	while (!ferror(file) && bytesWritten < size) {
-		bytesWritten += fwrite(buf + bytesWritten, 1, size - bytesWritten, file);
-	}
-	if (ferror(file)) {
-		logPrintf(LOG_ERROR, "destLocalPutStorageFile: ferror() returned a non-zero value\n");
-		fclose(file);
-		return 3;
-	}
-	if (fclose(file) != 0) {
-		logPrintf(LOG_ERROR, "destLocalPutStorageFile: fclose(): %s\n", strerror(errno));
-		return 4;
 	}
 
 	return 0;
@@ -307,33 +390,32 @@ int destLocalGetStorageFile(const char* filename, char *buf, size_t *size)
 
 int destLocalAddActionFile(char* filename, char *buf, size_t size)
 {
+	// the blocks the action uses are on disk before the action file is
+	// written, so that after a power loss a valid action never points to
+	// missing blocks
+	if (syncStorage() != 0) {
+		logPrintf(LOG_ERROR, "destLocalAddActionFile: syncStorage() failed\n");
+		return 1;
+	}
+
 	char* actionFilePath = malloc(MAX_FILEPATH_LEN);
 	if (actionFilePath == NULL) {
 		logPrintf(LOG_ERROR, "destLocalAddActionFile: malloc(): %s\n", strerror(errno));
 
-		return 1;
+		return 2;
 	}
 
 	snprintf(actionFilePath, MAX_FILEPATH_LEN, "%s/%s", repositoryActionsPath, filename);
 
-	FILE* file = fopen(actionFilePath, "wb");
+	int res = writeWholeFile(actionFilePath, buf, size, 1);
 	free(actionFilePath);
-	if (file == NULL) {
-		logPrintf(LOG_ERROR, "destLocalAddActionFile: fopen(): %s\n", strerror(errno));
-		return 2;
-	}
-
-	size_t bytesWritten = 0;
-	while (!ferror(file) && bytesWritten < size) {
-		bytesWritten += fwrite(buf + bytesWritten, 1, size - bytesWritten, file);
-	}
-	if (ferror(file)) {
-		logPrintf(LOG_ERROR, "destLocalAddActionFile: ferror() returned a non-zero value\n");
-		fclose(file);
+	if (res != 0) {
+		logPrintf(LOG_ERROR, "destLocalAddActionFile: writeWholeFile() failed: %d\n", res);
 		return 3;
 	}
-	if (fclose(file) != 0) {
-		logPrintf(LOG_ERROR, "destLocalAddActionFile: fclose(): %s\n", strerror(errno));
+	// the action file's directory entry
+	if (syncPath(repositoryActionsPath) != 0) {
+		logPrintf(LOG_ERROR, "destLocalAddActionFile: syncPath() failed\n");
 		return 4;
 	}
 
@@ -343,24 +425,15 @@ int destLocalAddActionFile(char* filename, char *buf, size_t size)
 
 int destLocalPutRepositoryJsonFile(char *buf, size_t size)
 {
-	FILE* file = fopen(repositoryJsonFilePath, "wb");
-	if (file == NULL) {
-		logPrintf(LOG_ERROR, "destLocalPutRepositoryJsonFile: fopen(): %s\n", strerror(errno));
+	int res = writeWholeFile(repositoryJsonFilePath, buf, size, 1);
+	if (res != 0) {
+		logPrintf(LOG_ERROR, "destLocalPutRepositoryJsonFile: writeWholeFile() failed: %d\n", res);
 		return 1;
 	}
-
-	size_t bytesWritten = 0;
-	while (!ferror(file) && bytesWritten < size) {
-		bytesWritten += fwrite(buf + bytesWritten, 1, size - bytesWritten, file);
-	}
-	if (ferror(file)) {
-		logPrintf(LOG_ERROR, "destLocalPutRepositoryJsonFile: ferror() returned a non-zero value\n");
-		fclose(file);
+	// the file's directory entry (and those of actions/ and storage/)
+	if (syncPath(repositoryPath) != 0) {
+		logPrintf(LOG_ERROR, "destLocalPutRepositoryJsonFile: syncPath() failed\n");
 		return 2;
-	}
-	if (fclose(file) != 0) {
-		logPrintf(LOG_ERROR, "destLocalPutRepositoryJsonFile: fclose(): %s\n", strerror(errno));
-		return 3;
 	}
 
 	return 0;
@@ -399,24 +472,15 @@ int destLocalGetRepositoryJsonFile(char *buf, size_t *size)
 
 int destLocalPutRepositoryFile(char *buf, size_t size)
 {
-	FILE* file = fopen(repositoryFilePath, "wb");
-	if (file == NULL) {
-		logPrintf(LOG_ERROR, "destLocalPutRepositoryFile: fopen(): %s\n", strerror(errno));
+	int res = writeWholeFile(repositoryFilePath, buf, size, 1);
+	if (res != 0) {
+		logPrintf(LOG_ERROR, "destLocalPutRepositoryFile: writeWholeFile() failed: %d\n", res);
 		return 1;
 	}
-
-	size_t bytesWritten = 0;
-	while (!ferror(file) && bytesWritten < size) {
-		bytesWritten += fwrite(buf + bytesWritten, 1, size - bytesWritten, file);
-	}
-	if (ferror(file)) {
-		logPrintf(LOG_ERROR, "destLocalPutRepositoryFile: ferror() returned a non-zero value\n");
-		fclose(file);
+	// the file's directory entry (and those of actions/ and storage/)
+	if (syncPath(repositoryPath) != 0) {
+		logPrintf(LOG_ERROR, "destLocalPutRepositoryFile: syncPath() failed\n");
 		return 2;
-	}
-	if (fclose(file) != 0) {
-		logPrintf(LOG_ERROR, "destLocalPutRepositoryFile: fclose(): %s\n", strerror(errno));
-		return 3;
 	}
 
 	return 0;

@@ -226,6 +226,72 @@ static ssize_t sftp_read_multiple_calls(sftp_file file, void* buf, size_t size)
 
 static ssh_session bucseSshSession;
 static sftp_session bucseSftpSession;
+
+// whether the server supports fsync@openssh.com
+static int fsyncSupported;
+// storage files written since the last action file, not fsync()ed yet
+static Actions unsyncedStorageFiles;
+
+// fsync()s an open file on the server, if the server can do it
+static int syncFile(sftp_file file)
+{
+	if (!fsyncSupported) {
+		return 0;
+	}
+	if (sftp_fsync(file) != 0) {
+		logPrintf(LOG_ERROR, "syncFile: sftp_fsync(): %d\n",
+			sftp_get_error(bucseSftpSession));
+		return 1;
+	}
+	return 0;
+}
+
+// fsync()s the storage files written since the last call. Done once before an
+// action file is written, not after each block, so that the server can write
+// the blocks of a flush out while the next ones are being uploaded. SFTP can't
+// sync a directory, so their directory entries rely on the server's filesystem
+// (e.g. ext4 commits them together with the file's fsync()).
+static int syncStorageFiles()
+{
+	int result = 0;
+	char* storageFilePath = NULL;
+
+	if (!fsyncSupported || unsyncedStorageFiles.len == 0) {
+		goto out;
+	}
+
+	storageFilePath = malloc(MAX_FILEPATH_LEN);
+	if (storageFilePath == NULL) {
+		logPrintf(LOG_ERROR, "syncStorageFiles: malloc(): %s\n", strerror(errno));
+		result = 1;
+		goto out;
+	}
+
+	for (int i = 0; i < unsyncedStorageFiles.len; i++) {
+		snprintf(storageFilePath, MAX_FILEPATH_LEN, "%s/%s", repositoryStoragePath,
+			getAction(&unsyncedStorageFiles, i));
+		sftp_file file = sftp_open(bucseSftpSession, storageFilePath, O_RDONLY, 0);
+		if (file == NULL) {
+			logPrintf(LOG_ERROR, "syncStorageFiles: sftp_open(): %d\n",
+				sftp_get_error(bucseSftpSession));
+			result = 2;
+			goto out;
+		}
+		int res = syncFile(file);
+		sftp_close(file);
+		if (res != 0) {
+			result = 3;
+			goto out;
+		}
+	}
+
+out:
+	free(storageFilePath);
+	// also on an error: the action isn't written then, and the next one
+	// doesn't need these blocks
+	freeActions(&unsyncedStorageFiles);
+	return result;
+}
 static void invalidDestination() {
 	logPrintf(LOG_ERROR, "Invalid destination. Expected format ssh://[host]{:[port]}/[path]\n");
 }
@@ -452,6 +518,13 @@ int destSshInit(char* repository)
 		return 18;
 	}
 
+	fsyncSupported = sftp_extension_supported(bucseSftpSession, "fsync@openssh.com", "1");
+	if (!fsyncSupported) {
+		logPrintf(LOG_WARNING, "The server doesn't support fsync@openssh.com: "
+			"after a power loss of the server, the last changes may be lost "
+			"or an action may point to missing blocks\n");
+	}
+
 	return 0;
 }
 
@@ -460,6 +533,7 @@ void destSshShutdown()
 	cleanupStrings();
 
 	freeActions(&handledActions);
+	freeActions(&unsyncedStorageFiles);
 
 	if (bucseSftpSession != NULL) {
 		sftp_free(bucseSftpSession);
@@ -559,6 +633,11 @@ int destSshPutStorageFile(const char* filename, char *buf, size_t size)
 		return 4;
 	}
 
+	// fsync()ed by syncStorageFiles() before the action that uses it
+	if (addAction(&unsyncedStorageFiles, (char*)filename) != 0) {
+		return 5;
+	}
+
 	return 0;
 }
 
@@ -599,6 +678,14 @@ int destSshGetStorageFile(const char* filename, char *buf, size_t *size)
 
 int destSshAddActionFile(char* filename, char *buf, size_t size)
 {
+	// the blocks the action uses are on disk before the action file is
+	// written, so that after a power loss a valid action never points to
+	// missing blocks
+	if (syncStorageFiles() != 0) {
+		logPrintf(LOG_ERROR, "destSshAddActionFile: syncStorageFiles() failed\n");
+		return 5;
+	}
+
 	char* actionFilePath = malloc(MAX_FILEPATH_LEN);
 	if (actionFilePath == NULL) {
 		logPrintf(LOG_ERROR, "destSshAddActionFile: malloc(): %s\n", strerror(errno));
@@ -622,6 +709,10 @@ int destSshAddActionFile(char* filename, char *buf, size_t size)
 			sftp_get_error(bucseSftpSession));
 		sftp_close(file);
 		return 3;
+	}
+	if (syncFile(file) != 0) {
+		sftp_close(file);
+		return 6;
 	}
 	if (sftp_close(file) != SSH_OK) {
 		logPrintf(LOG_ERROR, "destSshAddActionFile: sftp_close(): %d\n",
@@ -648,6 +739,10 @@ int destSshPutRepositoryJsonFile(char *buf, size_t size)
 			sftp_get_error(bucseSftpSession));
 		sftp_close(file);
 		return 2;
+	}
+	if (syncFile(file) != 0) {
+		sftp_close(file);
+		return 5;
 	}
 	if (sftp_close(file) != SSH_OK) {
 		logPrintf(LOG_ERROR, "destSshPutRepositoryJsonFile: sftp_close(): %d\n",
@@ -697,6 +792,10 @@ int destSshPutRepositoryFile(char *buf, size_t size)
 			sftp_get_error(bucseSftpSession));
 		sftp_close(file);
 		return 2;
+	}
+	if (syncFile(file) != 0) {
+		sftp_close(file);
+		return 5;
 	}
 	if (sftp_close(file) != SSH_OK) {
 		logPrintf(LOG_ERROR, "destSshPutRepositoryFile: sftp_close(): %d\n",
