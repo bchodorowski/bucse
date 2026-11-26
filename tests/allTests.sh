@@ -58,9 +58,10 @@ FAILED=0
 
 # cleanUp <pid> <repository path>: removes what a failed test left behind
 cleanUp() {
-	if mountpoint -q "test_$1" 2>/dev/null; then
-		fusermount3 -u "test_$1" 2>/dev/null || fusermount3 -uz "test_$1"
-	fi
+	# not checked with mountpoint: it fails on a mount whose bucse-mount
+	# crashed ("Transport endpoint is not connected"), which must be
+	# unmounted too. Nothing happens if it isn't mounted.
+	fusermount3 -u "test_$1" 2>/dev/null || fusermount3 -uz "test_$1" 2>/dev/null
 	# a bucse-mount that is still running (e.g. not mounted yet); wait until
 	# it exits (up to 30 s, valgrind needs a while)
 	pkill -f "test_$1_repo" 2>/dev/null

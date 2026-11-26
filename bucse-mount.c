@@ -666,9 +666,10 @@ int main(int argc, char** argv)
 		}
 	}
 
-	cacheCleanup();
-	// free filesystem
+	// free filesystem; it flushes files with unwritten changes, which may
+	// read blocks through the cache, so the cache is cleaned up after it
 	recursivelyFreeFilesystem(root);
+	cacheCleanup();
 	destination->shutdown();
 
 	actionsCleanup();

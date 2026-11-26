@@ -34,25 +34,16 @@ static int getBlockSize(size_t size)
 
 	// we want block size to be a power of 2,
 	// in general, we aim to have between 4 and 8 blocks in a file,
-	int result = 1;
+	// unless we hit the MIN_BLOCK_SIZE or MAX_BLOCK_SIZE edge cases.
+	// The size is a size_t and the block size never exceeds
+	// MAX_BLOCK_SIZE, so nothing overflows for files of 4 GB and more.
 	size /= 4;
-
-	while (size) {
-		size >>= 1;
-		result <<= 1;
-	}
-	result >>= 1;
-
-	// unless we hit those edge cases
-	if (result < MIN_BLOCK_SIZE) {
-		return MIN_BLOCK_SIZE;
+	size_t result = MIN_BLOCK_SIZE;
+	while (result < MAX_BLOCK_SIZE && result * 2 <= size) {
+		result *= 2;
 	}
 
-	if (result > MAX_BLOCK_SIZE) {
-		return MAX_BLOCK_SIZE;
-	}
-
-	return result;
+	return (int)result;
 }
 
 static int determineBlocksToWrite(char *blocksToWrite, off_t offset, size_t size, int fileBlockSize)

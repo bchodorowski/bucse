@@ -1,0 +1,1131 @@
+['write', 0, 4096]
+['write', 2147483548, 4096]
+['write', 4294967346, 4096]
+Traceback (most recent call last):
+  File "/home/chomzee/repos/bucse/tests/./stressTest6.py", line 23, in <module>
+    bucseTests.mirrorClose(bigFile, fd, fdMirror)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/chomzee/repos/bucse/tests/bucseTests.py", line 516, in mirrorClose
+    os.close(fd)
+    ~~~~~~~~^^^^
+ConnectionAbortedError: [Errno 103] Software caused connection abort
+
+=== running processes:
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root           1  0.0  0.1  25232 14228 ?        Ss   Nov25   0:38 /sbin/init
+root           2  0.0  0.0      0     0 ?        S    Nov25   0:00 [kthreadd]
+root           3  0.0  0.0      0     0 ?        S    Nov25   0:00 [pool_workqueue_release]
+root           4  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-kvfree_rcu_reclaim]
+root           5  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-rcu_gp]
+root           6  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-sync_wq]
+root           7  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-slub_flushwq]
+root           8  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-netns]
+root          13  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-mm_percpu_wq]
+root          14  0.0  0.0      0     0 ?        I    Nov25   0:00 [rcu_tasks_kthread]
+root          15  0.0  0.0      0     0 ?        I    Nov25   0:00 [rcu_tasks_rude_kthread]
+root          16  0.0  0.0      0     0 ?        I    Nov25   0:00 [rcu_tasks_trace_kthread]
+root          17  0.0  0.0      0     0 ?        S    Nov25   0:07 [ksoftirqd/0]
+root          18  0.0  0.0      0     0 ?        I    Nov25   1:10 [rcu_preempt]
+root          19  0.0  0.0      0     0 ?        S    Nov25   0:00 [rcu_exp_par_gp_kthread_worker/0]
+root          20  0.0  0.0      0     0 ?        S    Nov25   0:00 [rcu_exp_gp_kthread_worker]
+root          21  0.0  0.0      0     0 ?        S    Nov25   0:01 [migration/0]
+root          22  0.0  0.0      0     0 ?        S    Nov25   0:00 [idle_inject/0]
+root          23  0.0  0.0      0     0 ?        S    Nov25   0:00 [cpuhp/0]
+root          24  0.0  0.0      0     0 ?        S    Nov25   0:00 [cpuhp/2]
+root          25  0.0  0.0      0     0 ?        S    Nov25   0:00 [idle_inject/2]
+root          26  0.0  0.0      0     0 ?        S    Nov25   0:02 [migration/2]
+root          27  0.0  0.0      0     0 ?        S    Nov25   0:06 [ksoftirqd/2]
+root          30  0.0  0.0      0     0 ?        S    Nov25   0:00 [cpuhp/1]
+root          31  0.0  0.0      0     0 ?        S    Nov25   0:00 [idle_inject/1]
+root          32  0.0  0.0      0     0 ?        S    Nov25   0:01 [migration/1]
+root          33  0.0  0.0      0     0 ?        S    Nov25   0:06 [ksoftirqd/1]
+root          36  0.0  0.0      0     0 ?        S    Nov25   0:00 [cpuhp/3]
+root          37  0.0  0.0      0     0 ?        S    Nov25   0:00 [idle_inject/3]
+root          38  0.0  0.0      0     0 ?        S    Nov25   0:01 [migration/3]
+root          39  0.0  0.0      0     0 ?        S    Nov25   0:05 [ksoftirqd/3]
+root          46  0.0  0.0      0     0 ?        S    Nov25   0:00 [kdevtmpfs]
+root          47  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-inet_frag_wq]
+root          48  0.0  0.0      0     0 ?        S    Nov25   0:00 [kauditd]
+root          49  0.0  0.0      0     0 ?        S    Nov25   0:00 [khungtaskd]
+root          50  0.0  0.0      0     0 ?        S    Nov25   0:00 [oom_reaper]
+root          51  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-writeback]
+root          52  0.1  0.0      0     0 ?        S    Nov25   1:35 [kcompactd0]
+root          53  0.0  0.0      0     0 ?        SN   Nov25   0:00 [ksmd]
+root          54  0.0  0.0      0     0 ?        SN   Nov25   0:07 [khugepaged]
+root          55  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-kintegrityd]
+root          56  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-kblockd]
+root          57  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-blkcg_punt_bio]
+root          58  0.0  0.0      0     0 ?        S    Nov25   0:07 [irq/9-acpi]
+root          61  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-tpm_dev_wq]
+root          62  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-edac-poller]
+root          63  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-devfreq_wq]
+root          64  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-quota_events_unbound]
+root          65  0.0  0.0      0     0 ?        I<   Nov25   0:08 [kworker/0:1H-events_highpri]
+root          66  0.0  0.0      0     0 ?        S    Nov25   0:59 [kswapd0]
+root          74  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-kthrotld]
+root          78  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-acpi_thermal_pm]
+root          79  0.0  0.0      0     0 ?        S    Nov25   0:00 [hwrng]
+root          81  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-mld]
+root          82  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-ipv6_addrconf]
+root          83  0.0  0.0      0     0 ?        I<   Nov25   0:03 [kworker/1:1H-events_highpri]
+root          88  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-kstrp]
+root         141  0.0  0.0      0     0 ?        I<   Nov25   0:03 [kworker/3:1H-events_highpri]
+root         211  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-firewire]
+root         212  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-firewire_ohci]
+root         215  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-ata_sff]
+root         216  0.0  0.0      0     0 ?        S    Nov25   0:00 [watchdogd]
+root         217  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-sdhci]
+root         218  0.0  0.0      0     0 ?        S    Nov25   0:00 [irq/16-mmc0]
+root         221  0.0  0.0      0     0 ?        S    Nov25   0:00 [scsi_eh_0]
+root         222  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-scsi_tmf_0]
+root         223  0.0  0.0      0     0 ?        S    Nov25   0:00 [scsi_eh_1]
+root         224  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-scsi_tmf_1]
+root         225  0.0  0.0      0     0 ?        S    Nov25   0:00 [scsi_eh_2]
+root         226  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-scsi_tmf_2]
+root         227  0.0  0.0      0     0 ?        S    Nov25   0:00 [scsi_eh_3]
+root         228  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-scsi_tmf_3]
+root         229  0.0  0.0      0     0 ?        S    Nov25   0:00 [scsi_eh_4]
+root         230  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-scsi_tmf_4]
+root         231  0.0  0.0      0     0 ?        S    Nov25   0:00 [scsi_eh_5]
+root         232  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-scsi_tmf_5]
+root         245  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-ttm]
+root         246  0.0  0.0      0     0 ?        S    Nov25   0:00 [card0-crtc0]
+root         247  0.0  0.0      0     0 ?        S    Nov25   0:00 [card0-crtc1]
+root         286  0.0  0.0      0     0 ?        S    Nov25   0:00 [jbd2/sda1-8]
+root         287  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-ext4-rsv-conversion]
+root         322  0.0  0.0      0     0 ?        S    Nov25   0:00 [psimon]
+root         335  0.0  0.3  91756 23812 ?        Ss   Nov25   0:09 /usr/lib/systemd/systemd-journald
+root         392  0.0  0.1  37804  8108 ?        Ss   Nov25   0:05 /usr/lib/systemd/systemd-udevd
+root         402  0.0  0.0      0     0 ?        S    Nov25   0:00 [psimon]
+root         440  0.0  0.0      0     0 ?        S    Nov25   0:00 [ips-adjust]
+root         441  0.0  0.0      0     0 ?        S    Nov25   0:10 [ips-monitor]
+root         457  0.0  0.0      0     0 ?        S    Nov25   0:00 [irq/27-mei_me]
+root         463  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-cryptd]
+root         464  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-ktpacpid]
+root         472  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-cfg80211]
+root         565  0.1  0.0      0     0 ?        S    Nov25   2:32 [irq/28-iwlwifi]
+root         631  0.0  0.0      0     0 ?        S    Nov25   0:00 [jbd2/sda5-8]
+root         632  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-ext4-rsv-conversion]
+systemd+     638  0.0  0.0 239936  7024 ?        Ssl  Nov25   0:00 /usr/lib/systemd/systemd-timesyncd
+root         641  0.0  0.0      0     0 ?        S    Nov25   0:00 [jbd2/sda7-8]
+root         642  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-ext4-rsv-conversion]
+root         655  0.0  0.0      0     0 ?        S    Nov25   0:06 [jbd2/sda8-8]
+root         656  0.0  0.0      0     0 ?        I<   Nov25   0:00 [kworker/R-ext4-rsv-conversion]
+root         849  0.0  0.0 307392  6268 ?        Ssl  Nov25   0:02 /usr/libexec/accounts-daemon
+avahi        851  0.0  0.0   6344  3236 ?        Ss   Nov25   0:03 avahi-daemon: running [heisenberg.local]
+root         853  0.0  0.0  12756  4692 ?        Ss   Nov25   0:00 /usr/libexec/bluetooth/bluetoothd
+message+     854  0.0  0.0  11680  6672 ?        Ss   Nov25   0:51 /usr/bin/dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+root         859  0.0  0.0 304336  5904 ?        SLsl Nov25   0:00 /usr/libexec/low-memory-monitor
+polkitd      860  0.0  0.1 309832  9676 ?        Ssl  Nov25   0:07 /usr/lib/polkit-1/polkitd --no-debug --log-level=notice
+root         862  0.0  0.0 305256  5996 ?        Ssl  Nov25   0:00 /usr/libexec/switcheroo-control
+root         863  0.1  0.1  19276  8372 ?        Ss   Nov25   1:27 /usr/lib/systemd/systemd-logind
+root         864  0.0  0.0  18468  6984 ?        Ss   Nov25   0:09 /usr/lib/systemd/systemd-machined
+root         865  0.0  0.1 470444 12128 ?        Ssl  Nov25   0:20 /usr/libexec/udisks2/udisksd
+root         875  0.0  0.0  39004  7864 ?        Ss   Nov25   0:00 /usr/sbin/virtlockd
+root         882  0.0  0.1  39016  8200 ?        Ss   Nov25   0:00 /usr/sbin/virtlogd
+avahi        885  0.0  0.0   6072  1164 ?        S    Nov25   0:00 avahi-daemon: chroot helper
+root         921  0.0  0.1 334200 13212 ?        Ssl  Nov25   0:10 /usr/sbin/NetworkManager --no-daemon
+root         922  0.0  0.0  18560  5860 ?        Ss   Nov25   0:00 /usr/sbin/wpa_supplicant -u -s -O DIR=/run/wpa_supplicant GROUP=netdev
+root         929  0.0  0.0      0     0 ?        S    Nov25   0:01 [psimon]
+root         943  0.0  0.0      0     0 ?        S<   Nov25   0:00 [krfcommd]
+root         959  0.0  0.0 317188  7388 ?        Ssl  Nov25   0:02 /usr/sbin/ModemManager
+root         982  0.0  0.0  11560  3264 ?        Ss   Nov25   0:00 /usr/sbin/xrdp-sesman --nodaemon
+root         998  0.0  0.0  11772  4332 ?        Ss   Nov25   0:12 sshd: /usr/sbin/sshd -D [listener] 0 of 10-100 startups
+colord      1000  0.0  0.1 313464  8776 ?        Ssl  Nov25   0:00 /usr/libexec/colord
+root        1055  0.0  0.0   4288  2480 ?        Ss   Nov25   0:00 /usr/sbin/cron -f
+root        1063  0.0  0.0  12332  4056 ?        Ss   Nov25   0:00 /usr/sbin/xrdp --nodaemon
+root        1112  0.0  0.0 307948  6544 ?        Ssl  Nov25   0:00 /usr/sbin/gdm3
+root        1144  0.0  0.0   9464  5148 ?        Ss   Nov25   0:04 /usr/sbin/apache2 -k start
+rtkit       1276  0.0  0.0  21468  2832 ?        SNsl Nov25   0:00 /usr/libexec/rtkit-daemon
+root        1407  0.0  0.1 316912  8528 ?        Ssl  Nov25   0:08 /usr/libexec/upowerd
+root        1638  0.0  0.0 306708  6188 ?        Ssl  Nov25   0:02 /usr/libexec/power-profiles-daemon
+root        1798  0.0  0.0 169616  6172 ?        Sl   Nov25   0:00 gdm-session-worker [pam/gdm-password]
+chomzee     1811  0.0  0.1  23260 11192 ?        Ss   Nov25   0:09 /usr/lib/systemd/systemd --user
+chomzee     1813  0.0  0.0  23120  1936 ?        S    Nov25   0:00 (sd-pam)
+chomzee     1828  0.0  0.0   9796  5260 ?        Ss   Nov25   0:03 /usr/bin/dbus-daemon --session --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+chomzee     1829  0.0  0.1 110716 10132 ?        S<sl Nov25   0:00 /usr/bin/pipewire
+chomzee     1830  0.0  0.0  82156  2952 ?        Ssl  Nov25   0:00 /usr/bin/pipewire -c filter-chain.conf
+chomzee     1831  0.0  0.1 610380 14232 ?        S<sl Nov25   0:02 /usr/bin/wireplumber
+chomzee     1833  0.0  0.1 168820  9364 ?        S<Lsl Nov25   0:01 /usr/bin/pipewire-pulse
+chomzee     1834  0.0  0.0 541060  7008 ?        SLsl Nov25   0:01 /usr/bin/gnome-keyring-daemon --foreground --components=pkcs11,secrets --control-directory=/run/user/1000/keyring
+chomzee     1835  0.0  0.0   7232  3224 ?        Ss   Nov25   0:00 /usr/bin/mpris-proxy
+chomzee     1870  0.0  0.0 165644  5276 tty2     Ssl+ Nov25   0:00 /usr/libexec/gdm-wayland-session /usr/bin/gnome-session
+chomzee     1877  0.0  0.1 265952  8076 tty2     Sl+  Nov25   0:00 /usr/libexec/gnome-session-binary
+chomzee     1917  0.0  0.0 306204  5596 ?        Ssl  Nov25   0:00 /usr/libexec/xdg-permission-store
+chomzee     1929  0.0  0.0  97308  5548 ?        Ssl  Nov25   0:00 /usr/libexec/gcr-ssh-agent --base-dir /run/user/1000/gcr
+chomzee     1930  0.0  0.0  84692  4448 ?        Ssl  Nov25   0:00 /usr/libexec/gnome-session-ctl --monitor
+chomzee     1931  0.0  0.0  10544  3808 ?        Ss   Nov25   0:00 /usr/bin/ssh-agent -D
+chomzee     1940  0.0  0.0 310188  6888 ?        Ssl  Nov25   0:00 /usr/libexec/gvfsd
+chomzee     1947  0.0  0.0 469552  6600 ?        Sl   Nov25   0:00 /usr/libexec/gvfsd-fuse /run/user/1000/gvfs -f
+chomzee     1950  0.0  0.1 553632  9264 ?        Ssl  Nov25   0:02 /usr/libexec/gnome-session-binary --systemd-service --session=gnome
+chomzee     1976  0.0  0.0 381268  6468 ?        Sl   Nov25   0:00 /usr/libexec/at-spi-bus-launcher --launch-immediately
+chomzee     1984  0.0  0.0   8364  3456 ?        S    Nov25   0:00 /usr/bin/dbus-daemon --config-file=/usr/share/defaults/at-spi2/accessibility.conf --nofork --print-address 11 --address=unix:path=/run/user/1000/at-spi/bus
+chomzee     1994  6.4  2.6 4937124 212524 ?      Ssl  Nov25  89:53 /usr/bin/gnome-shell
+chomzee     2022  0.0  0.0 168812  5928 ?        Sl   Nov25   0:00 /usr/libexec/at-spi2-registryd --use-gnome-session
+chomzee     2038  0.0  0.1 662812 12340 ?        Sl   Nov25   0:00 /usr/libexec/gnome-shell-calendar-server
+chomzee     2044  0.0  0.2 2654884 18336 ?       Sl   Nov25   0:00 /usr/bin/gjs -m /usr/share/gnome-shell/org.gnome.Shell.Notifications
+chomzee     2049  0.0  0.1 388336 14164 ?        Sl   Nov25   0:00 /usr/bin/Xwayland :0 -rootless -noreset -accessx -core -auth /run/user/1000/.mutter-Xwaylandauth.FF9CZ3 -listenfd 4 -listenfd 5 -displayfd 6 -initfd 7 -byteswappedclients
+chomzee     2062  0.0  0.2 1079332 20248 ?       Ssl  Nov25   0:00 /usr/libexec/evolution-source-registry
+chomzee     2064  0.0  0.1 383080  9072 ?        Ssl  Nov25   0:04 /usr/bin/ibus-daemon --panel disable
+chomzee     2065  0.0  0.0 239912  5736 ?        Ssl  Nov25   0:00 /usr/libexec/gsd-a11y-settings
+chomzee     2071  0.0  0.1 405484  8964 ?        Ssl  Nov25   0:00 /usr/libexec/gsd-color
+chomzee     2072  0.0  0.0 251312  6500 ?        Ssl  Nov25   0:00 /usr/libexec/gsd-datetime
+chomzee     2074  0.0  0.0 381100  7216 ?        Ssl  Nov25   0:11 /usr/libexec/gsd-housekeeping
+chomzee     2075  0.0  0.1 403676  8752 ?        Ssl  Nov25   0:00 /usr/libexec/gsd-keyboard
+chomzee     2081  0.0  0.1 702304 11160 ?        Ssl  Nov25   0:01 /usr/libexec/gsd-media-keys
+chomzee     2082  0.0  0.1 481120 10068 ?        Ssl  Nov25   0:01 /usr/libexec/gsd-power
+chomzee     2084  0.0  0.0 317692  7756 ?        Ssl  Nov25   0:00 /usr/libexec/gsd-print-notifications
+chomzee     2086  0.0  0.0 387428  6296 ?        Ssl  Nov25   0:00 /usr/libexec/gsd-rfkill
+chomzee     2087  0.0  0.3 983112 28404 ?        Sl   Nov25   0:00 /usr/libexec/evolution-data-server/evolution-alarm-notify
+chomzee     2088  0.0  0.0 165820  5528 ?        Ssl  Nov25   0:00 /usr/libexec/gsd-screensaver-proxy
+chomzee     2089  0.0  0.1 463484  8032 ?        Ssl  Nov25   0:03 /usr/libexec/gsd-sharing
+chomzee     2091  0.0  0.0 381500  6340 ?        Ssl  Nov25   0:00 /usr/libexec/gsd-smartcard
+chomzee     2099  0.0  0.7 1150192 60652 ?       Sl   Nov25   0:18 /usr/bin/gnome-software --gapplication-service
+chomzee     2100  0.0  0.0 250788  6172 ?        Ssl  Nov25   0:00 /usr/libexec/gsd-sound
+chomzee     2102  0.0  0.0 527880  6084 ?        Ssl  Nov25   0:00 /usr/libexec/gsd-usb-protection
+chomzee     2103  0.0  0.0 306360  6608 ?        Sl   Nov25   0:00 /usr/libexec/gsd-disk-utility-notify
+chomzee     2106  0.0  0.1 405128  8832 ?        Ssl  Nov25   0:00 /usr/libexec/gsd-wacom
+chomzee     2191  0.0  0.0 410796  7728 ?        Sl   Nov25   0:00 /usr/libexec/gsd-printer
+chomzee     2193  0.0  0.1 2654992 14256 ?       Sl   Nov25   0:00 /usr/bin/gjs -m /usr/share/gnome-shell/org.gnome.ScreenSaver
+chomzee     2258  0.0  0.0 240488  5988 ?        Sl   Nov25   0:00 /usr/libexec/ibus-dconf
+chomzee     2259  0.0  0.1 414076 13592 ?        Sl   Nov25   0:05 /usr/libexec/ibus-extension-gtk3
+chomzee     2261  0.0  0.0 305980  6376 ?        Sl   Nov25   0:00 /usr/libexec/ibus-portal
+chomzee     2279  0.0  0.1 536348  9724 ?        Ssl  Nov25   0:08 /usr/libexec/gvfs-udisks2-volume-monitor
+chomzee     2285  0.0  0.0 387500  7284 ?        Ssl  Nov25   0:03 /usr/libexec/gvfs-afc-volume-monitor
+chomzee     2291  0.0  0.1 324380 12036 ?        Ssl  Nov25   0:00 /usr/libexec/gvfs-gphoto2-volume-monitor
+chomzee     2296  0.0  0.0 305972  7044 ?        Ssl  Nov25   0:00 /usr/libexec/gvfs-mtp-volume-monitor
+chomzee     2301  0.0  0.0 305268  6020 ?        Ssl  Nov25   0:00 /usr/libexec/gvfs-goa-volume-monitor
+chomzee     2306  0.0  0.1 515296 11588 ?        Sl   Nov25   0:00 /usr/libexec/goa-daemon
+chomzee     2315  0.0  0.0 385152  6720 ?        Sl   Nov25   0:00 /usr/libexec/goa-identity-service
+chomzee     2324  0.0  0.0 166760  6768 ?        Sl   Nov25   0:01 /usr/libexec/ibus-engine-simple
+chomzee     2371  0.0  0.0 166396  6184 ?        Ssl  Nov25   0:00 /usr/libexec/gvfsd-metadata
+chomzee     2380  0.0  0.1 775780 13000 ?        Ssl  Nov25   0:02 /usr/libexec/xdg-desktop-portal
+chomzee     2394  0.0  0.1 899360 14400 ?        Ssl  Nov25   0:00 /usr/libexec/evolution-calendar-factory
+chomzee     2405  0.0  0.1 548844 13848 ?        Ssl  Nov25   0:00 /usr/libexec/gsd-xsettings
+chomzee     2452  0.0  0.1 796136 15732 ?        Sl   Nov25   0:00 /usr/libexec/mutter-x11-frames
+chomzee     2479  0.0  0.0 610888  6332 ?        Ssl  Nov25   0:00 /usr/libexec/xdg-document-portal
+root        2487  0.0  0.0   2576  1748 ?        Ss   Nov25   0:00 fusermount3 -o rw,nosuid,nodev,fsname=portal,auto_unmount,subtype=portal -- /run/user/1000/doc
+chomzee     2499  0.0  0.1 825080 15244 ?        Ssl  Nov25   0:00 /usr/libexec/evolution-addressbook-factory
+chomzee     2500  0.0  0.2 743920 16348 ?        Ssl  Nov25   0:00 /usr/libexec/xdg-desktop-portal-gnome
+chomzee     2533  0.0  0.1 406132 10728 ?        Ssl  Nov25   0:00 /usr/libexec/xdg-desktop-portal-gtk
+chomzee     2554  0.0  0.0 178392  7772 ?        Sl   Nov25   0:00 /usr/libexec/ibus-x11
+chomzee     2808  0.0  0.4 580272 37812 ?        Ssl  Nov25   0:17 /usr/libexec/gnome-terminal-server
+chomzee     2816  0.0  0.0   7832  2092 pts/0    Ss   Nov25   0:00 bash
+chomzee     3168  0.0  0.0   2672  1576 pts/0    S+   Nov25   0:00 /bin/sh /home/chomzee/bin/klaudiusz
+chomzee     3169 31.9 27.0 4792424 2142780 pts/0 Sl+  Nov25 437:51 qemu-system-x86_64 -enable-kvm -m 2048 -machine q35 -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd -drive file=/home/chomzee/virt/klaudiusz.qcow,format=qcow2 -cpu host
+root        3179  0.0  0.0      0     0 ?        S    Nov25   0:00 [kvm-pit/3169]
+chomzee     3884  0.0  0.0 165616  5776 ?        Ssl  Nov25   0:00 /usr/libexec/dconf-service
+chomzee     3935  0.0  0.0   6692  2052 pts/1    Ss   Nov25   0:00 bash
+chomzee     3948  0.0  0.0  10820  3988 ?        S    Nov25   0:40 /usr/bin/ssh-agent -D -a /run/user/1000/keyring/.ssh
+chomzee    63403  0.0  0.0   2672  1784 pts/1    S+   Nov25   0:00 /bin/sh ./allTests.sh --stress
+chomzee    63529  0.0  0.3 1057808 27180 ?       Sl   Nov25   0:00 /usr/bin/gnome-calendar --gapplication-service
+chomzee    63535  0.0  0.1 576052 12968 ?        SLl  Nov25   0:00 /usr/bin/seahorse --gapplication-service
+chomzee    63576  0.1  0.1 531652  8252 ?        Sl   Nov25   1:05 /usr/libexec/gvfsd-trash --spawner :1.18 /org/gtk/gvfs/exec_spaw/0
+chomzee    63637 54.4  1.7 1942308 141420 ?      Sl   Nov25 447:55 /usr/bin/gnome-system-monitor
+chomzee   127994  1.3  4.9 3848952 392236 ?      Sl   Nov25   9:22 /usr/lib/firefox-esr/firefox-esr
+chomzee   128016  0.0  0.0 148884  1460 ?        Sl   Nov25   0:00 /usr/lib/firefox-esr/crashhelper 127994 9 /tmp/ 11
+chomzee   128152  0.0  0.1 460584 15596 ?        S    Nov25   0:00 /usr/lib/firefox-esr/firefox-esr -contentproc -ipcHandle 0 -signalPipe 1 -initialChannelId {c024790a-74a5-4816-a786-78c1ba7a0aaf} -parentPid 127994 -greomni /usr/lib/firefox-esr/omni.ja -appomni /usr/lib/firefox-esr/browser/omni.ja -appDir /usr/lib/firefox-esr/browser 1 forkserver
+chomzee   128162  0.0  0.2 472896 17560 ?        Sl   Nov25   0:00 /usr/lib/firefox-esr/firefox-esr -contentproc -parentBuildID 20261022211647 -prefsHandle 0:36527 -prefMapHandle 1:290516 -sandboxReporter 2 -chrootClient 3 -ipcHandle 4 -initialChannelId {baebc478-f5d5-426e-b82e-599375e89f8c} -parentPid 127994 -crashHelperPid 128016 -crashHelper 5 -crashReporter 6 -appDir /usr/lib/firefox-esr/browser 2 socket
+chomzee   128235  0.1  1.0 2690280 83716 ?       Sl   Nov25   1:13 /usr/lib/firefox-esr/firefox-esr -contentproc -isForBrowser -prefsHandle 0:36683 -prefMapHandle 1:290516 -jsInitHandle 2:156236 -parentBuildID 20261022211647 -sandboxReporter 3 -chrootClient 4 -ipcHandle 5 -initialChannelId {50cb0e2b-c68c-4a57-adfd-3138678bf090} -parentPid 127994 -crashHelperPid 128016 -crashHelper 6 -crashReporter 7 -greomni /usr/lib/firefox-esr/omni.ja -appomni /usr/lib/firefox-esr/browser/omni.ja -appDir /usr/lib/firefox-esr/browser 3 tab
+chomzee   128249  0.0  0.2 622084 22316 ?        Sl   Nov25   0:04 /usr/lib/firefox-esr/firefox-esr -contentproc -parentBuildID 20261022211647 -prefsHandle 0:36683 -prefMapHandle 1:290516 -sandboxReporter 2 -chrootClient 3 -ipcHandle 4 -initialChannelId {ebbebc79-b4a6-4f97-8b99-d997891e822b} -parentPid 127994 -crashHelperPid 128016 -crashHelper 5 -crashReporter 6 -appDir /usr/lib/firefox-esr/browser 4 rdd
+chomzee   128366  0.2  3.1 3011244 249160 ?      Sl   Nov25   1:23 /usr/lib/firefox-esr/firefox-esr -contentproc -isForBrowser -prefsHandle 0:36860 -prefMapHandle 1:290516 -jsInitHandle 2:156236 -parentBuildID 20261022211647 -sandboxReporter 3 -chrootClient 4 -ipcHandle 5 -initialChannelId {40fb9bb2-f5da-44a9-8709-dec9c07eb900} -parentPid 127994 -crashHelperPid 128016 -crashHelper 6 -crashReporter 7 -greomni /usr/lib/firefox-esr/omni.ja -appomni /usr/lib/firefox-esr/browser/omni.ja -appDir /usr/lib/firefox-esr/browser 5 tab
+chomzee   128398  0.1  0.7 2715812 58796 ?       Sl   Nov25   1:12 /usr/lib/firefox-esr/firefox-esr -contentproc -isForBrowser -prefsHandle 0:33224 -prefMapHandle 1:290516 -jsInitHandle 2:156236 -parentBuildID 20261022211647 -sandboxReporter 3 -chrootClient 4 -ipcHandle 5 -initialChannelId {256f70ce-c8f8-4033-8884-68057275eb1f} -parentPid 127994 -crashHelperPid 128016 -crashHelper 6 -crashReporter 7 -greomni /usr/lib/firefox-esr/omni.ja -appomni /usr/lib/firefox-esr/browser/omni.ja -appDir /usr/lib/firefox-esr/browser 6 tab
+chomzee   128401  0.6  4.9 11679088 391900 ?     Sl   Nov25   4:03 /usr/lib/firefox-esr/firefox-esr -contentproc -isForBrowser -prefsHandle 0:33224 -prefMapHandle 1:290516 -jsInitHandle 2:156236 -parentBuildID 20261022211647 -sandboxReporter 3 -chrootClient 4 -ipcHandle 5 -initialChannelId {b9fefc43-58b2-48b0-a8cf-d50217a657be} -parentPid 127994 -crashHelperPid 128016 -crashHelper 6 -crashReporter 7 -greomni /usr/lib/firefox-esr/omni.ja -appomni /usr/lib/firefox-esr/browser/omni.ja -appDir /usr/lib/firefox-esr/browser 7 tab
+chomzee   128489  0.0  0.2 599616 21788 ?        Sl   Nov25   0:00 /usr/lib/firefox-esr/firefox-esr -contentproc -parentBuildID 20261022211647 -sandboxingKind 0 -prefsHandle 0:50410 -prefMapHandle 1:290516 -sandboxReporter 2 -chrootClient 3 -ipcHandle 4 -initialChannelId {49c3b06d-4f2d-4d97-a523-e16e06dd60e7} -parentPid 127994 -crashHelperPid 128016 -crashHelper 5 -crashReporter 6 -appDir /usr/lib/firefox-esr/browser 8 utility
+chomzee   128586  0.0  0.7 2664172 63288 ?       Sl   Nov25   0:14 /usr/lib/firefox-esr/firefox-esr -contentproc -isForBrowser -prefsHandle 0:46774 -prefMapHandle 1:290516 -jsInitHandle 2:156236 -parentBuildID 20261022211647 -sandboxReporter 3 -chrootClient 4 -ipcHandle 5 -initialChannelId {a0e93326-3003-4cc2-9be0-e0383059b4a2} -parentPid 127994 -crashHelperPid 128016 -crashHelper 6 -crashReporter 7 -greomni /usr/lib/firefox-esr/omni.ja -appomni /usr/lib/firefox-esr/browser/omni.ja -appDir /usr/lib/firefox-esr/browser 10 tab
+chomzee   129409  0.0  0.4 2594456 35800 ?       Sl   Nov25   0:00 /usr/lib/firefox-esr/firefox-esr -contentproc -isForBrowser -prefsHandle 0:47014 -prefMapHandle 1:290516 -jsInitHandle 2:156236 -parentBuildID 20261022211647 -sandboxReporter 3 -chrootClient 4 -ipcHandle 5 -initialChannelId {ad31e54a-317f-48f4-8b7b-c170d3bc3c81} -parentPid 127994 -crashHelperPid 128016 -crashHelper 6 -crashReporter 7 -greomni /usr/lib/firefox-esr/omni.ja -appomni /usr/lib/firefox-esr/browser/omni.ja -appDir /usr/lib/firefox-esr/browser 13 tab
+root      129846  0.0  0.0      0     0 ?        I<   Nov25   0:06 [kworker/2:0H-events_highpri]
+chomzee   130976  0.0  0.4 2594456 35704 ?       Sl   Nov25   0:00 /usr/lib/firefox-esr/firefox-esr -contentproc -isForBrowser -prefsHandle 0:47014 -prefMapHandle 1:290516 -jsInitHandle 2:156236 -parentBuildID 20261022211647 -sandboxReporter 3 -chrootClient 4 -ipcHandle 5 -initialChannelId {32f7c1e2-5bde-45eb-8c02-60b3541abb7c} -parentPid 127994 -crashHelperPid 128016 -crashHelper 6 -crashReporter 7 -greomni /usr/lib/firefox-esr/omni.ja -appomni /usr/lib/firefox-esr/browser/omni.ja -appDir /usr/lib/firefox-esr/browser 14 tab
+chomzee   131028  0.0  0.4 2594456 35684 ?       Sl   Nov25   0:00 /usr/lib/firefox-esr/firefox-esr -contentproc -isForBrowser -prefsHandle 0:47014 -prefMapHandle 1:290516 -jsInitHandle 2:156236 -parentBuildID 20261022211647 -sandboxReporter 3 -chrootClient 4 -ipcHandle 5 -initialChannelId {47ce69de-9f1f-4021-88a2-d3113af2985d} -parentPid 127994 -crashHelperPid 128016 -crashHelper 6 -crashReporter 7 -greomni /usr/lib/firefox-esr/omni.ja -appomni /usr/lib/firefox-esr/browser/omni.ja -appDir /usr/lib/firefox-esr/browser 15 tab
+chomzee   148254  0.0  0.0 310700  7872 ?        Sl   Nov25   0:00 /usr/libexec/gvfsd-recent --spawner :1.18 /org/gtk/gvfs/exec_spaw/1
+chomzee   148256  0.0  0.0 384540  7180 ?        Sl   Nov25   0:00 /usr/libexec/gvfsd-network --spawner :1.18 /org/gtk/gvfs/exec_spaw/2
+chomzee   148276  0.0  0.1 385608  8136 ?        Sl   Nov25   0:00 /usr/libexec/gvfsd-dnssd --spawner :1.18 /org/gtk/gvfs/exec_spaw/3
+chomzee   219071  0.0  0.1 115812  8108 ?        Ssl  Nov25   0:06 /usr/bin/speech-dispatcher -s -t 0
+chomzee   219105  0.0  0.1  21088  8232 ?        S    Nov25   0:01 /usr/lib/speech-dispatcher-modules/sd_espeak-ng /etc/speech-dispatcher/modules/espeak-ng.conf
+chomzee   219127  0.0  0.0 163628  5248 ?        Sl   Nov25   0:03 /usr/lib/speech-dispatcher-modules/sd_dummy /etc/speech-dispatcher/modules/dummy.conf
+chomzee   219152  0.0  0.1  21160  8232 ?        S    Nov25   0:00 /usr/lib/speech-dispatcher-modules/sd_espeak-ng /etc/speech-dispatcher/modules/
+www-data  243962  0.0  0.0  10152  4560 ?        S    00:07   0:00 /usr/sbin/apache2 -k start
+www-data  243963  0.0  0.0 1935604 4928 ?        Sl   00:07   0:00 /usr/sbin/apache2 -k start
+www-data  243964  0.0  0.0 1935604 4928 ?        Sl   00:07   0:00 /usr/sbin/apache2 -k start
+root      244080  0.0  0.0  17652  7340 ?        Ss   00:07   0:00 /usr/sbin/cupsd -l
+root      244158  0.0  0.1 193220 13200 ?        Ssl  00:07   0:00 /usr/sbin/cups-browsed
+root      249502  0.0  0.0      0     0 ?        I<   00:19   0:00 [kworker/R-uas]
+root      273042  0.0  0.0      0     0 ?        I<   01:14   0:06 [kworker/u17:1-i915_flip]
+root      284417  0.0  0.0      0     0 ?        I<   01:40   0:00 [kworker/3:0H-events_highpri]
+root      284512  0.0  0.0      0     0 ?        I<   01:40   0:00 [kworker/1:2H]
+root      294544  0.0  0.0      0     0 ?        I<   02:04   0:10 [kworker/u17:2-rb_allocator]
+root      296016  0.0  0.0      0     0 ?        I<   02:07   0:00 [kworker/0:0H]
+root      296166  0.0  0.0      0     0 ?        I<   02:08   0:00 [kworker/2:1H-events_highpri]
+root      385608  0.0  0.0      0     0 ?        I    05:37   0:00 [kworker/0:2-events]
+root      396141  0.0  0.0      0     0 ?        I    06:01   0:01 [kworker/u16:3-events_unbound]
+root      404646  0.0  0.0      0     0 ?        I    06:21   0:00 [kworker/3:1-events]
+root      404647  0.0  0.0      0     0 ?        I    06:21   0:00 [kworker/u16:2-iwlwifi]
+root      405039  0.0  0.0      0     0 ?        I    06:22   0:01 [kworker/2:0-i915-unordered]
+root      406318  0.0  0.0      0     0 ?        I    06:25   0:00 [kworker/1:0-events]
+root      410977  0.0  0.0      0     0 ?        I    06:36   0:00 [kworker/u16:4-events_unbound]
+root      411723  0.0  0.0      0     0 ?        I    06:37   0:00 [kworker/1:1-mm_percpu_wq]
+root      413237  0.0  0.0      0     0 ?        I    06:41   0:00 [kworker/0:0-mm_percpu_wq]
+root      413320  0.2  0.6 369216 47884 ?        Ssl  06:41   0:01 /usr/libexec/fwupd/fwupd
+root      414978  0.0  0.0      0     0 ?        I    06:43   0:00 [kworker/1:2-mm_percpu_wq]
+root      416478  0.0  0.0      0     0 ?        I    06:44   0:00 [kworker/2:3-mm_percpu_wq]
+root      417767  0.0  0.0      0     0 ?        I    06:45   0:00 [kworker/3:0-events]
+root      418757  0.0  0.0      0     0 ?        I    06:46   0:00 [kworker/0:1-events]
+root      419425  0.0  0.0      0     0 ?        I    06:48   0:00 [kworker/1:3-mm_percpu_wq]
+root      419542  0.0  0.0      0     0 ?        I    06:48   0:00 [kworker/u16:0-events_unbound]
+root      419977  0.0  0.0      0     0 ?        I    06:49   0:00 [kworker/2:1-i915-unordered]
+root      420927  0.0  0.0  37808  4636 ?        S    06:51   0:00 (udev-worker)
+chomzee   420996  0.0  0.0   7104  4176 pts/1    R+   06:51   0:00 ps aux
+rm: cannot remove 'test_420951': Is a directory
+
+=== test pid: 420951
+=== tmp/valgrind_420951.txt:
+==420957== Memcheck, a memory error detector
+==420957== Copyright (C) 2002-2024, and GNU GPL'd, by Julian Seward et al.
+==420957== Using Valgrind-3.24.0 and LibVEX; rerun with -h for copyright info
+==420957== Command: ../bucse-mount -P tmp/passphrase_420951.txt -i 1 -r ./test_420951_repo test_420951 -f
+==420957== Parent PID: 420951
+==420957== 
+==420957== Warning: set address range perms: large range [0x8857040, 0x28857280) (undefined)
+==420957== 
+==420957== Process terminating with default action of signal 8 (SIGFPE)
+==420957==  Integer divide by zero at address 0x1003112AAF
+==420957==    at 0x1154D6: flushFile (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x115FAE: bucse_flush_guarded (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x488944F: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x48897F1: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x48909C1: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4893428: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488E148: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x58ED8BA: start_thread (pthread_create.c:448)
+==420957==    by 0x596B36F: clone (clone.S:100)
+==420957== 
+==420957== HEAP SUMMARY:
+==420957==     in use at exit: 546,478,253 bytes in 83 blocks
+==420957==   total heap usage: 245 allocs, 162 frees, 549,722,788 bytes allocated
+==420957== 
+==420957== 2 bytes in 1 blocks are indirectly lost in loss record 1 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x5904529: strdup (strdup.c:42)
+==420957==    by 0x4883804: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x1160A3: bucse_readdir_guarded (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x488853E: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4891081: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4893428: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488E148: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x58ED8BA: start_thread (pthread_create.c:448)
+==420957==    by 0x596B36F: clone (clone.S:100)
+==420957== 
+==420957== 3 bytes in 1 blocks are still reachable in loss record 2 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x5904529: strdup (strdup.c:42)
+==420957==    by 0x48952A6: fuse_opt_add_arg (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4895A4C: fuse_opt_parse (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x10CA06: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 3 bytes in 1 blocks are indirectly lost in loss record 3 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x5904529: strdup (strdup.c:42)
+==420957==    by 0x4883804: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x1160B7: bucse_readdir_guarded (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x488853E: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4891081: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4893428: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488E148: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x58ED8BA: start_thread (pthread_create.c:448)
+==420957==    by 0x596B36F: clone (clone.S:100)
+==420957== 
+==420957== 6 bytes in 1 blocks are still reachable in loss record 4 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x5904529: strdup (strdup.c:42)
+==420957==    by 0x48816F1: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488D43F: _fuse_new_31 (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x10D4E6: bucse_fuse_main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x10CB75: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 7 bytes in 1 blocks are still reachable in loss record 5 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x5904529: strdup (strdup.c:42)
+==420957==    by 0x48816F1: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488D427: _fuse_new_31 (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x10D4E6: bucse_fuse_main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x10CB75: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 8 bytes in 1 blocks are still reachable in loss record 6 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x5344E68: CRYPTO_malloc (in /usr/lib/x86_64-linux-gnu/libcrypto.so.3)
+==420957==    by 0x5344FEC: CRYPTO_zalloc (in /usr/lib/x86_64-linux-gnu/libcrypto.so.3)
+==420957==    by 0x522CB38: ??? (in /usr/lib/x86_64-linux-gnu/libcrypto.so.3)
+==420957==    by 0x522CC69: BN_set_word (in /usr/lib/x86_64-linux-gnu/libcrypto.so.3)
+==420957==    by 0x572FF77: ??? (in /usr/lib/x86_64-linux-gnu/libssh.so.4.10.5)
+==420957==    by 0x571F0E7: ??? (in /usr/lib/x86_64-linux-gnu/libssh.so.4.10.5)
+==420957==    by 0x4005DCD: call_init (dl-init.c:74)
+==420957==    by 0x4005DCD: call_init (dl-init.c:26)
+==420957==    by 0x4005E9B: _dl_init (dl-init.c:121)
+==420957==    by 0x401D2EF: ??? (in /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2)
+==420957==    by 0x8: ???
+==420957==    by 0x1FFF000182: ???
+==420957==    by 0x1FFF000191: ???
+==420957==    by 0x1FFF000194: ???
+==420957==    by 0x1FFF0001AE: ???
+==420957==    by 0x1FFF0001B1: ???
+==420957==    by 0x1FFF0001B3: ???
+==420957==    by 0x1FFF0001B6: ???
+==420957==    by 0x1FFF0001C9: ???
+==420957==    by 0x1FFF0001D5: ???
+==420957== 
+==420957== 12 bytes in 1 blocks are still reachable in loss record 7 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x5904529: strdup (strdup.c:42)
+==420957==    by 0x48952A6: fuse_opt_add_arg (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4895A1B: fuse_opt_parse (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x10CA06: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 12 bytes in 1 blocks are still reachable in loss record 8 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x5904529: strdup (strdup.c:42)
+==420957==    by 0x4895444: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x48954EB: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x48956BB: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4895A76: fuse_opt_parse (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x489B3D9: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488F6F1: fuse_session_new_versioned (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488D1C7: _fuse_new_31 (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x10D4E6: bucse_fuse_main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x10CB75: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 15 bytes in 1 blocks are still reachable in loss record 9 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x5904529: strdup (strdup.c:42)
+==420957==    by 0x48952A6: fuse_opt_add_arg (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4895939: fuse_opt_parse (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x10CA06: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 15 bytes in 1 blocks are still reachable in loss record 10 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x5904529: strdup (strdup.c:42)
+==420957==    by 0x48952A6: fuse_opt_add_arg (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4895939: fuse_opt_parse (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x489B3D9: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488F6F1: fuse_session_new_versioned (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488D1C7: _fuse_new_31 (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x10D4E6: bucse_fuse_main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x10CB75: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 15 bytes in 1 blocks are still reachable in loss record 11 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x58A066E: __add_to_environ (setenv.c:251)
+==420957==    by 0x4854816: setenv (vg_replace_strmem.c:2499)
+==420957==    by 0x489AE20: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x489B6CC: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488FC92: fuse_session_mount (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x10D500: bucse_fuse_main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x10CB75: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 16 bytes in 1 blocks are still reachable in loss record 12 of 74
+==420957==    at 0x484BDD0: realloc (vg_replace_malloc.c:1801)
+==420957==    by 0x48952C2: fuse_opt_add_arg (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4895939: fuse_opt_parse (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x489B3D9: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488F6F1: fuse_session_new_versioned (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488D1C7: _fuse_new_31 (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x10D4E6: bucse_fuse_main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x10CB75: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 16 bytes in 1 blocks are still reachable in loss record 13 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x58A066E: __add_to_environ (setenv.c:251)
+==420957==    by 0x4854816: setenv (vg_replace_strmem.c:2499)
+==420957==    by 0x489AE59: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x489B6CC: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488FC92: fuse_session_mount (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x10D500: bucse_fuse_main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x10CB75: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 16 bytes in 1 blocks are still reachable in loss record 14 of 74
+==420957==    at 0x484BBA3: calloc (vg_replace_malloc.c:1675)
+==420957==    by 0x488E256: fuse_loop_cfg_create (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488E5B7: fuse_session_loop_mt (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x10D63B: bucse_fuse_main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x10CB75: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 24 bytes in 1 blocks are still reachable in loss record 15 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x5344E68: CRYPTO_malloc (in /usr/lib/x86_64-linux-gnu/libcrypto.so.3)
+==420957==    by 0x5344FEC: CRYPTO_zalloc (in /usr/lib/x86_64-linux-gnu/libcrypto.so.3)
+==420957==    by 0x522BFED: BN_new (in /usr/lib/x86_64-linux-gnu/libcrypto.so.3)
+==420957==    by 0x572FF5A: ??? (in /usr/lib/x86_64-linux-gnu/libssh.so.4.10.5)
+==420957==    by 0x571F0E7: ??? (in /usr/lib/x86_64-linux-gnu/libssh.so.4.10.5)
+==420957==    by 0x4005DCD: call_init (dl-init.c:74)
+==420957==    by 0x4005DCD: call_init (dl-init.c:26)
+==420957==    by 0x4005E9B: _dl_init (dl-init.c:121)
+==420957==    by 0x401D2EF: ??? (in /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2)
+==420957==    by 0x8: ???
+==420957==    by 0x1FFF000182: ???
+==420957==    by 0x1FFF000191: ???
+==420957==    by 0x1FFF000194: ???
+==420957==    by 0x1FFF0001AE: ???
+==420957==    by 0x1FFF0001B1: ???
+==420957==    by 0x1FFF0001B3: ???
+==420957==    by 0x1FFF0001B6: ???
+==420957==    by 0x1FFF0001C9: ???
+==420957==    by 0x1FFF0001D5: ???
+==420957== 
+==420957== 24 bytes in 1 blocks are still reachable in loss record 16 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x5344E68: CRYPTO_malloc (in /usr/lib/x86_64-linux-gnu/libcrypto.so.3)
+==420957==    by 0x5344FEC: CRYPTO_zalloc (in /usr/lib/x86_64-linux-gnu/libcrypto.so.3)
+==420957==    by 0x522BFED: BN_new (in /usr/lib/x86_64-linux-gnu/libcrypto.so.3)
+==420957==    by 0x572FF85: ??? (in /usr/lib/x86_64-linux-gnu/libssh.so.4.10.5)
+==420957==    by 0x571F0E7: ??? (in /usr/lib/x86_64-linux-gnu/libssh.so.4.10.5)
+==420957==    by 0x4005DCD: call_init (dl-init.c:74)
+==420957==    by 0x4005DCD: call_init (dl-init.c:26)
+==420957==    by 0x4005E9B: _dl_init (dl-init.c:121)
+==420957==    by 0x401D2EF: ??? (in /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2)
+==420957==    by 0x8: ???
+==420957==    by 0x1FFF000182: ???
+==420957==    by 0x1FFF000191: ???
+==420957==    by 0x1FFF000194: ???
+==420957==    by 0x1FFF0001AE: ???
+==420957==    by 0x1FFF0001B1: ???
+==420957==    by 0x1FFF0001B3: ???
+==420957==    by 0x1FFF0001B6: ???
+==420957==    by 0x1FFF0001C9: ???
+==420957==    by 0x1FFF0001D5: ???
+==420957== 
+==420957== 24 bytes in 1 blocks are still reachable in loss record 17 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x5344E68: CRYPTO_malloc (in /usr/lib/x86_64-linux-gnu/libcrypto.so.3)
+==420957==    by 0x5344FEC: CRYPTO_zalloc (in /usr/lib/x86_64-linux-gnu/libcrypto.so.3)
+==420957==    by 0x522BFED: BN_new (in /usr/lib/x86_64-linux-gnu/libcrypto.so.3)
+==420957==    by 0x572FFBC: ??? (in /usr/lib/x86_64-linux-gnu/libssh.so.4.10.5)
+==420957==    by 0x571F0E7: ??? (in /usr/lib/x86_64-linux-gnu/libssh.so.4.10.5)
+==420957==    by 0x4005DCD: call_init (dl-init.c:74)
+==420957==    by 0x4005DCD: call_init (dl-init.c:26)
+==420957==    by 0x4005E9B: _dl_init (dl-init.c:121)
+==420957==    by 0x401D2EF: ??? (in /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2)
+==420957==    by 0x8: ???
+==420957==    by 0x1FFF000182: ???
+==420957==    by 0x1FFF000191: ???
+==420957==    by 0x1FFF000194: ???
+==420957==    by 0x1FFF0001AE: ???
+==420957==    by 0x1FFF0001B1: ???
+==420957==    by 0x1FFF0001B3: ???
+==420957==    by 0x1FFF0001B6: ???
+==420957==    by 0x1FFF0001C9: ???
+==420957==    by 0x1FFF0001D5: ???
+==420957== 
+==420957== 24 bytes in 1 blocks are still reachable in loss record 18 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x5344E68: CRYPTO_malloc (in /usr/lib/x86_64-linux-gnu/libcrypto.so.3)
+==420957==    by 0x5344FEC: CRYPTO_zalloc (in /usr/lib/x86_64-linux-gnu/libcrypto.so.3)
+==420957==    by 0x522BFED: BN_new (in /usr/lib/x86_64-linux-gnu/libcrypto.so.3)
+==420957==    by 0x572FFEF: ??? (in /usr/lib/x86_64-linux-gnu/libssh.so.4.10.5)
+==420957==    by 0x571F0E7: ??? (in /usr/lib/x86_64-linux-gnu/libssh.so.4.10.5)
+==420957==    by 0x4005DCD: call_init (dl-init.c:74)
+==420957==    by 0x4005DCD: call_init (dl-init.c:26)
+==420957==    by 0x4005E9B: _dl_init (dl-init.c:121)
+==420957==    by 0x401D2EF: ??? (in /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2)
+==420957==    by 0x8: ???
+==420957==    by 0x1FFF000182: ???
+==420957==    by 0x1FFF000191: ???
+==420957==    by 0x1FFF000194: ???
+==420957==    by 0x1FFF0001AE: ???
+==420957==    by 0x1FFF0001B1: ???
+==420957==    by 0x1FFF0001B3: ???
+==420957==    by 0x1FFF0001B6: ???
+==420957==    by 0x1FFF0001C9: ???
+==420957==    by 0x1FFF0001D5: ???
+==420957== 
+==420957== 24 bytes in 1 blocks are still reachable in loss record 19 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x5344E68: CRYPTO_malloc (in /usr/lib/x86_64-linux-gnu/libcrypto.so.3)
+==420957==    by 0x5344FEC: CRYPTO_zalloc (in /usr/lib/x86_64-linux-gnu/libcrypto.so.3)
+==420957==    by 0x522BFED: BN_new (in /usr/lib/x86_64-linux-gnu/libcrypto.so.3)
+==420957==    by 0x573001E: ??? (in /usr/lib/x86_64-linux-gnu/libssh.so.4.10.5)
+==420957==    by 0x571F0E7: ??? (in /usr/lib/x86_64-linux-gnu/libssh.so.4.10.5)
+==420957==    by 0x4005DCD: call_init (dl-init.c:74)
+==420957==    by 0x4005DCD: call_init (dl-init.c:26)
+==420957==    by 0x4005E9B: _dl_init (dl-init.c:121)
+==420957==    by 0x401D2EF: ??? (in /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2)
+==420957==    by 0x8: ???
+==420957==    by 0x1FFF000182: ???
+==420957==    by 0x1FFF000191: ???
+==420957==    by 0x1FFF000194: ???
+==420957==    by 0x1FFF0001AE: ???
+==420957==    by 0x1FFF0001B1: ???
+==420957==    by 0x1FFF0001B3: ???
+==420957==    by 0x1FFF0001B6: ???
+==420957==    by 0x1FFF0001C9: ???
+==420957==    by 0x1FFF0001D5: ???
+==420957== 
+==420957== 24 bytes in 1 blocks are still reachable in loss record 20 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x58A05E4: __environ_new_array (setenv.c:127)
+==420957==    by 0x58A05E4: __add_to_environ (setenv.c:203)
+==420957==    by 0x4854816: setenv (vg_replace_strmem.c:2499)
+==420957==    by 0x489AE20: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x489B6CC: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488FC92: fuse_session_mount (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x10D500: bucse_fuse_main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x10CB75: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 24 bytes in 1 blocks are still reachable in loss record 21 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x596A559: __tsearch (tsearch.c:337)
+==420957==    by 0x596A559: tsearch (tsearch.c:290)
+==420957==    by 0x58A06DE: __add_to_environ (setenv.c:274)
+==420957==    by 0x4854816: setenv (vg_replace_strmem.c:2499)
+==420957==    by 0x489AE20: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x489B6CC: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488FC92: fuse_session_mount (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x10D500: bucse_fuse_main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x10CB75: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 24 bytes in 1 blocks are still reachable in loss record 22 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x596A4E5: __tsearch (tsearch.c:337)
+==420957==    by 0x596A4E5: tsearch (tsearch.c:290)
+==420957==    by 0x58A06DE: __add_to_environ (setenv.c:274)
+==420957==    by 0x4854816: setenv (vg_replace_strmem.c:2499)
+==420957==    by 0x489AE59: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x489B6CC: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488FC92: fuse_session_mount (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x10D500: bucse_fuse_main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x10CB75: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 32 bytes in 1 blocks are still reachable in loss record 23 of 74
+==420957==    at 0x484BDD0: realloc (vg_replace_malloc.c:1801)
+==420957==    by 0x48952C2: fuse_opt_add_arg (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4895A4C: fuse_opt_parse (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x10CA06: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 35 bytes in 1 blocks are still reachable in loss record 24 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x5904529: strdup (strdup.c:42)
+==420957==    by 0x116603: bucse_create_guarded (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x4888A5E: fuse_fs_create (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4888B71: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x489068B: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4893428: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488E148: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x58ED8BA: start_thread (pthread_create.c:448)
+==420957==    by 0x596B36F: clone (clone.S:100)
+==420957== 
+==420957== 35 bytes in 1 blocks are still reachable in loss record 25 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x5904529: strdup (strdup.c:42)
+==420957==    by 0x4883047: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4883605: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4884C40: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4888BFD: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x489068B: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4893428: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488E148: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x58ED8BA: start_thread (pthread_create.c:448)
+==420957==    by 0x596B36F: clone (clone.S:100)
+==420957== 
+==420957== 35 bytes in 1 blocks are indirectly lost in loss record 26 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x5904529: strdup (strdup.c:42)
+==420957==    by 0x4883804: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x11611B: bucse_readdir_guarded (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x488853E: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4891081: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4893428: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488E148: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x58ED8BA: start_thread (pthread_create.c:448)
+==420957==    by 0x596B36F: clone (clone.S:100)
+==420957== 
+==420957== 40 bytes in 1 blocks are still reachable in loss record 27 of 74
+==420957==    at 0x484BBA3: calloc (vg_replace_malloc.c:1675)
+==420957==    by 0x48816E1: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488D427: _fuse_new_31 (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x10D4E6: bucse_fuse_main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x10CB75: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 40 bytes in 1 blocks are still reachable in loss record 28 of 74
+==420957==    at 0x484BBA3: calloc (vg_replace_malloc.c:1675)
+==420957==    by 0x48816E1: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488D43F: _fuse_new_31 (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x10D4E6: bucse_fuse_main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x10CB75: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 40 bytes in 1 blocks are still reachable in loss record 29 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x48950D9: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4895348: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x489542D: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x48954EB: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x48956BB: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4895A76: fuse_opt_parse (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x489B3D9: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488F6F1: fuse_session_new_versioned (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488D1C7: _fuse_new_31 (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x10D4E6: bucse_fuse_main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x10CB75: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 44 bytes in 1 blocks are still reachable in loss record 30 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x5904529: strdup (strdup.c:42)
+==420957==    by 0x488FCA6: fuse_session_mount (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x10D500: bucse_fuse_main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x10CB75: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 45 bytes in 2 blocks are still reachable in loss record 31 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x5904529: strdup (strdup.c:42)
+==420957==    by 0x4895444: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x48955C0: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4895A4C: fuse_opt_parse (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x10CA06: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 48 bytes in 1 blocks are still reachable in loss record 32 of 74
+==420957==    at 0x484BBA3: calloc (vg_replace_malloc.c:1675)
+==420957==    by 0x488185E: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488C3C4: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x489266D: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4893428: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488E0D6: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x58ED8BA: start_thread (pthread_create.c:448)
+==420957==    by 0x596B36F: clone (clone.S:100)
+==420957== 
+==420957== 49 bytes in 1 blocks are still reachable in loss record 33 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x5904529: strdup (strdup.c:42)
+==420957==    by 0x589C472: realpath_stk (canonicalize.c:409)
+==420957==    by 0x589C472: realpath@@GLIBC_2.3 (canonicalize.c:431)
+==420957==    by 0x10DC46: getDestinationByPathPrefix (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x10CADA: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 49 bytes in 1 blocks are still reachable in loss record 34 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x5904529: strdup (strdup.c:42)
+==420957==    by 0x10DD56: destLocalInit (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x10CAEA: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 72 bytes in 1 blocks are still reachable in loss record 35 of 74
+==420957==    at 0x484BBA3: calloc (vg_replace_malloc.c:1675)
+==420957==    by 0x10C9B8: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 72 bytes in 1 blocks are still reachable in loss record 36 of 74
+==420957==    at 0x484BBA3: calloc (vg_replace_malloc.c:1675)
+==420957==    by 0x489B3A9: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488F6F1: fuse_session_new_versioned (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488D1C7: _fuse_new_31 (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x10D4E6: bucse_fuse_main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x10CB75: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 88 bytes in 1 blocks are still reachable in loss record 37 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x48950D9: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4897220: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4895A08: fuse_opt_parse (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x489730A: fuse_parse_cmdline (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x10D4AE: bucse_fuse_main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x10CB75: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 88 bytes in 1 blocks are still reachable in loss record 38 of 74
+==420957==    at 0x484BBA3: calloc (vg_replace_malloc.c:1675)
+==420957==    by 0x488DDBB: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488E377: fuse_session_loop_mt (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488E5D8: fuse_session_loop_mt (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x10D63B: bucse_fuse_main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x10CB75: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 88 bytes in 1 blocks are still reachable in loss record 39 of 74
+==420957==    at 0x484BBA3: calloc (vg_replace_malloc.c:1675)
+==420957==    by 0x488DDBB: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488E0BD: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x58ED8BA: start_thread (pthread_create.c:448)
+==420957==    by 0x596B36F: clone (clone.S:100)
+==420957== 
+==420957== 94 bytes in 1 blocks are still reachable in loss record 40 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x48950D9: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x489A99A: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x489B509: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488FC92: fuse_session_mount (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x10D500: bucse_fuse_main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x10CB75: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 96 bytes in 1 blocks are still reachable in loss record 41 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x1165EF: bucse_create_guarded (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x4888A5E: fuse_fs_create (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4888B71: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x489068B: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4893428: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488E148: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x58ED8BA: start_thread (pthread_create.c:448)
+==420957==    by 0x596B36F: clone (clone.S:100)
+==420957== 
+==420957== 120 bytes in 5 blocks are still reachable in loss record 42 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x116C87: bucse_write_guarded (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x4887402: fuse_fs_write_buf (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488753C: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4893530: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488E148: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x58ED8BA: start_thread (pthread_create.c:448)
+==420957==    by 0x596B36F: clone (clone.S:100)
+==420957== 
+==420957== 128 bytes in 1 blocks are still reachable in loss record 43 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x5344E68: CRYPTO_malloc (in /usr/lib/x86_64-linux-gnu/libcrypto.so.3)
+==420957==    by 0x5344FEC: CRYPTO_zalloc (in /usr/lib/x86_64-linux-gnu/libcrypto.so.3)
+==420957==    by 0x522CB38: ??? (in /usr/lib/x86_64-linux-gnu/libcrypto.so.3)
+==420957==    by 0x522D1CC: ??? (in /usr/lib/x86_64-linux-gnu/libcrypto.so.3)
+==420957==    by 0x572FFA9: ??? (in /usr/lib/x86_64-linux-gnu/libssh.so.4.10.5)
+==420957==    by 0x571F0E7: ??? (in /usr/lib/x86_64-linux-gnu/libssh.so.4.10.5)
+==420957==    by 0x4005DCD: call_init (dl-init.c:74)
+==420957==    by 0x4005DCD: call_init (dl-init.c:26)
+==420957==    by 0x4005E9B: _dl_init (dl-init.c:121)
+==420957==    by 0x401D2EF: ??? (in /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2)
+==420957==    by 0x8: ???
+==420957==    by 0x1FFF000182: ???
+==420957==    by 0x1FFF000191: ???
+==420957==    by 0x1FFF000194: ???
+==420957==    by 0x1FFF0001AE: ???
+==420957==    by 0x1FFF0001B1: ???
+==420957==    by 0x1FFF0001B3: ???
+==420957==    by 0x1FFF0001B6: ???
+==420957==    by 0x1FFF0001C9: ???
+==420957==    by 0x1FFF0001D5: ???
+==420957== 
+==420957== 128 bytes in 1 blocks are still reachable in loss record 44 of 74
+==420957==    at 0x484BBA3: calloc (vg_replace_malloc.c:1675)
+==420957==    by 0x48931BC: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488E148: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x58ED8BA: start_thread (pthread_create.c:448)
+==420957==    by 0x596B36F: clone (clone.S:100)
+==420957== 
+==420957== 128 bytes in 1 blocks are still reachable in loss record 45 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x1116AC: addToDynArray (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x11666D: bucse_create_guarded (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x4888A5E: fuse_fs_create (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4888B71: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x489068B: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4893428: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488E148: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x58ED8BA: start_thread (pthread_create.c:448)
+==420957==    by 0x596B36F: clone (clone.S:100)
+==420957== 
+==420957== 128 bytes in 1 blocks are still reachable in loss record 46 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x1116AC: addToDynArray (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x116CCD: bucse_write_guarded (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x4887402: fuse_fs_write_buf (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488753C: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4893530: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488E148: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x58ED8BA: start_thread (pthread_create.c:448)
+==420957==    by 0x596B36F: clone (clone.S:100)
+==420957== 
+==420957== 168 bytes in 1 blocks are indirectly lost in loss record 47 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x48837F0: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x1160A3: bucse_readdir_guarded (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x488853E: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4891081: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4893428: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488E148: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x58ED8BA: start_thread (pthread_create.c:448)
+==420957==    by 0x596B36F: clone (clone.S:100)
+==420957== 
+==420957== 168 bytes in 1 blocks are indirectly lost in loss record 48 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x48837F0: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x1160B7: bucse_readdir_guarded (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x488853E: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4891081: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4893428: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488E148: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x58ED8BA: start_thread (pthread_create.c:448)
+==420957==    by 0x596B36F: clone (clone.S:100)
+==420957== 
+==420957== 168 bytes in 1 blocks are indirectly lost in loss record 49 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x48837F0: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x11611B: bucse_readdir_guarded (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x488853E: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4891081: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4893428: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488E148: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x58ED8BA: start_thread (pthread_create.c:448)
+==420957==    by 0x596B36F: clone (clone.S:100)
+==420957== 
+==420957== 256 bytes in 1 blocks are still reachable in loss record 50 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x5344E68: CRYPTO_malloc (in /usr/lib/x86_64-linux-gnu/libcrypto.so.3)
+==420957==    by 0x5344FEC: CRYPTO_zalloc (in /usr/lib/x86_64-linux-gnu/libcrypto.so.3)
+==420957==    by 0x522CB38: ??? (in /usr/lib/x86_64-linux-gnu/libcrypto.so.3)
+==420957==    by 0x522D1CC: ??? (in /usr/lib/x86_64-linux-gnu/libcrypto.so.3)
+==420957==    by 0x572FFE0: ??? (in /usr/lib/x86_64-linux-gnu/libssh.so.4.10.5)
+==420957==    by 0x571F0E7: ??? (in /usr/lib/x86_64-linux-gnu/libssh.so.4.10.5)
+==420957==    by 0x4005DCD: call_init (dl-init.c:74)
+==420957==    by 0x4005DCD: call_init (dl-init.c:26)
+==420957==    by 0x4005E9B: _dl_init (dl-init.c:121)
+==420957==    by 0x401D2EF: ??? (in /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2)
+==420957==    by 0x8: ???
+==420957==    by 0x1FFF000182: ???
+==420957==    by 0x1FFF000191: ???
+==420957==    by 0x1FFF000194: ???
+==420957==    by 0x1FFF0001AE: ???
+==420957==    by 0x1FFF0001B1: ???
+==420957==    by 0x1FFF0001B3: ???
+==420957==    by 0x1FFF0001B6: ???
+==420957==    by 0x1FFF0001C9: ???
+==420957==    by 0x1FFF0001D5: ???
+==420957== 
+==420957== 256 bytes in 1 blocks are still reachable in loss record 51 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x48827A2: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4882A01: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488984A: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x48909C1: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4893428: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488E148: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x58ED8BA: start_thread (pthread_create.c:448)
+==420957==    by 0x596B36F: clone (clone.S:100)
+==420957== 
+==420957== 320 bytes in 1 blocks are possibly lost in loss record 52 of 74
+==420957==    at 0x484BBA3: calloc (vg_replace_malloc.c:1675)
+==420957==    by 0x4011F62: calloc (rtld-malloc.h:44)
+==420957==    by 0x4011F62: allocate_dtv (dl-tls.c:462)
+==420957==    by 0x401297D: _dl_allocate_tls (dl-tls.c:712)
+==420957==    by 0x58EE4C1: allocate_stack (allocatestack.c:431)
+==420957==    by 0x58EE4C1: pthread_create@@GLIBC_2.34 (pthread_create.c:660)
+==420957==    by 0x10D59A: bucse_fuse_main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x10CB75: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 320 bytes in 1 blocks are possibly lost in loss record 53 of 74
+==420957==    at 0x484BBA3: calloc (vg_replace_malloc.c:1675)
+==420957==    by 0x4011F62: calloc (rtld-malloc.h:44)
+==420957==    by 0x4011F62: allocate_dtv (dl-tls.c:462)
+==420957==    by 0x401297D: _dl_allocate_tls (dl-tls.c:712)
+==420957==    by 0x58EE4C1: allocate_stack (allocatestack.c:431)
+==420957==    by 0x58EE4C1: pthread_create@@GLIBC_2.34 (pthread_create.c:660)
+==420957==    by 0x488DCE1: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488DDE8: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488E377: fuse_session_loop_mt (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488E5D8: fuse_session_loop_mt (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x10D63B: bucse_fuse_main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x10CB75: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 320 bytes in 1 blocks are possibly lost in loss record 54 of 74
+==420957==    at 0x484BBA3: calloc (vg_replace_malloc.c:1675)
+==420957==    by 0x4011F62: calloc (rtld-malloc.h:44)
+==420957==    by 0x4011F62: allocate_dtv (dl-tls.c:462)
+==420957==    by 0x401297D: _dl_allocate_tls (dl-tls.c:712)
+==420957==    by 0x58EE4C1: allocate_stack (allocatestack.c:431)
+==420957==    by 0x58EE4C1: pthread_create@@GLIBC_2.34 (pthread_create.c:660)
+==420957==    by 0x488DCE1: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488DDE8: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488E0BD: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x58ED8BA: start_thread (pthread_create.c:448)
+==420957==    by 0x596B36F: clone (clone.S:100)
+==420957== 
+==420957== 352 bytes in 1 blocks are still reachable in loss record 55 of 74
+==420957==    at 0x484BBA3: calloc (vg_replace_malloc.c:1675)
+==420957==    by 0x488CD12: fuse_fs_new (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488D095: _fuse_new_31 (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x10D4E6: bucse_fuse_main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x10CB75: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 512 bytes in 1 blocks are still reachable in loss record 56 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x5344E68: CRYPTO_malloc (in /usr/lib/x86_64-linux-gnu/libcrypto.so.3)
+==420957==    by 0x5344FEC: CRYPTO_zalloc (in /usr/lib/x86_64-linux-gnu/libcrypto.so.3)
+==420957==    by 0x522CB38: ??? (in /usr/lib/x86_64-linux-gnu/libcrypto.so.3)
+==420957==    by 0x522D1CC: ??? (in /usr/lib/x86_64-linux-gnu/libcrypto.so.3)
+==420957==    by 0x573000F: ??? (in /usr/lib/x86_64-linux-gnu/libssh.so.4.10.5)
+==420957==    by 0x571F0E7: ??? (in /usr/lib/x86_64-linux-gnu/libssh.so.4.10.5)
+==420957==    by 0x4005DCD: call_init (dl-init.c:74)
+==420957==    by 0x4005DCD: call_init (dl-init.c:26)
+==420957==    by 0x4005E9B: _dl_init (dl-init.c:121)
+==420957==    by 0x401D2EF: ??? (in /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2)
+==420957==    by 0x8: ???
+==420957==    by 0x1FFF000182: ???
+==420957==    by 0x1FFF000191: ???
+==420957==    by 0x1FFF000194: ???
+==420957==    by 0x1FFF0001AE: ???
+==420957==    by 0x1FFF0001B1: ???
+==420957==    by 0x1FFF0001B3: ???
+==420957==    by 0x1FFF0001B6: ???
+==420957==    by 0x1FFF0001C9: ???
+==420957==    by 0x1FFF0001D5: ???
+==420957== 
+==420957== 528 bytes in 1 blocks are still reachable in loss record 57 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x1153FA: flushFile (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x115FAE: bucse_flush_guarded (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x488944F: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x48897F1: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x48909C1: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4893428: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488E148: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x58ED8BA: start_thread (pthread_create.c:448)
+==420957==    by 0x596B36F: clone (clone.S:100)
+==420957== 
+==420957== 536 bytes in 1 blocks are still reachable in loss record 58 of 74
+==420957==    at 0x484BBA3: calloc (vg_replace_malloc.c:1675)
+==420957==    by 0x58A05CC: __environ_new_array (setenv.c:123)
+==420957==    by 0x58A05CC: __add_to_environ (setenv.c:203)
+==420957==    by 0x4854816: setenv (vg_replace_strmem.c:2499)
+==420957==    by 0x489AE20: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x489B6CC: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488FC92: fuse_session_mount (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x10D500: bucse_fuse_main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x10CB75: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 736 bytes in 1 blocks are still reachable in loss record 59 of 74
+==420957==    at 0x484BBA3: calloc (vg_replace_malloc.c:1675)
+==420957==    by 0x488CFDE: _fuse_new_31 (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x10D4E6: bucse_fuse_main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x10CB75: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 960 bytes in 1 blocks are still reachable in loss record 60 of 74
+==420957==    at 0x484BBA3: calloc (vg_replace_malloc.c:1675)
+==420957==    by 0x488F687: fuse_session_new_versioned (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488D1C7: _fuse_new_31 (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x10D4E6: bucse_fuse_main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x10CB75: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 1,024 bytes in 1 blocks are still reachable in loss record 61 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x5344E68: CRYPTO_malloc (in /usr/lib/x86_64-linux-gnu/libcrypto.so.3)
+==420957==    by 0x5344FEC: CRYPTO_zalloc (in /usr/lib/x86_64-linux-gnu/libcrypto.so.3)
+==420957==    by 0x522CB38: ??? (in /usr/lib/x86_64-linux-gnu/libcrypto.so.3)
+==420957==    by 0x522D1CC: ??? (in /usr/lib/x86_64-linux-gnu/libcrypto.so.3)
+==420957==    by 0x573003E: ??? (in /usr/lib/x86_64-linux-gnu/libssh.so.4.10.5)
+==420957==    by 0x571F0E7: ??? (in /usr/lib/x86_64-linux-gnu/libssh.so.4.10.5)
+==420957==    by 0x4005DCD: call_init (dl-init.c:74)
+==420957==    by 0x4005DCD: call_init (dl-init.c:26)
+==420957==    by 0x4005E9B: _dl_init (dl-init.c:121)
+==420957==    by 0x401D2EF: ??? (in /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2)
+==420957==    by 0x8: ???
+==420957==    by 0x1FFF000182: ???
+==420957==    by 0x1FFF000191: ???
+==420957==    by 0x1FFF000194: ???
+==420957==    by 0x1FFF0001AE: ???
+==420957==    by 0x1FFF0001B1: ???
+==420957==    by 0x1FFF0001B3: ???
+==420957==    by 0x1FFF0001B6: ???
+==420957==    by 0x1FFF0001C9: ???
+==420957==    by 0x1FFF0001D5: ???
+==420957== 
+==420957== 1,024 bytes in 1 blocks are still reachable in loss record 62 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x10DCE4: destLocalInit (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x10CAEA: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 1,024 bytes in 1 blocks are still reachable in loss record 63 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x10DD01: destLocalInit (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x10CAEA: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 1,024 bytes in 1 blocks are still reachable in loss record 64 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x10DD1E: destLocalInit (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x10CAEA: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 1,024 bytes in 1 blocks are still reachable in loss record 65 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x10DD3B: destLocalInit (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x10CAEA: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 1,024 bytes in 1 blocks are still reachable in loss record 66 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x1153CC: flushFile (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x115FAE: bucse_flush_guarded (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x488944F: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x48897F1: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x48909C1: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4893428: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488E148: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x58ED8BA: start_thread (pthread_create.c:448)
+==420957==    by 0x596B36F: clone (clone.S:100)
+==420957== 
+==420957== 4,096 bytes in 1 blocks are indirectly lost in loss record 67 of 74
+==420957==    at 0x484BDD0: realloc (vg_replace_malloc.c:1801)
+==420957==    by 0x4888685: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4891081: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4893428: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488E148: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x58ED8BA: start_thread (pthread_create.c:448)
+==420957==    by 0x596B36F: clone (clone.S:100)
+==420957== 
+==420957== 4,760 (120 direct, 4,640 indirect) bytes in 1 blocks are definitely lost in loss record 68 of 74
+==420957==    at 0x484BBA3: calloc (vg_replace_malloc.c:1675)
+==420957==    by 0x48880A5: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4891DD9: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4893428: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488E148: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x58ED8BA: start_thread (pthread_create.c:448)
+==420957==    by 0x596B36F: clone (clone.S:100)
+==420957== 
+==420957== 12,288 bytes in 5 blocks are still reachable in loss record 69 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x116C9F: bucse_write_guarded (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x4887402: fuse_fs_write_buf (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488753C: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4893530: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488E148: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x58ED8BA: start_thread (pthread_create.c:448)
+==420957==    by 0x596B36F: clone (clone.S:100)
+==420957== 
+==420957== 65,536 bytes in 1 blocks are still reachable in loss record 70 of 74
+==420957==    at 0x484BBA3: calloc (vg_replace_malloc.c:1675)
+==420957==    by 0x488D216: _fuse_new_31 (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x10D4E6: bucse_fuse_main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x10CB75: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 65,536 bytes in 1 blocks are still reachable in loss record 71 of 74
+==420957==    at 0x484BBA3: calloc (vg_replace_malloc.c:1675)
+==420957==    by 0x488D24A: _fuse_new_31 (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x10D4E6: bucse_fuse_main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x10CB75: main (in /home/chomzee/repos/bucse/bucse-mount)
+==420957== 
+==420957== 1,056,768 bytes in 1 blocks are possibly lost in loss record 72 of 74
+==420957==    at 0x484CE0C: aligned_alloc (vg_replace_malloc.c:2391)
+==420957==    by 0x488E852: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4894DA3: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488E048: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x58ED8BA: start_thread (pthread_create.c:448)
+==420957==    by 0x596B36F: clone (clone.S:100)
+==420957== 
+==420957== 8,388,617 bytes in 1 blocks are still reachable in loss record 73 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x115232: flushFile (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x115FAE: bucse_flush_guarded (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x488944F: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x48897F1: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x48909C1: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4893428: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488E148: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x58ED8BA: start_thread (pthread_create.c:448)
+==420957==    by 0x596B36F: clone (clone.S:100)
+==420957== 
+==420957== 536,871,488 bytes in 1 blocks are still reachable in loss record 74 of 74
+==420957==    at 0x4844818: malloc (vg_replace_malloc.c:446)
+==420957==    by 0x115428: flushFile (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x115FAE: bucse_flush_guarded (in /home/chomzee/repos/bucse/bucse-mount)
+==420957==    by 0x488944F: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x48897F1: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x48909C1: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x4893428: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x488E148: ??? (in /usr/lib/x86_64-linux-gnu/libfuse3.so.3.17.2)
+==420957==    by 0x58ED8BA: start_thread (pthread_create.c:448)
+==420957==    by 0x596B36F: clone (clone.S:100)
+==420957== 
+==420957== LEAK SUMMARY:
+==420957==    definitely lost: 120 bytes in 1 blocks
+==420957==    indirectly lost: 4,640 bytes in 7 blocks
+==420957==      possibly lost: 1,057,728 bytes in 4 blocks
+==420957==    still reachable: 545,415,765 bytes in 71 blocks
+==420957==         suppressed: 0 bytes in 0 blocks
+==420957== 
+==420957== For lists of detected and suppressed errors, rerun with: -s
+==420957== ERROR SUMMARY: 74 errors from 74 contexts (suppressed: 0 from 0)
+=== tmp/mount_420951.txt:
