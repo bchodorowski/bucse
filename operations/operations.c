@@ -73,7 +73,7 @@ int recreatePendingDirs(FilesystemDir* dir)
 		return result;
 	}
 
-	Action* newAction = malloc(sizeof(Action));
+	Action* newAction = calloc(1, sizeof(Action));
 	if (newAction == NULL) {
 		logPrintf(LOG_ERROR, "recreatePendingDirs: malloc(): %s\n", strerror(errno));
 		return -ENOMEM;

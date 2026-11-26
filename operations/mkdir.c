@@ -20,6 +20,11 @@ int bucse_mkdir(const char *path, mode_t mode)
 {
 	(void) mode;
 
+	return makeDirectory(path, 0, 0);
+}
+
+int makeDirectory(const char *path, int hasMtime, int64_t mtime)
+{
 	logPrintf(LOG_DEBUG, "mkdir %s\n", path);
 
 	if (confIsReadOnly()) {
@@ -73,7 +78,7 @@ int bucse_mkdir(const char *path, mode_t mode)
 	}
 
 	// construct new action, add it to actions
-	Action* newAction = malloc(sizeof(Action));
+	Action* newAction = calloc(1, sizeof(Action));
 	if (newAction == NULL) {
 		logPrintf(LOG_ERROR, "bucse_mkdir: malloc(): %s\n", strerror(errno));
 		return -ENOMEM;
@@ -107,7 +112,12 @@ int bucse_mkdir(const char *path, mode_t mode)
 	newDir->name = path_split(newAction->path, &pathArray);
 	path_free(&pathArray);
 
-	newDir->atime = newDir->mtime = newAction->time;
+	if (hasMtime) {
+		newAction->hasMtime = 1;
+		newAction->mtime = mtime;
+	}
+	newDir->atime = microsecondsToNanoseconds(newAction->time);
+	newDir->mtime = hasMtime ? mtime : newDir->atime;
 	newDir->parentDir = containingDir;
 
 	// write to json, encrypt call destination->addActionFile()

@@ -27,6 +27,7 @@
 #include "log.h"
 #include "cache.h"
 #include "tar.h"
+#include "time.h"
 
 #include "destinations/dest.h"
 #include "encryption/encr.h"
@@ -44,6 +45,7 @@
 #include "operations/mkdir.h"
 #include "operations/rmdir.h"
 #include "operations/truncate.h"
+#include "operations/utimens.h"
 #include "operations/rename.h"
 #include "operations/init.h"
 
@@ -137,6 +139,7 @@ struct fuse_operations bucse_oper = {
 	.mkdir = bucse_mkdir_guarded,
 	.rmdir = bucse_rmdir_guarded,
 	.truncate = bucse_truncate_guarded,
+	.utimens = bucse_utimens_guarded,
 	.rename = bucse_rename_guarded,
 	.flush = bucse_flush_guarded,
 	.init = bucse_init_guarded,
@@ -456,7 +459,7 @@ int parseRepositoryFile() {
 	}
 	int64_t time = json_object_get_int64(timeField);
 
-	root->mtime = root->atime = time;
+	root->mtime = root->atime = microsecondsToNanoseconds(time);
 
 	json_object_put(repository);
 	return 0;

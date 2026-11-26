@@ -61,6 +61,18 @@ static int compareActions(const Action* a1, const Action* a2)
 	if (a1->blockSize != a2->blockSize) {
 		return a1->blockSize > a2->blockSize ? 1 : -1;
 	}
+	if (a1->hasMtime != a2->hasMtime) {
+		return a1->hasMtime > a2->hasMtime ? 1 : -1;
+	}
+	if (a1->hasMtime && a1->mtime != a2->mtime) {
+		return a1->mtime > a2->mtime ? 1 : -1;
+	}
+	if (a1->hasAtime != a2->hasAtime) {
+		return a1->hasAtime > a2->hasAtime ? 1 : -1;
+	}
+	if (a1->hasAtime && a1->atime != a2->atime) {
+		return a1->atime > a2->atime ? 1 : -1;
+	}
 	return 0;
 }
 
@@ -179,6 +191,54 @@ static int markFilePendingCreate(FilesystemFile* file)
 	return 0;
 }
 
+// The mtime and atime that an action that adds or edits an entry gives it:
+// the ones it carries, or its time.
+static int64_t actionMtime(const Action* action)
+{
+	return action->hasMtime ? action->mtime : microsecondsToNanoseconds(action->time);
+}
+
+static int64_t actionAtime(const Action* action)
+{
+	return action->hasAtime ? action->atime : microsecondsToNanoseconds(action->time);
+}
+
+// Finds the times of the entry at path (the root directory for ""), for a
+// setTimes action. Fails if there is no such entry in the repository: a
+// file or directory that holds only local data isn't there on other clients.
+static int findTimes(const char* path, int64_t** atime, int64_t** mtime)
+{
+	if (path[0] == '\0') {
+		*atime = &root->atime;
+		*mtime = &root->mtime;
+		return 0;
+	}
+	const char* name;
+	FilesystemDir* containingDir = findParent(path, &name);
+	if (containingDir == NULL || containingDir->pendingCreate) {
+		return 1;
+	}
+	FilesystemFile* file = findFile(containingDir, name);
+	if (file != NULL) {
+		if (file->dirtyFlags & DirtyFlagPendingCreate) {
+			return 2;
+		}
+		*atime = &file->atime;
+		*mtime = &file->mtime;
+		return 0;
+	}
+	FilesystemDir* dir = findDir(containingDir, name);
+	if (dir != NULL) {
+		if (dir->pendingCreate) {
+			return 3;
+		}
+		*atime = &dir->atime;
+		*mtime = &dir->mtime;
+		return 0;
+	}
+	return 4;
+}
+
 // Saves the state of file that an action replaces, see Action.
 static void savePrevFile(Action* action, FilesystemFile* file)
 {
@@ -242,7 +302,8 @@ static int doAction(Action* action)
 			file->dirtyFlags &= ~DirtyFlagPendingCreate;
 			if (file->dirtyFlags == DirtyFlagNotDirty) {
 				// nothing written locally, take the added file
-				file->atime = file->mtime = action->time;
+				file->atime = actionAtime(action);
+				file->mtime = actionMtime(action);
 				file->content = action->content;
 				file->contentLen = action->contentLen;
 				file->size = action->size;
@@ -264,7 +325,8 @@ static int doAction(Action* action)
 		}
 
 		newFile->name = fileName;
-		newFile->atime = newFile->mtime = action->time;
+		newFile->atime = actionAtime(action);
+		newFile->mtime = actionMtime(action);
 		newFile->content = action->content;
 		newFile->contentLen = action->contentLen;
 		newFile->size = action->size;
@@ -308,7 +370,10 @@ static int doAction(Action* action)
 		}
 		savePrevFile(action, file);
 		action->outcome = OutcomeApplied;
-		file->mtime = action->time;
+		file->mtime = actionMtime(action);
+		if (action->hasAtime) {
+			file->atime = action->atime;
+		}
 		file->content = action->content;
 		file->contentLen = action->contentLen;
 		file->size = action->size;
@@ -420,7 +485,8 @@ static int doAction(Action* action)
 		memset(newDir, 0, sizeof(FilesystemDir));
 
 		newDir->name = dirName;
-		newDir->atime = newDir->mtime = action->time;
+		newDir->atime = actionAtime(action);
+		newDir->mtime = actionMtime(action);
 		newDir->parentDir = containingDir;
 
 		addToDynArray(&containingDir->dirs, newDir);
@@ -469,6 +535,24 @@ static int doAction(Action* action)
 		freeDynArray(&dir->dirs);
 		freeDynArray(&dir->files);
 		free(dir);
+		action->outcome = OutcomeApplied;
+		return 0;
+
+	} else if (action->actionType == ActionTypeSetTimes) {
+		int64_t* atime;
+		int64_t* mtime;
+		if (findTimes(action->path, &atime, &mtime) != 0) {
+			logPrintf(LOG_ERROR, "doAction: path not found when setting times of %s\n", action->path);
+			return 24;
+		}
+		action->prevAtime = *atime;
+		action->prevMtime = *mtime;
+		if (action->hasAtime) {
+			*atime = action->atime;
+		}
+		if (action->hasMtime) {
+			*mtime = action->mtime;
+		}
 		action->outcome = OutcomeApplied;
 		return 0;
 
@@ -642,6 +726,18 @@ static int undoAction(Action* action)
 		return 0;
 	}
 
+	if (action->actionType == ActionTypeSetTimes) {
+		int64_t* atime;
+		int64_t* mtime;
+		if (findTimes(action->path, &atime, &mtime) != 0) {
+			logPrintf(LOG_ERROR, "undoAction: path not found: %s\n", action->path);
+			return 18;
+		}
+		*atime = action->prevAtime;
+		*mtime = action->prevMtime;
+		return 0;
+	}
+
 	const char* name;
 	FilesystemDir* containingDir = findParent(action->path, &name);
 	if (containingDir == NULL) {
@@ -684,6 +780,9 @@ static int undoAction(Action* action)
 		}
 		// unflushed local changes stay on top of the old content
 		file->mtime = action->prevMtime;
+		if (action->hasAtime) {
+			file->atime = action->prevAtime;
+		}
 		file->content = action->prevContent;
 		file->contentLen = action->prevContentLen;
 		file->size = action->prevSize;
@@ -870,6 +969,20 @@ static int parseAction(char* buf, size_t size)
 			blockSize = json_object_get_int64(blockSizeField);
 		}
 
+		// parse mtime and atime (optional)
+		json_object* mtimeField;
+		int hasMtime = json_object_object_get_ex(actionObj, "mtime", &mtimeField) != 0;
+		if (hasMtime && json_object_get_type(mtimeField) != json_type_int) {
+			logPrintf(LOG_ERROR, "parseAction: 'mtime' field is not an integer\n");
+			continue;
+		}
+		json_object* atimeField;
+		int hasAtime = json_object_object_get_ex(actionObj, "atime", &atimeField) != 0;
+		if (hasAtime && json_object_get_type(atimeField) != json_type_int) {
+			logPrintf(LOG_ERROR, "parseAction: 'atime' field is not an integer\n");
+			continue;
+		}
+
 		// parse action
 		json_object* actionTypeField;
 		if (json_object_object_get_ex(actionObj, "action", &actionTypeField) == 0) {
@@ -892,6 +1005,8 @@ static int parseAction(char* buf, size_t size)
 			actionType = ActionTypeRemoveDirectory;
 		} else if (strcmp(actionTypeStr, "editFile") == 0) {
 			actionType = ActionTypeEditFile;
+		} else if (strcmp(actionTypeStr, "setTimes") == 0) {
+			actionType = ActionTypeSetTimes;
 		} else {
 			logPrintf(LOG_ERROR, "parseAction: unknown action\n");
 			continue;
@@ -963,7 +1078,7 @@ static int parseAction(char* buf, size_t size)
 		}
 
 		// create new action object
-		Action* newAction = malloc(sizeof(Action));
+		Action* newAction = calloc(1, sizeof(Action));
 		if (newAction == NULL) {
 			logPrintf(LOG_ERROR, "parseAction: malloc(): %s\n", strerror(errno));
 			free(content);
@@ -983,6 +1098,10 @@ static int parseAction(char* buf, size_t size)
 		newAction->contentLen = contentLen;
 		newAction->size = size;
 		newAction->blockSize = blockSize;
+		newAction->hasMtime = hasMtime;
+		newAction->mtime = hasMtime ? json_object_get_int64(mtimeField) : 0;
+		newAction->hasAtime = hasAtime;
+		newAction->atime = hasAtime ? json_object_get_int64(atimeField) : 0;
 		newAction->outcome = OutcomeNotApplied;
 
 		addToDynArray(&actionsPending, newAction);
@@ -1156,6 +1275,8 @@ char* serializeAction(Action* action)
 		actionStr = "removeDirectory";
 	} else if (action->actionType == ActionTypeEditFile) {
 		actionStr = "editFile";
+	} else if (action->actionType == ActionTypeSetTimes) {
+		actionStr = "setTimes";
 	} else {
 		actionStr = "unknown";
 	}
@@ -1194,6 +1315,22 @@ char* serializeAction(Action* action)
 	if (val == NULL || json_object_object_add(jsonNewAction, "blockSize", val) != 0) {
 		json_object_put(val);
 		goto error;
+	}
+
+	if (action->hasMtime) {
+		val = json_object_new_int64(action->mtime);
+		if (val == NULL || json_object_object_add(jsonNewAction, "mtime", val) != 0) {
+			json_object_put(val);
+			goto error;
+		}
+	}
+
+	if (action->hasAtime) {
+		val = json_object_new_int64(action->atime);
+		if (val == NULL || json_object_object_add(jsonNewAction, "atime", val) != 0) {
+			json_object_put(val);
+			goto error;
+		}
 	}
 
 	const char* jsonData = json_object_to_json_string_ext(
@@ -1247,6 +1384,8 @@ static void setLocalOutcome(Action* action)
 	FilesystemDir* containingDir = findParent(action->path, &name);
 	FilesystemFile* file = containingDir ? findFile(containingDir, name) : NULL;
 	FilesystemDir* dir = containingDir ? findDir(containingDir, name) : NULL;
+	int64_t* atime;
+	int64_t* mtime;
 
 	if (action->actionType == ActionTypeAddFile) {
 		// a file created locally is flushed, or a file renamed: what
@@ -1266,6 +1405,11 @@ static void setLocalOutcome(Action* action)
 		action->prevAtime = dir->atime;
 		action->prevMtime = dir->mtime;
 		action->prevPendingCreate = dir->pendingCreate;
+		action->outcome = OutcomeApplied;
+	} else if (action->actionType == ActionTypeSetTimes
+		&& findTimes(action->path, &atime, &mtime) == 0) {
+		action->prevAtime = *atime;
+		action->prevMtime = *mtime;
 		action->outcome = OutcomeApplied;
 	} else {
 		logPrintf(LOG_ERROR, "setLocalOutcome: %s not found, the action can't be undone\n", action->path);

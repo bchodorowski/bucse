@@ -24,7 +24,7 @@ Ranked: when goals conflict, the higher one wins.
   a specific way, e.g. local, ssh.
 - **Action** — an operation the user performs on their files that needs to
   be saved in the repository, e.g. create file, edit file, delete file,
-  create directory.
+  create directory, set times.
 - **Action file** — a file in the `$repository/actions/` directory that
   describes one action.
 - **actionsPending** — an in-memory dynamic array of actions, either just
@@ -38,8 +38,8 @@ Ranked: when goals conflict, the higher one wins.
   ordered after everything the client has seen, even if the client's clock
   steps back or another client's clock is ahead. Actions of clients that
   haven't seen each other keep an arbitrary but consistent order. A client
-  whose clock is far ahead pushes the times (and mtimes) of everyone's later
-  actions after its own.
+  whose clock is far ahead pushes the times (and mtimes, unless set
+  explicitly, see "Times") of everyone's later actions after its own.
 - **Packing (tar) of actions** — an optimisation: many action files are
   packed into one tar file, so they can be handled as one big pack instead
   of one by one.
@@ -206,6 +206,29 @@ yet (pending writes, a pending truncate, a file created but not flushed):
   exist. Local entries in it are kept, so a file whose addFile is rejected
   stays unflushed, and its flush adds the directory and the file again.
 
+## Times
+
+Each file and directory has an mtime and an atime, in nanoseconds since the
+epoch (action times are in microseconds). An action that adds an entry sets
+both to its time, an editFile sets the mtime. An action can carry `mtime` and
+`atime` fields (in nanoseconds) to set them instead; older versions ignore
+the fields, and skip a `setTimes` action, so they show the action times.
+
+- **setTimes** is written by `utimens` (`touch`, `cp -p`, `tar x`,
+  `rsync -t`). It sets only the times it carries, of a file or a directory
+  (the path `""` is the root). A file with local changes is flushed first, so
+  its editFile or addFile (which sets the mtime to the action time) comes
+  before the setTimes. Like any action, a setTimes of an entry that isn't in
+  the repository is rejected. `UTIME_NOW` is the action time.
+- **rename** writes the addFile or editFile of the destination, and the
+  addDirectory of a renamed directory, with the mtime of the source, so it is
+  kept.
+
+The atime is saved only when `utimens` sets it: a read or a readdir updates it
+in memory only, and a renamed entry keeps it until a remount. The ctime is
+shown as the mtime. A directory's mtime doesn't change when entries are added
+to it or removed from it.
+
 ## Out-of-order actions
 
 An action file can arrive after actions with later times (a slow upload, a
@@ -218,7 +241,7 @@ the tree in between.
 
 Each action remembers, in memory only (not in the action file), how it
 changed the tree and the state it replaced: e.g. an editFile the previous
-content, a removeFile the removed file, a removeDirectory whether the
+content, a setTimes the previous times, a removeFile the removed file, a removeDirectory whether the
 directory was removed or only kept for local data. A rejected action, or one
 that changed nothing, is not undone. Undoing a local action works the same
 way: the operation records it when it adds the action.

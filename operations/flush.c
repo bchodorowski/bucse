@@ -398,7 +398,7 @@ constructAction:;
 	}
 
 	// construct new action, add it to actions
-	Action* newAction = malloc(sizeof(Action));
+	Action* newAction = calloc(1, sizeof(Action));
 	if (newAction == NULL) {
 		logPrintf(LOG_ERROR, "flushFile: malloc(): %s\n", strerror(errno));
 		if (newContent) {
@@ -453,7 +453,7 @@ constructAction:;
 		file->name = path_split(newAction->path, &pathArray);
 		path_free(&pathArray);
 	}
-	file->mtime = newAction->time;
+	file->mtime = microsecondsToNanoseconds(newAction->time);
 	file->content = newAction->content;
 	file->contentLen = newAction->contentLen;
 	file->size = newAction->size;

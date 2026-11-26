@@ -11,6 +11,7 @@ typedef enum {
 	ActionTypeAddDirectory,
 	ActionTypeRemoveDirectory,
 	ActionTypeEditFile,
+	ActionTypeSetTimes,
 } ActionType;
 
 // What doAction() (or, for a local action, the operation) did with an
@@ -35,6 +36,14 @@ typedef struct {
 	int contentLen;
 	size_t size;
 	int blockSize;
+	// optional: the mtime and atime (in nanoseconds since the epoch) that
+	// the action sets, instead of the action time (setTimes sets only the
+	// ones given, the other actions use the action time for a missing one;
+	// editFile doesn't change atime then)
+	int hasMtime;
+	int64_t mtime;
+	int hasAtime;
+	int64_t atime;
 
 	// in memory only, never in the action file: what was done with the
 	// action, and the state of the entry at path that it replaced (the

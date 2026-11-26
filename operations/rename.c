@@ -46,7 +46,7 @@ static int renameFile(FilesystemFile *srcFile, FilesystemDir *srcContainingDir,
 	}
 
 	// construct new action for destination, add it to actions
-	Action* newDstAction = malloc(sizeof(Action));
+	Action* newDstAction = calloc(1, sizeof(Action));
 	if (newDstAction == NULL) {
 		logPrintf(LOG_ERROR, "bucse_rename: malloc(): %s\n", strerror(errno));
 		return -ENOMEM;
@@ -72,6 +72,10 @@ static int renameFile(FilesystemFile *srcFile, FilesystemDir *srcContainingDir,
 	newDstAction->contentLen = srcFile->contentLen;
 	newDstAction->size = srcFile->size;
 	newDstAction->blockSize = srcFile->blockSize;
+	// a renamed file keeps its mtime (and atime, which isn't saved)
+	newDstAction->hasMtime = 1;
+	newDstAction->mtime = srcFile->mtime;
+	int64_t atime = srcFile->atime;
 
 	// write to json, encrypt call destination->addActionFile()
 	if (encryptAndAddActionFile(newDstAction) != 0) {
@@ -86,7 +90,7 @@ static int renameFile(FilesystemFile *srcFile, FilesystemDir *srcContainingDir,
 	addAction(newDstAction);
 
 	// construct new action for source, add it to actions
-	Action* newSrcAction = malloc(sizeof(Action));
+	Action* newSrcAction = calloc(1, sizeof(Action));
 	if (newSrcAction == NULL) {
 		logPrintf(LOG_ERROR, "bucse_rename: malloc(): %s\n", strerror(errno));
 		return -ENOMEM;
@@ -135,7 +139,8 @@ static int renameFile(FilesystemFile *srcFile, FilesystemDir *srcContainingDir,
 		free(srcFile);
 	}
 
-	dstFile->atime = dstFile->mtime = newDstAction->time;
+	dstFile->atime = atime;
+	dstFile->mtime = newDstAction->mtime;
 	dstFile->parentDir = dstContainingDir;
 
 	// get pointer to file name from newDstAction->path
@@ -174,9 +179,8 @@ static int renameDir(FilesystemDir *srcDir, FilesystemDir *srcContainingDir,
 		result = recreatePendingDirs(dstDir);
 	} else {
 		// create the target directory
-		result = bucse_mkdir(dstPath, S_IRUSR | S_IWUSR | S_IXUSR
-			| S_IRGRP | S_IXGRP
-			| S_IROTH | S_IXOTH);
+		// it keeps the source directory's mtime
+		result = makeDirectory(dstPath, 1, srcDir->mtime);
 	}
 
 	if (result != 0) {

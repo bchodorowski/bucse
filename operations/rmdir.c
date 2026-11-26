@@ -86,7 +86,7 @@ int bucse_rmdir(const char *path)
 	}
 
 	// construct new action, add it to actions
-	Action* newAction = malloc(sizeof(Action));
+	Action* newAction = calloc(1, sizeof(Action));
 	if (newAction == NULL) {
 		logPrintf(LOG_ERROR, "bucse_rmdir: malloc(): %s\n", strerror(errno));
 		return -ENOMEM;

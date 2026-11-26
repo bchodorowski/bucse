@@ -62,7 +62,7 @@ static int bucse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 		FilesystemFile* f = dir->files.objects[i];
 		filler(buf, f->name, NULL, 0, 0);
 	}
-	dir->atime = getCurrentTime();
+	dir->atime = getCurrentTimeNs();
 	return 0;
 }
 

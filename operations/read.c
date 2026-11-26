@@ -150,7 +150,7 @@ static int bucse_read(const char *path, char *buf, size_t size, off_t offset,
 		return -EIO;
 	}
 
-	file->atime = getCurrentTime();
+	file->atime = getCurrentTimeNs();
 	return copiedBytes;
 }
 

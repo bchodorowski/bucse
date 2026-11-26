@@ -15,8 +15,8 @@ typedef struct {
 typedef struct _FilesystemDir
 {
 	const char* name; // pointer to memory that is managed by actions
-	int64_t atime;
-	int64_t mtime;
+	int64_t atime; // in nanoseconds since the epoch
+	int64_t mtime; // in nanoseconds since the epoch
 	DynArray files;
 	DynArray dirs;
 	struct _FilesystemDir* parentDir;
@@ -29,8 +29,8 @@ typedef struct _FilesystemDir
 typedef struct
 {
 	const char* name; // pointer to memory that is managed by actions
-	int64_t atime;
-	int64_t mtime;
+	int64_t atime; // in nanoseconds since the epoch
+	int64_t mtime; // in nanoseconds since the epoch
 	char* content; // pointer to memory that is managed by actions
 	int contentLen;
 	size_t size;

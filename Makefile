@@ -33,6 +33,7 @@ bucse-mount: bucse-mount.o \
 	operations/mkdir.o \
 	operations/rmdir.o \
 	operations/truncate.o \
+	operations/utimens.o \
 	operations/rename.o \
 	operations/init.o
 	$(CC) -o bucse-mount $(CFLAGS) bucse-mount.o \
@@ -64,6 +65,7 @@ bucse-mount: bucse-mount.o \
 		operations/mkdir.o \
 		operations/rmdir.o \
 		operations/truncate.o \
+		operations/utimens.o \
 		operations/rename.o \
 		operations/init.o \
 		$(LIBS)
@@ -79,6 +81,7 @@ bucse-mount.o: bucse-mount.c \
 	log.h \
 	cache.h \
 	tar.h \
+	time.h \
 	operations/operations.h \
 	operations/getattr.h \
 	operations/flush.h \
@@ -92,6 +95,7 @@ bucse-mount.o: bucse-mount.c \
 	operations/mkdir.h \
 	operations/rmdir.h \
 	operations/truncate.h \
+	operations/utimens.h \
 	operations/rename.h \
 	operations/init.h
 	$(CC) -c bucse-mount.c $(CFLAGS)
@@ -147,7 +151,8 @@ actions.o: actions.c \
 	time.h
 	$(CC) -c actions.c -o actions.o $(CFLAGS)
 
-time.o: time.c
+time.o: time.c \
+	time.h
 	$(CC) -c time.c -o time.o $(CFLAGS)
 
 conf.o: conf.c \
@@ -323,6 +328,18 @@ operations/truncate.o: operations/truncate.c \
 	operations/flush.h
 	$(CC) -c operations/truncate.c -o operations/truncate.o $(CFLAGS)
 
+operations/utimens.o: operations/utimens.c \
+	operations/utimens.h \
+	dynarray.h \
+	filesystem.h \
+	actions.h \
+	time.h \
+	log.h \
+	conf.h \
+	operations/operations.h \
+	operations/flush.h
+	$(CC) -c operations/utimens.c -o operations/utimens.o $(CFLAGS)
+
 operations/rename.o: operations/rename.c \
 	operations/rename.h \
 	dynarray.h \
@@ -408,6 +425,7 @@ clean:
 		operations/mkdir.o \
 		operations/rmdir.o \
 		operations/truncate.o \
+		operations/utimens.o \
 		operations/rename.o \
 		operations/init.o \
 		bucse-init bucse-init.o

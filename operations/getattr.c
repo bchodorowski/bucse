@@ -19,11 +19,16 @@
 extern uid_t cachedUid;
 extern gid_t cachedGid;
 
-static struct timespec microsecondsToNanoseconds(int64_t t)
+static struct timespec toTimespec(int64_t t)
 {
 	struct timespec ts;
-	ts.tv_sec = t / 1000000L;
-	ts.tv_nsec = (t % 1000000L) * 1000L;
+	ts.tv_sec = t / 1000000000L;
+	ts.tv_nsec = t % 1000000000L;
+	// a time before the epoch: tv_nsec must not be negative
+	if (ts.tv_nsec < 0) {
+		ts.tv_sec--;
+		ts.tv_nsec += 1000000000L;
+	}
 	return ts;
 }
 
@@ -44,9 +49,9 @@ static int bucse_getattr(const char *path, struct stat *stbuf, struct fuse_file_
 		}
 		stbuf->st_nlink = 2;
 
-		stbuf->st_atim = microsecondsToNanoseconds(root->atime);
-		stbuf->st_mtim = microsecondsToNanoseconds(root->mtime);
-		stbuf->st_ctim = microsecondsToNanoseconds(root->mtime);
+		stbuf->st_atim = toTimespec(root->atime);
+		stbuf->st_mtim = toTimespec(root->mtime);
+		stbuf->st_ctim = toTimespec(root->mtime);
 
 		stbuf->st_uid = cachedUid;
 		stbuf->st_gid = cachedGid;
@@ -87,9 +92,9 @@ static int bucse_getattr(const char *path, struct stat *stbuf, struct fuse_file_
 				? file->truncSize
 				: file->size;
 			//stbuf->st_ino = MurmurHash64(path, strlen(path), 0);
-			stbuf->st_atim = microsecondsToNanoseconds(file->atime);
-			stbuf->st_mtim = microsecondsToNanoseconds(file->mtime);
-			stbuf->st_ctim = microsecondsToNanoseconds(file->mtime);
+			stbuf->st_atim = toTimespec(file->atime);
+			stbuf->st_mtim = toTimespec(file->mtime);
+			stbuf->st_ctim = toTimespec(file->mtime);
 
 			stbuf->st_uid = cachedUid;
 			stbuf->st_gid = cachedGid;
@@ -104,9 +109,9 @@ static int bucse_getattr(const char *path, struct stat *stbuf, struct fuse_file_
 				}
 				stbuf->st_nlink = 1;
 				//stbuf->st_ino = MurmurHash64(path, strlen(path), 0);
-				stbuf->st_atim = microsecondsToNanoseconds(dir->atime);
-				stbuf->st_mtim = microsecondsToNanoseconds(dir->mtime);
-				stbuf->st_ctim = microsecondsToNanoseconds(dir->mtime);
+				stbuf->st_atim = toTimespec(dir->atime);
+				stbuf->st_mtim = toTimespec(dir->mtime);
+				stbuf->st_ctim = toTimespec(dir->mtime);
 
 				stbuf->st_uid = cachedUid;
 				stbuf->st_gid = cachedGid;

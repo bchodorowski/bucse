@@ -85,7 +85,7 @@ static int bucse_create(const char *path, mode_t mode, struct fuse_file_info *fi
 		free(newFile);
 		return -ENOMEM;
 	}
-	newFile->atime = newFile->mtime = getCurrentTime();
+	newFile->atime = newFile->mtime = getCurrentTimeNs();
 	newFile->content = NULL;
 	newFile->contentLen = 0;
 	newFile->size = 0;
