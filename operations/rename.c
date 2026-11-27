@@ -158,6 +158,109 @@ static int renameFile(FilesystemFile *srcFile, FilesystemDir *srcContainingDir,
 	return 0;
 }
 
+// Returns a new editFile action for file's path that gives it the content
+// (and mtime) of other, or NULL.
+static Action* newExchangeAction(FilesystemFile *file, FilesystemFile *other, int64_t time)
+{
+	Action* action = calloc(1, sizeof(Action));
+	if (action == NULL) {
+		logPrintf(LOG_ERROR, "bucse_rename: malloc(): %s\n", strerror(errno));
+		return NULL;
+	}
+	action->time = time;
+	action->actionType = ActionTypeEditFile;
+	action->path = getFullFilePath(file);
+	// malloc(0) may return NULL, so allocate at least one slot
+	action->content = malloc((other->contentLen > 0 ? other->contentLen : 1) * MAX_STORAGE_NAME_LEN);
+	if (action->path == NULL || action->content == NULL) {
+		logPrintf(LOG_ERROR, "bucse_rename: malloc(): %s\n", strerror(errno));
+		free(action->path);
+		free(action->content);
+		free(action);
+		return NULL;
+	}
+	memcpy(action->content, other->content, other->contentLen * MAX_STORAGE_NAME_LEN);
+	action->contentLen = other->contentLen;
+	action->size = other->size;
+	action->blockSize = other->blockSize;
+	// the exchanged files keep their mtimes
+	action->hasMtime = 1;
+	action->mtime = other->mtime;
+	return action;
+}
+
+// RENAME_EXCHANGE of two files: an editFile for each path, with the content
+// of the other one. Both are written in one action file, so no client (and
+// no crash) ever sees only one of them applied.
+static int exchangeFiles(FilesystemFile *srcFile, FilesystemDir *srcContainingDir,
+	FilesystemFile *dstFile, FilesystemDir *dstContainingDir)
+{
+	if (srcFile == dstFile) {
+		return 0;
+	}
+
+	// flush both files to be sure pending writes have been saved
+	if (srcFile->dirtyFlags != DirtyFlagNotDirty && flushFile(srcFile) != 0) {
+		return -EIO;
+	}
+	if (dstFile->dirtyFlags != DirtyFlagNotDirty && flushFile(dstFile) != 0) {
+		return -EIO;
+	}
+
+	// another client may have removed a containing directory
+	int result = recreatePendingDirs(srcContainingDir);
+	if (result != 0) {
+		return result;
+	}
+	result = recreatePendingDirs(dstContainingDir);
+	if (result != 0) {
+		return result;
+	}
+
+	int64_t time = getNewActionTime();
+	Action* newActions[2];
+	newActions[0] = newExchangeAction(srcFile, dstFile, time);
+	newActions[1] = newExchangeAction(dstFile, srcFile, time);
+	if (newActions[0] == NULL || newActions[1] == NULL) {
+		for (int i=0; i<2; i++) {
+			if (newActions[i] != NULL) {
+				free(newActions[i]->content);
+				free(newActions[i]->path);
+				free(newActions[i]);
+			}
+		}
+		return -ENOMEM;
+	}
+
+	if (encryptAndAddActionFiles(newActions, 2) != 0) {
+		logPrintf(LOG_ERROR, "bucse_rename: encryptAndAddActionFiles failed\n");
+		for (int i=0; i<2; i++) {
+			free(newActions[i]->content);
+			free(newActions[i]->path);
+			free(newActions[i]);
+		}
+		return -EIO;
+	}
+
+	// both before the tree changes, see addAction()
+	addAction(newActions[0]);
+	addAction(newActions[1]);
+
+	// update filesystem; the atime isn't saved, it is swapped in memory
+	FilesystemFile* files[2] = { srcFile, dstFile };
+	int64_t atimes[2] = { dstFile->atime, srcFile->atime };
+	for (int i=0; i<2; i++) {
+		files[i]->content = newActions[i]->content;
+		files[i]->contentLen = newActions[i]->contentLen;
+		files[i]->size = newActions[i]->size;
+		files[i]->blockSize = newActions[i]->blockSize;
+		files[i]->mtime = newActions[i]->mtime;
+		files[i]->atime = atimes[i];
+	}
+
+	return 0;
+}
+
 static int renameDir(FilesystemDir *srcDir, FilesystemDir *srcContainingDir,
 	FilesystemDir *dstDir, FilesystemDir *dstContainingDir,
 	const char* dstPath)
@@ -295,6 +398,12 @@ static int bucse_rename(const char *srcPath, const char *dstPath,
 		return -EIO;
 	}
 
+	if ((flags & ~(RENAME_NOREPLACE | RENAME_EXCHANGE)) != 0
+		|| ((flags & RENAME_NOREPLACE) && (flags & RENAME_EXCHANGE))) {
+		logPrintf(LOG_ERROR, "bucse_rename: unsupported flags %u\n", flags);
+		return -EINVAL;
+	}
+
 	FilesystemFile *srcFile = NULL;
 	FilesystemDir *srcDir = NULL;
 	FilesystemDir *srcContainingDir = NULL;
@@ -362,6 +471,21 @@ static int bucse_rename(const char *srcPath, const char *dstPath,
 
 		dstFile = findFile(dstContainingDir, fileName);
 		dstDir = findDir(dstContainingDir, fileName);
+
+		if (flags & RENAME_EXCHANGE) {
+			if (dstFile == NULL && dstDir == NULL) {
+				logPrintf(LOG_ERROR, "bucse_rename: exchange but destination %s not found\n", dstPath);
+				return -ENOENT;
+			}
+			// swapping directories would mean rewriting everything
+			// in them, see "Non-goals" in docs/design.md
+			if (srcDir != NULL || dstDir != NULL) {
+				logPrintf(LOG_ERROR, "bucse_rename: exchange of directories is not supported: %s %s\n", srcPath, dstPath);
+				return -EINVAL;
+			}
+			return exchangeFiles(srcFile, srcContainingDir, dstFile, dstContainingDir);
+		}
+
 		if (srcFile != NULL) {
 			// rename file
 
@@ -376,14 +500,6 @@ static int bucse_rename(const char *srcPath, const char *dstPath,
 					return -EEXIST;
 				}
 
-			} else if (flags & RENAME_EXCHANGE) {
-				if (dstFile == NULL) {
-					logPrintf(LOG_ERROR, "bucse_rename: exchange but destination file %s not found\n", dstPath);
-					return -ENOENT;
-				}
-				// TODO: implement RENAME_EXCHANGE
-				logPrintf(LOG_ERROR, "bucse_rename: RENAME_EXCHANGE not implemented\n");
-				return -ENOSYS;
 			}
 
 		} else if (srcDir != NULL) {
@@ -397,14 +513,6 @@ static int bucse_rename(const char *srcPath, const char *dstPath,
 					return -EEXIST;
 				}
 
-			} else if (flags & RENAME_EXCHANGE) {
-				if (dstDir == NULL) {
-					logPrintf(LOG_ERROR, "bucse_rename: exchange but destination dir %s not found\n", dstPath);
-					return -ENOENT;
-				}
-				// TODO: implement RENAME_EXCHANGE
-				logPrintf(LOG_ERROR, "bucse_rename: RENAME_EXCHANGE not implemented\n");
-				return -ENOSYS;
 			}
 		} else {
 			logPrintf(LOG_ERROR, "bucse_rename: Unexpected state\n");

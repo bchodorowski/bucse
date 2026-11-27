@@ -62,7 +62,8 @@ typedef struct {
 int actionAdded(char* actionName, char* buf, size_t size);
 void flushActionsAdded();
 void actionsCleanup();
-char* serializeAction(Action* action);
+// serializes actions into the JSON document of one action file
+char* serializeActions(Action** actionsToSerialize, size_t count);
 int64_t getNewActionTime();
 // adds a local action; call it before the operation changes the tree
 void addAction(Action *newAction);

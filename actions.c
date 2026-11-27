@@ -1242,17 +1242,12 @@ void actionsCleanup()
 	freeDynArray(&localDirNames);
 }
 
-char* serializeAction(Action* action)
+// Appends action to the JSON array jsonNewActions. Every value is added to
+// jsonNewActions (or to an object in it) right after it is created, so
+// releasing jsonNewActions releases everything; a value that can't be added
+// is released on its own (json_object_put(NULL) is a no-op).
+static int addActionToJson(json_object* jsonNewActions, Action* action)
 {
-	json_object* jsonNewActions = json_object_new_array();
-	if (!jsonNewActions) {
-		logPrintf(LOG_ERROR, "serializeAction: can't create JSON array\n");
-		return NULL;
-	}
-	// from here on, every value is added to jsonNewActions (or to an object
-	// in it) right after it is created, so releasing jsonNewActions releases
-	// everything; a value that can't be added is released on its own
-	// (json_object_put(NULL) is a no-op)
 	json_object* jsonNewAction = json_object_new_object();
 	if (jsonNewAction == NULL || json_object_array_add(jsonNewActions, jsonNewAction) != 0) {
 		json_object_put(jsonNewAction);
@@ -1334,6 +1329,30 @@ char* serializeAction(Action* action)
 		}
 	}
 
+	return 0;
+
+error:
+	return -1;
+}
+
+// An action file is a JSON array of actions. Most operations write one
+// action per file; the actions of one file are applied together, so an
+// operation that must not be seen half done (RENAME_EXCHANGE) writes all of
+// them in one file.
+char* serializeActions(Action** actionsToSerialize, size_t count)
+{
+	json_object* jsonNewActions = json_object_new_array();
+	if (!jsonNewActions) {
+		logPrintf(LOG_ERROR, "serializeActions: can't create JSON array\n");
+		return NULL;
+	}
+
+	for (size_t i=0; i<count; i++) {
+		if (addActionToJson(jsonNewActions, actionsToSerialize[i]) != 0) {
+			goto error;
+		}
+	}
+
 	const char* jsonData = json_object_to_json_string_ext(
 		jsonNewActions, JSON_C_TO_STRING_PRETTY);
 	if (jsonData == NULL) {
@@ -1342,7 +1361,7 @@ char* serializeAction(Action* action)
 
 	char* result = malloc(strlen(jsonData)+1);
 	if (result == NULL) {
-		logPrintf(LOG_ERROR, "serializeAction: malloc(): %s\n", strerror(errno));
+		logPrintf(LOG_ERROR, "serializeActions: malloc(): %s\n", strerror(errno));
 		json_object_put(jsonNewActions);
 		return NULL;
 	}
@@ -1353,7 +1372,7 @@ char* serializeAction(Action* action)
 	return result;
 
 error:
-	logPrintf(LOG_ERROR, "serializeAction: can't build JSON\n");
+	logPrintf(LOG_ERROR, "serializeActions: can't build JSON\n");
 	json_object_put(jsonNewActions);
 	return NULL;
 }

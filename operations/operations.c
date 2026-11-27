@@ -25,9 +25,14 @@ extern Encryption *encryption;
 
 int encryptAndAddActionFile(Action* newAction)
 {
-	char* jsonData = serializeAction(newAction);
+	return encryptAndAddActionFiles(&newAction, 1);
+}
+
+int encryptAndAddActionFiles(Action** newActions, size_t count)
+{
+	char* jsonData = serializeActions(newActions, count);
 	if (jsonData == NULL) {
-		logPrintf(LOG_ERROR, "encryptAndAddActionFile: serializeAction() failed\n");
+		logPrintf(LOG_ERROR, "encryptAndAddActionFile: serializeActions() failed\n");
 		return -1;
 	}
 

@@ -26,7 +26,11 @@ Ranked: when goals conflict, the higher one wins.
   be saved in the repository, e.g. create file, edit file, delete file,
   create directory, set times.
 - **Action file** — a file in the `$repository/actions/` directory that
-  describes one action.
+  holds a JSON array of actions. Usually it holds one, but it can hold
+  several, which every client applies together: an operation that must
+  never be seen half done (RENAME_EXCHANGE) writes all of its actions in one
+  file. Each action in the array is handled on its own (sorted,
+  deduplicated, applied or rejected), as if it came from a file of its own.
 - **actionsPending** — an in-memory dynamic array of actions, either just
   performed by the user or just read from action files. They are sorted by
   time (actions with the same time, e.g. the two actions of a rename, by
@@ -227,7 +231,10 @@ the fields, and skip a `setTimes` action, so they show the action times.
   the repository is rejected. `UTIME_NOW` is the action time.
 - **rename** writes the addFile or editFile of the destination, and the
   addDirectory of a renamed directory, with the mtime of the source, so it is
-  kept.
+  kept. A rename with `RENAME_EXCHANGE` of two files writes an editFile for
+  each path, with the other file's content and mtime, both in one action
+  file (pending writes of either file are flushed first); the atimes are
+  swapped in memory only.
 
 While a file has pending writes, its mtime is shown as the time of the last
 one, in memory only; the flush then sets it to the action time. A stat doesn't
@@ -267,5 +274,13 @@ that is there then, if nothing was written to the local one).
 
 ## Non-goals
 
+- `RENAME_EXCHANGE` of a directory (with another directory or with a file)
+  is not supported, it fails with `EINVAL` (what `renameat2()` returns when a
+  filesystem doesn't support a flag). Entries are identified by their paths, so swapping a directory would
+  mean rewriting every entry under both directories, and all of it would
+  have to fit in one action file. Local filesystems swap two directory
+  entries instead; most network and FUSE filesystems don't support
+  `RENAME_EXCHANGE` at all. `RENAME_WHITEOUT` and unknown flags fail with
+  `EINVAL` too.
 - bucse is not meant to be a general-purpose network filesystem. Still,
   using it like one is a good way to test how robust it is.

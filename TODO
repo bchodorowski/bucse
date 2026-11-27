@@ -6,7 +6,6 @@
   - comparison to other software
   - contribution guide
  - whitepaper
-- correctly implement RENAME_EXCHANGE flag
 - warning when using poor password strength (zxcvbn-c?)
 - investigate a memory leak in libfuse when using fsstress
 - handle addToDynArray failures
