@@ -15,9 +15,9 @@
 # The results must be the same after a remount, i.e. in the repository.
 #
 # The local changes are truncates and creates: they stay unflushed until the
-# file is closed, while written data is flushed by getattr already. The files
-# are kept open by a FileHolder, so that the test's subprocesses (openssl,
-# ssh) don't flush them.
+# file is closed (written data used to be flushed by getattr). The files are
+# kept open by a FileHolder, so that the test's subprocesses (openssl, ssh)
+# don't flush them.
 
 import bucseTests
 import hashlib

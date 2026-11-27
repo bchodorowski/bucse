@@ -51,10 +51,10 @@ writeAction("addDirectory", "file")
 bucseTests.waitForActionsHandled()
 
 # The local files below are created but nothing is written to them before the
-# other client's action is applied: getattr flushes a file with pending
-# writes, and the kernel may call it at any time, which would put the file
-# into the repository before the action. They are kept open by a FileHolder,
-# so that the test's subprocesses (openssl, ssh) don't flush them.
+# other client's action is applied (getattr used to flush a file with pending
+# writes, and the kernel may call it at any time, which would have put the
+# file into the repository before the action). They are kept open by a
+# FileHolder, so that the test's subprocesses (openssl, ssh) don't flush them.
 holder = bucseTests.FileHolder()
 
 # 2. A local unflushed file, then another client adds a directory with its

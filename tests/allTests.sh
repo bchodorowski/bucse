@@ -18,8 +18,9 @@
 # The output of every run is kept in logs/<test>_<encryption>_<destination>.log.
 # A failed run is cleaned up (unmounted, its directories and repository
 # removed). The test's pid, its valgrind log (tmp/valgrind_<pid>.txt),
-# bucse-mount's output (tmp/mount_<pid>.txt) and a list of the running
-# processes (something else, e.g. a file indexer, may have used the mount) are
+# bucse-mount's output (tmp/mount_<pid>.txt), a list of the running
+# processes (something else, e.g. a file indexer, may have used the mount) and
+# the free disk space (a full disk can also cut off the test's own output) are
 # appended to its log; the files in tmp/ are kept too.
 # The exit code is non-zero if any run failed.
 #
@@ -77,13 +78,18 @@ bucseTests.pid = int(sys.argv[2])
 bucseTests.removeRepo()' "$2" "$1"
 }
 
-# appendProcesses <log>: appends the running processes, right after a test
-# failed (something else, e.g. a file indexer, may have used the mount)
+# appendProcesses <log>: appends the running processes and the free disk
+# space, right after a test failed (something else, e.g. a file indexer, may
+# have used the mount; the disk may have been full, before the test's files
+# are removed)
 appendProcesses() {
 	{
 		echo
 		echo "=== running processes:"
 		ps aux
+		echo
+		echo "=== disk space:"
+		df -h .
 	} >> "$1" 2>&1
 }
 

@@ -10,6 +10,9 @@ import bucseTests
 
 bucseTests.parseArgs()
 
+# the mirror files are sparse, the repository grows by about 6.5 GB
+bucseTests.requireFreeSpace(0, 7 * 1024 * 1024 * 1024)
+
 bucseTests.mountDirs()
 
 GB = 1024 * 1024 * 1024

@@ -32,7 +32,8 @@ explains the core concepts and the invariants that every change must keep.
 - Stress tests: `tests/stressTests.sh` runs `tests/stressTest*.py` (bigger
   versions of some regular tests, e.g. with multi-gigabyte files, or with a
   file downloaded from the internet). They need a lot of time, RAM and about
-  16 GB of disk space, so run them from time to time, not for every commit.
+  18 GB of disk space (each checks that there is enough before it
+  starts), so run them from time to time, not for every commit.
 - The tests give bucse-init and bucse-mount the passphrase with
   `bucseTests.passphraseArgs()` (`-P` with a file in `tests/tmp/`), not with
   `-p`, which only test36 uses.

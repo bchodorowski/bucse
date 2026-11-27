@@ -206,6 +206,11 @@ yet (pending writes, a pending truncate, a file created but not flushed):
   exist. Local entries in it are kept, so a file whose addFile is rejected
   stays unflushed, and its flush adds the directory and the file again.
 
+The kernel keeps the attributes and directory entries bucse-mount returned
+for 1 second (the FUSE defaults), and bucse-mount doesn't invalidate them
+when it applies another client's action, so e.g. a `stat` can show the old
+times or size for up to a second after the action is applied.
+
 ## Times
 
 Each file and directory has an mtime and an atime, in nanoseconds since the
@@ -223,6 +228,11 @@ the fields, and skip a `setTimes` action, so they show the action times.
 - **rename** writes the addFile or editFile of the destination, and the
   addDirectory of a renamed directory, with the mtime of the source, so it is
   kept.
+
+While a file has pending writes, its mtime is shown as the time of the last
+one, in memory only; the flush then sets it to the action time. A stat doesn't
+flush the file, since every flush rewrites the partial block at the end of the
+file (a stat shows the size the pending writes extend the file to).
 
 The atime is saved only when `utimens` sets it: a read or a readdir updates it
 in memory only, and a renamed entry keeps it until a remount. The ctime is

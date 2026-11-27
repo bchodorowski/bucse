@@ -114,7 +114,8 @@ writeAction("editFile", "w", 95)
 bucseTests.waitForActionsHandled()
 late("late9", 93)
 
-# (a stat would flush the files with pending writes)
+# (listdir only, not stat: it was written when a stat flushed the files with
+# pending writes)
 entries = os.listdir(mount)
 for n in ["x", "z", "e", "r", "r2", "kd", "kd2", "q", "w"]:
     assert entries.count(n) == 1, entries

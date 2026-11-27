@@ -410,6 +410,21 @@ def makeRandomTmpFile(size = 1024 * 1024, randomUpTo = True):
     return writeRandomTmpFile(size)
 
 
+# Fails at once if there isn't enough free disk space for a big test, instead
+# of when the disk gets full (maybe hours later, with the test's output cut
+# off). localBytes: what the test writes here (tmp/, the mirror); repoBytes:
+# what bucse-mount stores in the repository, counted only if it's local.
+def requireFreeSpace(localBytes, repoBytes):
+    needed = localBytes
+    if not parseSshRepoPath():
+        needed += repoBytes
+    st = os.statvfs(".")
+    free = st.f_bavail * st.f_frsize
+    if free < needed:
+        raise Exception("Not enough free disk space: %.1f GB needed, %.1f GB free"
+                        % (needed / 1e9, free / 1e9))
+
+
 def makeRandomTmpFileKBytes(kBytesSize = 1024, randomUpTo = True):
     if randomUpTo:
         kBytesSize = random.randint(0, kBytesSize)
@@ -703,17 +718,30 @@ def waitForFiles(paths, timeout = 30):
 
 markerCount = 0
 
+# How long the kernel keeps the attributes and directory entries that FUSE
+# returned (the attr_timeout and entry_timeout defaults, bucse-mount doesn't
+# change them)
+KERNEL_CACHE_TIMEOUT = 1.0
+
 # Waits until bucse-mount has handled everything put into the repository so
 # far. Adds a marker action (a new directory) and waits until the directory
 # shows up: bucse-mount reads new action files in batches, so by then it has
 # also read the ones written before the marker.
+# bucse-mount doesn't invalidate what the kernel has cached when it applies
+# another client's action, so e.g. a stat made just before shows the old
+# times for up to KERNEL_CACHE_TIMEOUT. It also waits until that much time
+# has passed since the marker was written (usually most of it has already).
 def waitForActionsHandled(timeout = 30):
     global markerCount
     markerCount += 1
     name = "marker_%d" % markerCount
     actionName, data = makeAddDirectoryAction(name)
+    written = time.monotonic()
     writeRepoFile("actions/%s" % actionName, data)
     waitForFiles([name], timeout)
+    remaining = written + KERNEL_CACHE_TIMEOUT + 0.1 - time.monotonic()
+    if remaining > 0:
+        time.sleep(remaining)
 
 
 # Keeps files open in a separate process, so that their local changes stay

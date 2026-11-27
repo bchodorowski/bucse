@@ -681,6 +681,7 @@ static void restoreStashedFile(StashedFile* stashed)
 		existing->dirtyFlags = file->dirtyFlags & ~DirtyFlagPendingCreate;
 		existing->pendingWrites = file->pendingWrites;
 		existing->pendingWritesSize = file->pendingWritesSize;
+		existing->pendingWriteMtime = file->pendingWriteMtime;
 		existing->truncSize = file->truncSize;
 		free((char*)file->name);
 		free(file);

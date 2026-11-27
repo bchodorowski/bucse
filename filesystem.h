@@ -9,6 +9,7 @@ typedef enum {
 typedef struct {
 	char *buf;
 	size_t size;
+	size_t capacity; // allocated size of buf, >= size
 	off_t offset;
 } PendingWrite;
 
@@ -38,6 +39,10 @@ typedef struct
 	DirtyFlags dirtyFlags;
 	DynArray pendingWrites;
 	size_t pendingWritesSize; // the sum of pendingWrites' sizes
+	// the time of the last pending write (in nanoseconds since the epoch),
+	// shown as the mtime while DirtyFlagPendingWrite is set; in memory
+	// only, the flush sets the mtime to the action's time
+	int64_t pendingWriteMtime;
 	FilesystemDir* parentDir;
 	size_t truncSize;
 } FilesystemFile;

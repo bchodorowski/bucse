@@ -10,6 +10,7 @@
 #include "../actions.h"
 #include "../log.h"
 #include "../conf.h"
+#include "../time.h"
 
 #include "operations.h"
 #include "flush.h"
@@ -21,7 +22,8 @@
 // it in memory. The size limit is the maximum block size (flush.c): writes
 // that go on from where the last flush ended then fill whole blocks, and
 // fewer partial blocks are stored and then replaced. The count limit keeps
-// the overhead of many small writes down.
+// the overhead of many small writes down; sequential writes are merged into
+// one pending write (see below), so it's reached only by scattered ones.
 #define MAX_PENDING_WRITES_SIZE (128 * 1024 * 1024)
 #define MAX_PENDING_WRITES_COUNT 10240
 
@@ -77,22 +79,54 @@ static int bucse_write(const char *path, const char *buf, size_t size, off_t off
 		return -ENOENT;
 	}
 
-	PendingWrite* newPendingWrite = malloc(sizeof(PendingWrite));
-	if (newPendingWrite == NULL) {
-		logPrintf(LOG_ERROR, "bucse_write: malloc(): %s\n", strerror(errno));
-		return -ENOMEM;
+	// a write that goes on right where the last pending write ends (e.g.
+	// dd or cp writing a file sequentially) is appended to it, so that
+	// small sequential writes don't reach MAX_PENDING_WRITES_COUNT: each
+	// flush rewrites the partial block at the end, so flushing every few
+	// MB would store many times the file's size
+	PendingWrite* last = NULL;
+	if (file->pendingWrites.len > 0) {
+		last = file->pendingWrites.objects[file->pendingWrites.len - 1];
 	}
-	newPendingWrite->size = size;
-	newPendingWrite->buf = malloc(size);
-	if (newPendingWrite->buf == NULL) {
-		logPrintf(LOG_ERROR, "bucse_write: malloc(): %s\n", strerror(errno));
-		free(newPendingWrite);
-		return -ENOMEM;
+	if (last != NULL && size > 0 && last->offset + (off_t)last->size == offset) {
+		if (last->size + size > last->capacity) {
+			size_t newCapacity = last->capacity * 2;
+			if (newCapacity > MAX_PENDING_WRITES_SIZE) {
+				newCapacity = MAX_PENDING_WRITES_SIZE;
+			}
+			if (newCapacity < last->size + size) {
+				newCapacity = last->size + size;
+			}
+			char* newBuf = realloc(last->buf, newCapacity);
+			if (newBuf == NULL) {
+				logPrintf(LOG_ERROR, "bucse_write: realloc(): %s\n", strerror(errno));
+				return -ENOMEM;
+			}
+			last->buf = newBuf;
+			last->capacity = newCapacity;
+		}
+		memcpy(last->buf + last->size, buf, size);
+		last->size += size;
+	} else {
+		PendingWrite* newPendingWrite = malloc(sizeof(PendingWrite));
+		if (newPendingWrite == NULL) {
+			logPrintf(LOG_ERROR, "bucse_write: malloc(): %s\n", strerror(errno));
+			return -ENOMEM;
+		}
+		newPendingWrite->size = size;
+		newPendingWrite->capacity = size;
+		newPendingWrite->buf = malloc(size);
+		if (newPendingWrite->buf == NULL) {
+			logPrintf(LOG_ERROR, "bucse_write: malloc(): %s\n", strerror(errno));
+			free(newPendingWrite);
+			return -ENOMEM;
+		}
+		memcpy(newPendingWrite->buf, buf, size);
+		newPendingWrite->offset = offset;
+		addToDynArray(&file->pendingWrites, newPendingWrite);
 	}
-	memcpy(newPendingWrite->buf, buf, size);
-	newPendingWrite->offset = offset;
-	addToDynArray(&file->pendingWrites, newPendingWrite);
 	file->pendingWritesSize += size;
+	file->pendingWriteMtime = getCurrentTimeNs();
 	file->dirtyFlags |= DirtyFlagPendingWrite;
 
 	if (file->pendingWritesSize >= MAX_PENDING_WRITES_SIZE

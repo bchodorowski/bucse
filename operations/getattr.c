@@ -13,7 +13,6 @@
 #include "../conf.h"
 
 #include "operations.h"
-#include "flush.h"
 #include "getattr.h"
 
 extern uid_t cachedUid;
@@ -74,10 +73,23 @@ static int bucse_getattr(const char *path, struct stat *stbuf, struct fuse_file_
 
 		FilesystemFile *file = findFile(containingDir, fileName);
 		if (file) {
+			// pending writes aren't flushed here: anything that stats a
+			// file while it's being written (ls -l, a file manager, the
+			// kernel itself) would flush it, and every flush rewrites the
+			// partial block at the end. They are shown instead: the size
+			// they extend the file to, and the time of the last one.
+			size_t size = (file->dirtyFlags & DirtyFlagPendingTrunc)
+				? file->truncSize
+				: file->size;
+			int64_t mtime = file->mtime;
 			if (file->dirtyFlags & DirtyFlagPendingWrite) {
-				if (flushFile(file) != 0) {
-					return -EIO;
+				for (int i = 0; i < file->pendingWrites.len; i++) {
+					PendingWrite* pw = file->pendingWrites.objects[i];
+					if (size < (size_t)pw->offset + pw->size) {
+						size = (size_t)pw->offset + pw->size;
+					}
 				}
+				mtime = file->pendingWriteMtime;
 			}
 
 			if (confIsReadOnly()) {
@@ -88,13 +100,11 @@ static int bucse_getattr(const char *path, struct stat *stbuf, struct fuse_file_
 				stbuf->st_mode = S_IFREG | 0755;
 			}
 			stbuf->st_nlink = 1;
-			stbuf->st_size = (file->dirtyFlags & DirtyFlagPendingTrunc)
-				? file->truncSize
-				: file->size;
+			stbuf->st_size = size;
 			//stbuf->st_ino = MurmurHash64(path, strlen(path), 0);
 			stbuf->st_atim = toTimespec(file->atime);
-			stbuf->st_mtim = toTimespec(file->mtime);
-			stbuf->st_ctim = toTimespec(file->mtime);
+			stbuf->st_mtim = toTimespec(mtime);
+			stbuf->st_ctim = toTimespec(mtime);
 
 			stbuf->st_uid = cachedUid;
 			stbuf->st_gid = cachedGid;

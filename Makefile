@@ -201,8 +201,7 @@ operations/getattr.o: operations/getattr.c \
 	actions.h \
 	log.h \
 	conf.h \
-	operations/operations.h \
-	operations/flush.h
+	operations/operations.h
 	$(CC) -c operations/getattr.c -o operations/getattr.o $(CFLAGS)
 
 operations/flush.o: operations/flush.c \
@@ -279,6 +278,7 @@ operations/write.o: operations/write.c \
 	actions.h \
 	log.h \
 	conf.h \
+	time.h \
 	operations/operations.h \
 	operations/flush.h
 	$(CC) -c operations/write.c -o operations/write.o $(CFLAGS)
