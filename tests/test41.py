@@ -4,7 +4,8 @@
 # they don't reach the pending writes count limit (10240) and the file isn't
 # flushed every 5 MB. Every such flush rewrote the partial block at the end:
 # copying a 5 GB file this way stored about 60 GB. A stat doesn't flush the
-# file either (under valgrind, the kernel itself stats it during the writes). Writes that aren't
+# file either (under valgrind, the kernel itself stats it during the writes).
+# The storage written must stay close to the file's size. Writes that aren't
 # sequential (going back, overwriting, then going on) still give the right
 # content.
 
@@ -33,6 +34,7 @@ with open("tmp/%s" % fileName, "rb") as f:
     data = f.read()
 
 actionsBefore = len(bucseTests.listRepoDir("actions"))
+storageBefore = bucseTests.repoDirSize("storage")
 lastMtime = 0
 for d in [mount, mirror]:
     fd = os.open("%s/seq" % d, os.O_CREAT | os.O_WRONLY)
@@ -50,6 +52,10 @@ for d in [mount, mirror]:
     os.close(fd)
 actionsAfter = len(bucseTests.listRepoDir("actions"))
 assert actionsAfter - actionsBefore == 1, (actionsBefore, actionsAfter)
+# and the repository grows by about the file's size (a bit more for aes:
+# padding), not by a multiple of it
+stored = bucseTests.repoDirSize("storage") - storageBefore
+assert len(data) <= stored <= 1.3 * len(data), (stored, len(data))
 
 # 2. sequential writes mixed with others: a write back into what was just
 # written, then on from there (merged with it), then on from the end

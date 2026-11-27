@@ -596,6 +596,23 @@ def listRepoDir(relPath):
     return os.listdir("%s/test_%d_repo/%s" % (argRepoPath, pid, relPath))
 
 
+# The total size of the files in a directory of the test repository, e.g.
+# "storage"
+def repoDirSize(relPath):
+    ssh = parseSshRepoPath()
+    if ssh:
+        sshArgs, repoPath = ssh
+        remotePath = remoteShellPath("%s/test_%d_repo/%s" % (repoPath, pid, relPath))
+        output = subprocess.run(sshArgs + ["find %s -type f -exec cat {} + | wc -c" % remotePath],
+                                capture_output=True, check=True).stdout
+        return int(output.decode("utf-8").strip())
+    total = 0
+    for dirPath, dirNames, fileNames in os.walk("%s/test_%d_repo/%s" % (argRepoPath, pid, relPath)):
+        for fileName in fileNames:
+            total += os.path.getsize(os.path.join(dirPath, fileName))
+    return total
+
+
 def deleteRepoFile(relPath):
     ssh = parseSshRepoPath()
     if ssh:
