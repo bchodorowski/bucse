@@ -97,7 +97,11 @@ int bucse_open(const char *path, struct fuse_file_info *fi)
 					newFile->pendingWritesSize = 0;
 					newFile->parentDir = containingDir;
 
-					addToDynArray(&containingDir->files, newFile);
+					if (addToDynArray(&containingDir->files, newFile) != 0) {
+						free((char*)newFile->name);
+						free(newFile);
+						return -ENOMEM;
+					}
 					return 0;
 				}
 				return -ENOENT;

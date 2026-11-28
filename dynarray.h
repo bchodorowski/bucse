@@ -4,6 +4,7 @@ typedef struct {
 	int size;
 } DynArray;
 
+int reserveDynArray(DynArray *dynArray, int count);
 int addToDynArray(DynArray *dynArray, void* newObject);
 void freeDynArray(DynArray *dynArray);
 int removeFromDynArrayUnordered(DynArray *dynArray, void* element);

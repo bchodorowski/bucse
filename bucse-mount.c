@@ -240,6 +240,8 @@ void* tickThreadFunc(void* param)
 
 		pthread_mutex_lock(&bucseMutex);
 		int tickResult = destination->tick();
+		// actions that couldn't be applied yet (out of memory)
+		flushActionsAdded();
 		pthread_mutex_unlock(&bucseMutex);
 
 		if (tickResult != 0) {

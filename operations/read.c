@@ -47,7 +47,10 @@ static int determineBlocksToRead(DynArray *blocksToRead, off_t offset, size_t si
 		block->block = file->content + MAX_STORAGE_NAME_LEN * blockIndex;
 		block->offset = blockOffset;
 		block->len = blockLen;
-		addToDynArray(blocksToRead, block);
+		if (addToDynArray(blocksToRead, block) != 0) {
+			free(block);
+			return 1;
+		}
 
 		offset += blockLen;
 		size -= blockLen;

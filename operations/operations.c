@@ -30,6 +30,13 @@ int encryptAndAddActionFile(Action* newAction)
 
 int encryptAndAddActionFiles(Action** newActions, size_t count)
 {
+	// once the file is written, the caller adds its actions with
+	// addAction(), which then can't fail
+	if (reserveActions((int)count) != 0) {
+		logPrintf(LOG_ERROR, "encryptAndAddActionFile: reserveActions() failed\n");
+		return -5;
+	}
+
 	char* jsonData = serializeActions(newActions, count);
 	if (jsonData == NULL) {
 		logPrintf(LOG_ERROR, "encryptAndAddActionFile: serializeActions() failed\n");

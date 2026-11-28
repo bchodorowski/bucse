@@ -439,10 +439,7 @@ constructAction:;
 		// file->name was temporary created, now we need to set a proper
 		// pointer to a data from newAction->path
 		free((char*)file->name);
-		DynArray pathArray;
-		memset(&pathArray, 0, sizeof(DynArray));
-		file->name = path_split(newAction->path, &pathArray);
-		path_free(&pathArray);
+		file->name = path_lastPart(newAction->path);
 	}
 	file->mtime = microsecondsToNanoseconds(newAction->time);
 	file->content = newAction->content;

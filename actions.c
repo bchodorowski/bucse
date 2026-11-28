@@ -336,7 +336,10 @@ static int doAction(Action* action)
 		newFile->pendingWritesSize = 0;
 		newFile->parentDir = containingDir;
 
-		addToDynArray(&containingDir->files, newFile);
+		if (addToDynArray(&containingDir->files, newFile) != 0) {
+			free(newFile);
+			return 25;
+		}
 		action->outcome = OutcomeApplied;
 		return 0;
 
@@ -489,7 +492,10 @@ static int doAction(Action* action)
 		newDir->mtime = actionMtime(action);
 		newDir->parentDir = containingDir;
 
-		addToDynArray(&containingDir->dirs, newDir);
+		if (addToDynArray(&containingDir->dirs, newDir) != 0) {
+			free(newDir);
+			return 26;
+		}
 		action->outcome = OutcomeApplied;
 		return 0;
 
@@ -656,7 +662,14 @@ static void restoreStashedFile(StashedFile* stashed)
 			next->atime = next->mtime = file->mtime;
 			next->parentDir = dir;
 			next->pendingCreate = 1;
-			addToDynArray(&dir->dirs, next);
+			if (addToDynArray(&dir->dirs, next) != 0) {
+				// name is freed with localDirNames
+				logPrintf(LOG_ERROR, "restoreStashedFile: out of memory, %s is lost\n", stashed->path);
+				free(next);
+				path_free(&pathArray);
+				freeFile(file);
+				return;
+			}
 			logPrintf(LOG_WARNING, "restoreStashedFile: directory %s was removed, keeping it for %s\n", name, stashed->path);
 		}
 		dir = next;
@@ -699,7 +712,10 @@ static void restoreStashedFile(StashedFile* stashed)
 		file->name = newName;
 	}
 	file->parentDir = dir;
-	addToDynArray(&dir->files, file);
+	if (addToDynArray(&dir->files, file) != 0) {
+		logPrintf(LOG_ERROR, "restoreStashedFile: out of memory, %s is lost\n", stashed->path);
+		freeFile(file);
+	}
 }
 
 static void restoreStashedFiles()
@@ -837,7 +853,10 @@ static int undoAction(Action* action)
 		newFile->blockSize = action->prevBlockSize;
 		newFile->dirtyFlags = DirtyFlagNotDirty;
 		newFile->parentDir = containingDir;
-		addToDynArray(&containingDir->files, newFile);
+		if (addToDynArray(&containingDir->files, newFile) != 0) {
+			free(newFile);
+			return 19;
+		}
 		return 0;
 
 	} else if (action->actionType == ActionTypeAddDirectory) {
@@ -896,7 +915,10 @@ static int undoAction(Action* action)
 		newDir->mtime = action->prevMtime;
 		newDir->parentDir = containingDir;
 		newDir->pendingCreate = outcome == OutcomeApplied ? action->prevPendingCreate : 0;
-		addToDynArray(&containingDir->dirs, newDir);
+		if (addToDynArray(&containingDir->dirs, newDir) != 0) {
+			free(newDir);
+			return 20;
+		}
 		return 0;
 	}
 
@@ -908,9 +930,13 @@ static DynArray actions;
 static DynArray actionsPending;
 
 // parses actions json document and appends actionsPending array with the results;
-// returns non-zero if the document as a whole is invalid
+// returns non-zero if the document as a whole is invalid, or if its actions
+// can't be added (out of memory): then none of them is added, so that the
+// actions of one file are applied together, and the file is read again
 static int parseAction(char* buf, size_t size)
 {
+	int firstPending = actionsPending.len;
+
 	json_tokener* tokener = json_tokener_new();
 	json_object* obj = json_tokener_parse_ex(tokener, buf, size);
 	if (obj == NULL)
@@ -1105,7 +1131,15 @@ static int parseAction(char* buf, size_t size)
 		newAction->atime = hasAtime ? json_object_get_int64(atimeField) : 0;
 		newAction->outcome = OutcomeNotApplied;
 
-		addToDynArray(&actionsPending, newAction);
+		if (addToDynArray(&actionsPending, newAction) != 0) {
+			freeAction(newAction);
+			while (actionsPending.len > firstPending) {
+				actionsPending.len--;
+				freeAction(actionsPending.objects[actionsPending.len]);
+			}
+			json_object_put(obj);
+			return 3;
+		}
 	}
 
 	json_object_put(obj);
@@ -1187,6 +1221,23 @@ void flushActionsAdded()
 		qsort(actionsPending.objects, actionsPending.len, sizeof(void*), compareActionPtrs);
 	}
 
+	// Make room for moving the actions to undo to actionsPending, and then
+	// all of actionsPending to actions, so that nothing below can fail half
+	// way. If there is no memory, actionsPending is kept as it is (sorting
+	// and deduplicating it again is harmless) and applied on a later call.
+	int toUndo = 0;
+	while (actionsPending.len > 0 && toUndo < actions.len
+		&& ((Action*)actions.objects[actions.len - 1 - toUndo])->time >=
+			((Action*)actionsPending.objects[0])->time) {
+		toUndo++;
+	}
+	if (reserveDynArray(&actionsPending, toUndo) != 0
+		|| reserveDynArray(&actions, actionsPending.len) != 0) {
+		logPrintf(LOG_ERROR, "flushActionsAdded: out of memory, %d new actions not applied yet\n",
+			actionsPending.len);
+		return;
+	}
+
 	// Handle out of order actions: undo the actions that are ordered after
 	// the first new one, from the last one, and apply them again together
 	// with the new ones. Everything happens with bucseMutex held, so no
@@ -1197,7 +1248,7 @@ void flushActionsAdded()
 			((Action*)actionsPending.objects[0])->time // time of first action in actionsPending
 	      ) {
 		logPrintf(LOG_DEBUG, "undoing action due to out of order action!\n");
-		// move last action to actionsPending
+		// move last action to actionsPending (room reserved above)
 		addToDynArray(&actionsPending, actions.objects[actions.len - 1]);
 		actions.len--;
 
@@ -1212,7 +1263,8 @@ void flushActionsAdded()
 		qsort(actionsPending.objects, actionsPending.len, sizeof(void*), compareActionPtrs);
 	}
 
-	// move actions from actinsPending to actions, acting on them
+	// move actions from actionsPending to actions, acting on them (room
+	// reserved above)
 	for (int i=0; i<actionsPending.len; i++) {
 		addToDynArray(&actions, actionsPending.objects[i]);
 		doAction(actionsPending.objects[i]);
@@ -1436,6 +1488,11 @@ static void setLocalOutcome(Action* action)
 	}
 }
 
+int reserveActions(int count)
+{
+	return reserveDynArray(&actions, count);
+}
+
 // Adds a local action. An action with the same time as the last ones (the
 // second action of a rename) is put among them in the order of
 // compareActions(), so that actions stays sorted the way flushActionsAdded()
@@ -1443,7 +1500,10 @@ static void setLocalOutcome(Action* action)
 void addAction(Action *newAction)
 {
 	setLocalOutcome(newAction);
+	// encryptAndAddActionFiles() reserved room with reserveActions()
+	// before it wrote the action file, so this can't fail
 	if (addToDynArray(&actions, newAction) != 0) {
+		logPrintf(LOG_ERROR, "addAction: no room reserved for action %s\n", newAction->path);
 		return;
 	}
 	int i = actions.len - 1;

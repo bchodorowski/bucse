@@ -72,12 +72,28 @@ const char* path_split(const char* path, DynArray *result)
 	for (int i=0; i<len; i++) {
 		if (pathCopy[i] == '/') {
 			pathCopy[i] = 0;
-			addToDynArray(result, last);
+			if (addToDynArray(result, last) != 0) {
+				goto error;
+			}
 			last = pathCopy + i + 1;
 		}
 	}
-	addToDynArray(result, last);
+	if (addToDynArray(result, last) != 0) {
+		goto error;
+	}
 	return path + (last - pathCopy);
+
+error:
+	// pathCopy is result->objects[0] once anything was added
+	free(pathCopy);
+	freeDynArray(result);
+	return NULL;
+}
+
+const char* path_lastPart(const char* path)
+{
+	const char* slash = strrchr(path, '/');
+	return slash != NULL ? slash + 1 : path;
 }
 
 void path_free(DynArray *pathArray)

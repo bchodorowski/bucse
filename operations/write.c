@@ -123,7 +123,11 @@ static int bucse_write(const char *path, const char *buf, size_t size, off_t off
 		}
 		memcpy(newPendingWrite->buf, buf, size);
 		newPendingWrite->offset = offset;
-		addToDynArray(&file->pendingWrites, newPendingWrite);
+		if (addToDynArray(&file->pendingWrites, newPendingWrite) != 0) {
+			free(newPendingWrite->buf);
+			free(newPendingWrite);
+			return -ENOMEM;
+		}
 	}
 	file->pendingWritesSize += size;
 	file->pendingWriteMtime = getCurrentTimeNs();

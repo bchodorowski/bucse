@@ -45,6 +45,11 @@ static int renameFile(FilesystemFile *srcFile, FilesystemDir *srcContainingDir,
 		return result;
 	}
 
+	// once the action files are written, moving the file can't fail
+	if (dstFile == NULL && reserveDynArray(&dstContainingDir->files, 1) != 0) {
+		return -ENOMEM;
+	}
+
 	// construct new action for destination, add it to actions
 	Action* newDstAction = calloc(1, sizeof(Action));
 	if (newDstAction == NULL) {
@@ -128,6 +133,7 @@ static int renameFile(FilesystemFile *srcFile, FilesystemDir *srcContainingDir,
 
 	if (dstFile == NULL) {
 		dstFile = srcFile;
+		// room reserved above
 		addToDynArray(&dstContainingDir->files, dstFile);
 	} else {
 		// move file from src to dst
@@ -143,17 +149,8 @@ static int renameFile(FilesystemFile *srcFile, FilesystemDir *srcContainingDir,
 	dstFile->mtime = newDstAction->mtime;
 	dstFile->parentDir = dstContainingDir;
 
-	// get pointer to file name from newDstAction->path
-	DynArray pathArray;
-	memset(&pathArray, 0, sizeof(DynArray));
-	const char *fileName = path_split(newDstAction->path, &pathArray);
-	if (fileName == NULL) {
-		logPrintf(LOG_ERROR, "bucse_rename: path_split() failed\n");
-		return -EIO;
-	}
-	path_free(&pathArray);
-
-	dstFile->name = fileName;
+	// the name is owned by newDstAction
+	dstFile->name = path_lastPart(newDstAction->path);
 
 	return 0;
 }

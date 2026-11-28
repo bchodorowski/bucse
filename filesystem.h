@@ -55,8 +55,12 @@ FilesystemDir* findContainingDir(DynArray *pathArray);
 FilesystemDir* findDirByPath(DynArray *pathArray);
 
 // path_split splits path into directories and file names. It returns a const pointer
-// to the part of path string that corresponds to the file name
+// to the part of path string that corresponds to the file name, or NULL on
+// error (then result is empty).
 const char* path_split(const char* path, DynArray *result);
+// The part of path after its last '/' (a pointer into it), as path_split()
+// returns, but without allocating, so it can't fail.
+const char* path_lastPart(const char* path);
 
 void path_free(DynArray *pathArray);
 char* path_getFilename(DynArray *pathArray);

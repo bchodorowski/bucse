@@ -60,10 +60,17 @@ typedef struct {
 
 // returns non-zero if the action file is rejected as a whole
 int actionAdded(char* actionName, char* buf, size_t size);
+// applies the actions added by actionAdded(); if there is no memory, they
+// stay pending until a later call
 void flushActionsAdded();
 void actionsCleanup();
 // serializes actions into the JSON document of one action file
 char* serializeActions(Action** actionsToSerialize, size_t count);
 int64_t getNewActionTime();
-// adds a local action; call it before the operation changes the tree
+// makes room for count local actions; encryptAndAddActionFiles() calls it
+// before it writes an action file, so that adding its actions with
+// addAction() can't fail
+int reserveActions(int count);
+// adds a local action; call it before the operation changes the tree, and
+// only after encryptAndAddActionFile(s)() has reserved room for it
 void addAction(Action *newAction);

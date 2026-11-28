@@ -8,7 +8,16 @@
  - whitepaper
 - warning when using poor password strength (zxcvbn-c?)
 - investigate a memory leak in libfuse when using fsstress
-- handle addToDynArray failures
+- rename (not RENAME_EXCHANGE): allocations for the source's removeFile (calloc, getFullFilePath)
+  can fail after the destination's addFile/editFile is written, leaving the file under both
+  names; allocate everything before writing the first action file
+- parseAction: when an allocation fails (content, the Action, its path) the action is skipped
+  for good; treat it like an addToDynArray failure instead (drop the file's actions, return an
+  error so the file is read again)
+- tar files: an entry that is rejected is ignored, also when it failed for lack of memory
+  (e.g. decryptedBuf in actionAddedDecryptOneAction) and would succeed on a retry
+- destinations: the results of their own addAction() (the names of handled and new action
+  files) are ignored in dest_local.c and dest_ssh.c (only unsyncedStorageFiles is checked)
 - local destination: use inotify (IN_CLOSE_WRITE, IN_MOVED_TO on actions/) to learn about new
   action files instead of listing the directory; keep the full listing every check_interval
   as a fallback (it's needed when the repository is on a network or synced filesystem, which

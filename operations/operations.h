@@ -1,5 +1,7 @@
 extern pthread_mutex_t bucseMutex;
 
+// Both write an action file. Before writing it they make room for the
+// actions with reserveActions(), so the caller's addAction() can't fail.
 int encryptAndAddActionFile(Action* newAction);
 // writes all of newActions in one action file, so every client applies
 // them together (or none of them, if the file never gets complete)

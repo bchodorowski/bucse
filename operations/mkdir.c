@@ -106,11 +106,8 @@ int makeDirectory(const char *path, int hasMtime, int64_t mtime)
 	}
 	memset(newDir, 0, sizeof(FilesystemDir));
 
-	// funny way to find the const char* filename that's owned by the action
-	DynArray pathArray;
-	memset(&pathArray, 0, sizeof(DynArray));
-	newDir->name = path_split(newAction->path, &pathArray);
-	path_free(&pathArray);
+	// the name is owned by the action
+	newDir->name = path_lastPart(newAction->path);
 
 	if (hasMtime) {
 		newAction->hasMtime = 1;
@@ -119,6 +116,14 @@ int makeDirectory(const char *path, int hasMtime, int64_t mtime)
 	newDir->atime = microsecondsToNanoseconds(newAction->time);
 	newDir->mtime = hasMtime ? mtime : newDir->atime;
 	newDir->parentDir = containingDir;
+
+	// once the action file is written, adding the directory can't fail
+	if (reserveDynArray(&containingDir->dirs, 1) != 0) {
+		free(newAction->path);
+		free(newAction);
+		free(newDir);
+		return -ENOMEM;
+	}
 
 	// write to json, encrypt call destination->addActionFile()
 	if (encryptAndAddActionFile(newAction) != 0) {
@@ -132,7 +137,7 @@ int makeDirectory(const char *path, int hasMtime, int64_t mtime)
 	// add to actions array
 	addAction(newAction);
 
-	// update filesystem
+	// update filesystem (room reserved above)
 	addToDynArray(&containingDir->dirs, newDir);
 
 	return 0;

@@ -60,6 +60,17 @@ def mtime(path):
     return os.stat("%s/%s" % (mount, path)).st_mtime_ns
 
 
+# Sets the mtime (and atime) of a file in the mount, and returns it. The
+# mtime of a file just written can't be read reliably: the kernel may have
+# cached the attributes of a getattr made while the file was being written,
+# which shows the time of the last pending write, not the one its flush sets
+# (and keeps them for 1 second). utimens makes it refresh them.
+def setMtime(path, ns):
+    os.utime("%s/%s" % (mount, path), ns=(ns, ns))
+    assert mtime(path) == ns, (path, mtime(path), ns)
+    return ns
+
+
 os.mkdir("%s/d" % mount)
 os.mkdir("%s/d" % mirror)
 os.mkdir("%s/e" % mount)
@@ -71,8 +82,8 @@ writeFile("empty", b"")
 
 # 1. two files in the root: one action file with both editFiles; the mtimes
 # are swapped too
-mtimeA, mtimeB = mtime("a"), mtime("b")
-assert mtimeA != mtimeB
+mtimeA = setMtime("a", 1600000000123456789)
+mtimeB = setMtime("b", 1600000001987654321)
 actionsBefore = set(bucseTests.listRepoDir("actions"))
 exchange("a", "b")
 newActions = set(bucseTests.listRepoDir("actions")) - actionsBefore
@@ -112,7 +123,8 @@ exchange("a", "a")
 # mtimes stay swapped
 writeFile("p", os.urandom(4000))
 writeFile("q", os.urandom(7000))
-mtimeP, mtimeQ = mtime("p"), mtime("q")
+mtimeP = setMtime("p", 1600000002111111111)
+mtimeQ = setMtime("q", 1600000003222222222)
 lateTime = time.time_ns() // 1000
 time.sleep(0.01)
 exchange("p", "q")
@@ -131,7 +143,7 @@ with open("tmp/mount_%d.txt" % bucseTests.pid, "rb") as f:
 for path in ["p", "q"]:
     with open("%s/%s" % (mount, path), "rb") as f, open("%s/%s" % (mirror, path), "rb") as fMirror:
         assert f.read() == fMirror.read(), path
-assert (mtime("p"), mtime("q")) == (mtimeQ, mtimeP)
+assert (mtime("p"), mtime("q")) == (mtimeQ, mtimeP), (mtime("p"), mtime("q"), mtimeP, mtimeQ)
 # the marker of waitForActionsHandled() isn't in the mirror
 os.rmdir("%s/marker_%d" % (mount, bucseTests.markerCount))
 

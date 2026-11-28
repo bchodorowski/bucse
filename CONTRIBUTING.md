@@ -53,7 +53,11 @@ explains the core concepts and the invariants that every change must keep.
 - Language: C99.
 - Naming: camelCase functions (e.g. `addToDynArray`).
 - Error handling: return non-zero on error; failures must propagate to
-  FUSE.
+  FUSE. Check every allocation, also `addToDynArray()`. Once an operation
+  has written its action file, it can't fail any more: it allocates
+  everything it needs before, and makes room in a `DynArray` with
+  `reserveDynArray()` (`encryptAndAddActionFiles()` does that for
+  `addAction()`).
 - Logging: use `log.h`; never log secrets or plaintext.
 - Secrets (e.g. the passphrase): wipe a buffer with `wipeMemory()` (`conf.h`)
   once it's no longer needed, not with `memset()`, which the compiler may
