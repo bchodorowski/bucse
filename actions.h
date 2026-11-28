@@ -58,7 +58,10 @@ typedef struct {
 	int prevPendingCreate; // of a directory that removeDirectory removed
 } Action;
 
-// returns non-zero if the action file is rejected as a whole
+// returns non-zero if the action file is rejected as a whole:
+// ACTION_FILE_NO_MEMORY if it couldn't be handled for lack of memory (reading
+// it again may work), another value if it is invalid
+#define ACTION_FILE_NO_MEMORY 3
 int actionAdded(char* actionName, char* buf, size_t size);
 // applies the actions added by actionAdded(); if there is no memory, they
 // stay pending until a later call

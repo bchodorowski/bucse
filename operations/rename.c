@@ -28,6 +28,16 @@
 #define RENAME_EXCHANGE		(1 << 1)	/* Exchange source and dest */
 #endif
 
+// frees an action that wasn't added (free(NULL) is a no-op)
+static void freeRenameAction(Action* action)
+{
+	if (action != NULL) {
+		free(action->content);
+		free(action->path);
+		free(action);
+	}
+}
+
 static int renameFile(FilesystemFile *srcFile, FilesystemDir *srcContainingDir,
 	FilesystemFile *dstFile, FilesystemDir *dstContainingDir,
 	const char* dstPath)
@@ -50,27 +60,27 @@ static int renameFile(FilesystemFile *srcFile, FilesystemDir *srcContainingDir,
 		return -ENOMEM;
 	}
 
-	// construct new action for destination, add it to actions
+	// Both actions are written in one action file, so every client applies
+	// them together: the file is never seen under both names, or lost, if
+	// bucse-mount fails half way. Everything is allocated before the file
+	// is written, since nothing may fail after that.
 	Action* newDstAction = calloc(1, sizeof(Action));
-	if (newDstAction == NULL) {
+	Action* newSrcAction = calloc(1, sizeof(Action));
+	if (newDstAction == NULL || newSrcAction == NULL) {
 		logPrintf(LOG_ERROR, "bucse_rename: malloc(): %s\n", strerror(errno));
-		return -ENOMEM;
+		goto error;
 	}
 	newDstAction->time = getNewActionTime();
 	newDstAction->actionType = dstFile ? ActionTypeEditFile : ActionTypeAddFile;
 	newDstAction->path = strdup(dstPath+1);
-
 	if (newDstAction->path == NULL) {
 		logPrintf(LOG_ERROR, "bucse_rename: strdup(): %s\n", strerror(errno));
-		free(newDstAction);
-		return -ENOMEM;
+		goto error;
 	}
 	newDstAction->content = malloc(srcFile->contentLen * MAX_STORAGE_NAME_LEN);
 	if (newDstAction->content == NULL) {
 		logPrintf(LOG_ERROR, "bucse_rename: malloc(): %s\n", strerror(errno));
-		free(newDstAction->path);
-		free(newDstAction);
-		return -ENOMEM;
+		goto error;
 	}
 	memcpy(newDstAction->content, srcFile->content, srcFile->contentLen * MAX_STORAGE_NAME_LEN);
 
@@ -82,32 +92,12 @@ static int renameFile(FilesystemFile *srcFile, FilesystemDir *srcContainingDir,
 	newDstAction->mtime = srcFile->mtime;
 	int64_t atime = srcFile->atime;
 
-	// write to json, encrypt call destination->addActionFile()
-	if (encryptAndAddActionFile(newDstAction) != 0) {
-		logPrintf(LOG_ERROR, "bucse_rename: encryptAndAddActionFile failed\n");
-		free(newDstAction->content);
-		free(newDstAction->path);
-		free(newDstAction);
-		return -EIO;
-	}
-
-	// add to actions array
-	addAction(newDstAction);
-
-	// construct new action for source, add it to actions
-	Action* newSrcAction = calloc(1, sizeof(Action));
-	if (newSrcAction == NULL) {
-		logPrintf(LOG_ERROR, "bucse_rename: malloc(): %s\n", strerror(errno));
-		return -ENOMEM;
-	}
 	newSrcAction->time = newDstAction->time;
 	newSrcAction->actionType = ActionTypeRemoveFile;
-
 	newSrcAction->path = getFullFilePath(srcFile);
 	if (newSrcAction->path == NULL) {
 		logPrintf(LOG_ERROR, "bucse_rename: getFullFilePath() failed: %s\n", strerror(errno));
-		free(newSrcAction);
-		return -ENOMEM;
+		goto error;
 	}
 	newSrcAction->content = NULL;
 	newSrcAction->contentLen = 0;
@@ -115,14 +105,16 @@ static int renameFile(FilesystemFile *srcFile, FilesystemDir *srcContainingDir,
 	newSrcAction->blockSize = 0;
 
 	// write to json, encrypt call destination->addActionFile()
-	if (encryptAndAddActionFile(newSrcAction) != 0) {
-		logPrintf(LOG_ERROR, "bucse_rename: encryptAndAddActionFile failed\n");
-		free(newSrcAction->path);
-		free(newSrcAction);
+	Action* newActions[2] = { newDstAction, newSrcAction };
+	if (encryptAndAddActionFiles(newActions, 2) != 0) {
+		logPrintf(LOG_ERROR, "bucse_rename: encryptAndAddActionFiles failed\n");
+		freeRenameAction(newDstAction);
+		freeRenameAction(newSrcAction);
 		return -EIO;
 	}
 
-	// add to actions array
+	// add to actions array, both before the tree changes, see addAction()
+	addAction(newDstAction);
 	addAction(newSrcAction);
 
 	// update filesystem
@@ -153,6 +145,11 @@ static int renameFile(FilesystemFile *srcFile, FilesystemDir *srcContainingDir,
 	dstFile->name = path_lastPart(newDstAction->path);
 
 	return 0;
+
+error:
+	freeRenameAction(newDstAction);
+	freeRenameAction(newSrcAction);
+	return -ENOMEM;
 }
 
 // Returns a new editFile action for file's path that gives it the content
@@ -219,23 +216,15 @@ static int exchangeFiles(FilesystemFile *srcFile, FilesystemDir *srcContainingDi
 	newActions[0] = newExchangeAction(srcFile, dstFile, time);
 	newActions[1] = newExchangeAction(dstFile, srcFile, time);
 	if (newActions[0] == NULL || newActions[1] == NULL) {
-		for (int i=0; i<2; i++) {
-			if (newActions[i] != NULL) {
-				free(newActions[i]->content);
-				free(newActions[i]->path);
-				free(newActions[i]);
-			}
-		}
+		freeRenameAction(newActions[0]);
+		freeRenameAction(newActions[1]);
 		return -ENOMEM;
 	}
 
 	if (encryptAndAddActionFiles(newActions, 2) != 0) {
 		logPrintf(LOG_ERROR, "bucse_rename: encryptAndAddActionFiles failed\n");
-		for (int i=0; i<2; i++) {
-			free(newActions[i]->content);
-			free(newActions[i]->path);
-			free(newActions[i]);
-		}
+		freeRenameAction(newActions[0]);
+		freeRenameAction(newActions[1]);
 		return -EIO;
 	}
 

@@ -419,7 +419,11 @@ int destLocalAddActionFile(char* filename, char *buf, size_t size)
 		return 4;
 	}
 
-	addAction(&handledActions, filename);
+	// if it can't be remembered, the file is read again, and its actions
+	// are dropped as duplicates
+	if (addAction(&handledActions, filename) != 0) {
+		logPrintf(LOG_WARNING, "destLocalAddActionFile: out of memory, action file %s will be read again\n", filename);
+	}
 	return 0;
 }
 
@@ -571,8 +575,9 @@ int destLocalTick()
 		// TODO: consider optimizing by keeping handledActions sorted and searching with binary search
 		
 		// is the action not already handled?
-		if (findAction(&handledActions, actionDir->d_name) == -1) {
-			addAction(&newActions, actionDir->d_name);
+		if (findAction(&handledActions, actionDir->d_name) == -1
+			&& addAction(&newActions, actionDir->d_name) != 0) {
+			logPrintf(LOG_WARNING, "destLocalTick: out of memory, action file %s will be read on a later listing\n", actionDir->d_name);
 		}
 	}
 	closedir(actionsDir);
@@ -647,7 +652,11 @@ int destLocalTick()
 			// marked as handled only if accepted; a rejected file (e.g. not
 			// completely uploaded yet) is read again on the next tick
 			if (cachedActionAddedCallback(getAction(&newActions, i), actionFileBuf, bytesRead) == 0) {
-				addAction(&handledActions, getAction(&newActions, i));
+				// if it can't be remembered, the file is read again,
+				// and its actions are dropped as duplicates
+				if (addAction(&handledActions, getAction(&newActions, i)) != 0) {
+					logPrintf(LOG_WARNING, "action file %s: out of memory, it will be read again\n", getAction(&newActions, i));
+				}
 			} else {
 				logPrintf(LOG_WARNING, "action file %s rejected, it will be read again\n", getAction(&newActions, i));
 			}

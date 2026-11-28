@@ -930,14 +930,19 @@ static DynArray actions;
 static DynArray actionsPending;
 
 // parses actions json document and appends actionsPending array with the results;
-// returns non-zero if the document as a whole is invalid, or if its actions
-// can't be added (out of memory): then none of them is added, so that the
-// actions of one file are applied together, and the file is read again
+// returns non-zero if the document as a whole is invalid, or if there is no
+// memory for one of its actions: then none of them is added, so that the
+// actions of one file are applied together, and the file is read again (an
+// invalid action is skipped, the others are added)
 static int parseAction(char* buf, size_t size)
 {
 	int firstPending = actionsPending.len;
 
 	json_tokener* tokener = json_tokener_new();
+	if (tokener == NULL) {
+		logPrintf(LOG_ERROR, "parseAction: json_tokener_new() failed\n");
+		return ACTION_FILE_NO_MEMORY;
+	}
 	json_object* obj = json_tokener_parse_ex(tokener, buf, size);
 	if (obj == NULL)
 	{
@@ -1062,10 +1067,11 @@ static int parseAction(char* buf, size_t size)
 			continue;
 		}
 		size_t contentLen = json_object_array_length(contentField);
-		char* content = malloc(contentLen * MAX_STORAGE_NAME_LEN);
+		// malloc(0) may return NULL
+		char* content = malloc(contentLen > 0 ? contentLen * MAX_STORAGE_NAME_LEN : 1);
 		if (content == NULL) {
 			logPrintf(LOG_ERROR, "parseAction: malloc(): %s\n", strerror(errno));
-			continue;
+			goto outOfMemory;
 		}
 		size_t j;
 		for (j=0; j<contentLen; j++) {
@@ -1109,7 +1115,7 @@ static int parseAction(char* buf, size_t size)
 		if (newAction == NULL) {
 			logPrintf(LOG_ERROR, "parseAction: malloc(): %s\n", strerror(errno));
 			free(content);
-			continue;
+			goto outOfMemory;
 		}
 		newAction->time = time;
 		newAction->actionType = actionType;
@@ -1118,7 +1124,7 @@ static int parseAction(char* buf, size_t size)
 			logPrintf(LOG_ERROR, "parseAction: malloc(): %s\n", strerror(errno));
 			free(content);
 			free(newAction);
-			continue;
+			goto outOfMemory;
 		}
 		memcpy(newAction->path, path, strlen(path) + 1);
 		newAction->content = content;
@@ -1133,17 +1139,20 @@ static int parseAction(char* buf, size_t size)
 
 		if (addToDynArray(&actionsPending, newAction) != 0) {
 			freeAction(newAction);
-			while (actionsPending.len > firstPending) {
-				actionsPending.len--;
-				freeAction(actionsPending.objects[actionsPending.len]);
-			}
-			json_object_put(obj);
-			return 3;
+			goto outOfMemory;
 		}
 	}
 
 	json_object_put(obj);
 	return 0;
+
+outOfMemory:
+	while (actionsPending.len > firstPending) {
+		actionsPending.len--;
+		freeAction(actionsPending.objects[actionsPending.len]);
+	}
+	json_object_put(obj);
+	return ACTION_FILE_NO_MEMORY;
 }
 
 int actionAdded(char* actionName, char* buf, size_t size)
@@ -1389,8 +1398,8 @@ error:
 
 // An action file is a JSON array of actions. Most operations write one
 // action per file; the actions of one file are applied together, so an
-// operation that must not be seen half done (RENAME_EXCHANGE) writes all of
-// them in one file.
+// operation that must not be seen half done (a rename of a file,
+// RENAME_EXCHANGE) writes all of them in one file.
 char* serializeActions(Action** actionsToSerialize, size_t count)
 {
 	json_object* jsonNewActions = json_object_new_array();

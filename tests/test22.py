@@ -48,13 +48,21 @@ entries = os.listdir(mount)
 assert entries.count("d1") == 1 and entries.count("d2") == 1, entries
 
 # A rename onto an existing file writes editFile (destination) and removeFile
-# (source) with the same time; then all the action files are packed into a
+# (source) with the same time, both in one action file, so that the file is
+# never seen under both names; then all the action files are packed into a
 # tar file
 with open("%s/a" % mount, "wb") as f:
     f.write(b"source")
 with open("%s/b" % mount, "wb") as f:
     f.write(b"destination")
+actionsBefore = set(bucseTests.listRepoDir("actions"))
 os.rename("%s/a" % mount, "%s/b" % mount)
+newActions = set(bucseTests.listRepoDir("actions")) - actionsBefore
+assert len(newActions) == 1, newActions
+if bucseTests.argEncryption == "none":
+    actions = json.loads(bucseTests.readRepoFile("actions/%s" % newActions.pop()))
+    assert sorted((a["action"], a["path"]) for a in actions) == [
+        ("editFile", "b"), ("removeFile", "a")], actions
 
 actionNames = [n for n in bucseTests.listRepoDir("actions") if not n.endswith(".tar")]
 bucseTests.writeRepoFile("actions/all.tar", bucseTests.makeActionsTar(

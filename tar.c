@@ -110,14 +110,20 @@ int forEveryFileInTar(char* tarBuf, size_t tarSize, int (*actionAddedDecryptOneA
 
 			// decrement file counter to know if this is the last one
 			fileCounter--;
-			// an entry that is rejected is ignored: the tar file is
-			// complete, so reading it again wouldn't help
-			actionAddedDecryptOneAction(
+			// an entry that is rejected is ignored, unless reading
+			// it again may work (see TAR_ENTRY_RETRY)
+			int result = actionAddedDecryptOneAction(
 				(char*)archive_entry_pathname(entry),
 				fileBuf,
 				fileSize);
 
 			free(fileBuf);
+			if (result == TAR_ENTRY_RETRY) {
+				logPrintf(LOG_ERROR, "forEveryFileInTar: entry %s can't be handled now, the tar file will be read again\n",
+					archive_entry_pathname(entry));
+				archive_read_free(a);
+				return ARCHIVE_FATAL;
+			}
 		} else {
 			// Skip non-regular files by reading data to advance
 			archive_read_data_skip(a);

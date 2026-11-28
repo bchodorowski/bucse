@@ -86,7 +86,7 @@ static int actionAddedDecryptOneAction(char* actionName, char* buf, size_t size)
 	char* decryptedBuf = malloc(decryptedBufLen);
 	if (decryptedBuf == NULL) {
 		logPrintf(LOG_ERROR, "actionAddedDecryptOneAction: malloc(): %s\n", strerror(errno));
-		return 1;
+		return ACTION_FILE_NO_MEMORY;
 	}
 
 	int result = encryption->decrypt(buf, size,
@@ -103,6 +103,12 @@ static int actionAddedDecryptOneAction(char* actionName, char* buf, size_t size)
 	return result;
 }
 
+static int actionAddedDecryptTarEntry(char* actionName, char* buf, size_t size)
+{
+	int result = actionAddedDecryptOneAction(actionName, buf, size);
+	return result == ACTION_FILE_NO_MEMORY ? TAR_ENTRY_RETRY : result;
+}
+
 static int endsWithTar(const char* buf) {
     size_t lenBuf = strlen(buf);
 
@@ -116,7 +122,7 @@ static int endsWithTar(const char* buf) {
 static int actionAddedDecrypt(char* actionName, char* buf, size_t size)
 {
 	if (endsWithTar(actionName)) {
-		int result = forEveryFileInTar(buf, size, actionAddedDecryptOneAction);
+		int result = forEveryFileInTar(buf, size, actionAddedDecryptTarEntry);
 		if (result != 0) {
 			logPrintf(LOG_ERROR, "actionAddedDecrypt: tar file handling failed: %d\n", result);
 		}

@@ -28,8 +28,8 @@ Ranked: when goals conflict, the higher one wins.
 - **Action file** — a file in the `$repository/actions/` directory that
   holds a JSON array of actions. Usually it holds one, but it can hold
   several, which every client applies together: an operation that must
-  never be seen half done (RENAME_EXCHANGE) writes all of its actions in one
-  file. Each action in the array is handled on its own (sorted,
+  never be seen half done (a rename of a file, RENAME_EXCHANGE) writes all
+  of its actions in one file. Each action in the array is handled on its own (sorted,
   deduplicated, applied or rejected), as if it came from a file of its own.
 - **actionsPending** — an in-memory dynamic array of actions, either just
   performed by the user or just read from action files. They are sorted by
@@ -151,7 +151,10 @@ inconsistent state. This rests on two rules:
   unpacked or doesn't end with the end-of-archive marker (two 512-byte
   blocks of zeros, which tar files must have); the entries read before the error are applied, and are removed
   as duplicates on the retry. Once a tar file is unpacked, an entry inside it
-  that is rejected is ignored.
+  that is rejected is ignored, unless it couldn't be handled for lack of
+  memory: then the tar file is read again, like one that can't be unpacked.
+  An action file that can't be handled for lack of memory is not applied in
+  part: none of its actions is taken, and it is read again.
 - **Blocks are written before the action that uses them.** When a file is
   flushed, all its new blocks are stored in `storage/` first. The action file
   is written only if every block was stored successfully, so a valid action
@@ -231,7 +234,9 @@ the fields, and skip a `setTimes` action, so they show the action times.
   the repository is rejected. `UTIME_NOW` is the action time.
 - **rename** writes the addFile or editFile of the destination, and the
   addDirectory of a renamed directory, with the mtime of the source, so it is
-  kept. A rename with `RENAME_EXCHANGE` of two files writes an editFile for
+  kept. A renamed file's addFile or editFile and the removeFile of the source
+  are in one action file, so the file is never seen under both names (a
+  renamed directory is moved file by file). A rename with `RENAME_EXCHANGE` of two files writes an editFile for
   each path, with the other file's content and mtime, both in one action
   file (pending writes of either file are flushed first); the atimes are
   swapped in memory only.
