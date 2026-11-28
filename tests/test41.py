@@ -36,10 +36,13 @@ with open("tmp/%s" % fileName, "rb") as f:
 actionsBefore = len(bucseTests.listRepoDir("actions"))
 storageBefore = bucseTests.repoDirSize("storage")
 lastMtime = 0
-for d in [mount, mirror]:
-    fd = os.open("%s/seq" % d, os.O_CREAT | os.O_WRONLY)
+# the file in the mount is kept open by a FileHolder, so that the ssh
+# subprocesses of listRepoDir() don't flush it
+holder = bucseTests.FileHolder()
+for d, fileOps in [(mount, holder), (mirror, os)]:
+    fd = fileOps.open("%s/seq" % d, os.O_CREAT | os.O_WRONLY)
     for offset in range(0, len(data), 512):
-        os.write(fd, data[offset:offset + 512])
+        fileOps.write(fd, data[offset:offset + 512])
         # a stat while the file is being written doesn't flush it: it shows
         # the size the pending writes extend it to, and the time of the last
         # write as the mtime
@@ -49,7 +52,8 @@ for d in [mount, mirror]:
             assert lastMtime < st.st_mtime_ns <= time.time_ns(), (lastMtime, st.st_mtime_ns)
             lastMtime = st.st_mtime_ns
             assert len(bucseTests.listRepoDir("actions")) == actionsBefore
-    os.close(fd)
+    fileOps.close(fd)
+holder.stop()
 actionsAfter = len(bucseTests.listRepoDir("actions"))
 assert actionsAfter - actionsBefore == 1, (actionsBefore, actionsAfter)
 # and the repository grows by about the file's size (a bit more for aes:
